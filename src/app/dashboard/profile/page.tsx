@@ -33,6 +33,7 @@ export default function ProfilePage() {
   const [phone, setPhone] = useState('')
   const [city, setCity] = useState('')
   const [learningGoal, setLearningGoal] = useState('')
+  const [uploading, setUploading] = useState(false)
 
   const fetchProfile = useCallback(async () => {
     const supabase = createClient()
@@ -143,19 +144,77 @@ export default function ProfilePage() {
         ? 'destructive'
         : 'secondary'
 
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !profile) return
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image must be under 5MB')
+      return
+    }
+
+    setUploading(true)
+    const supabase = createClient()
+    const ext = file.name.split('.').pop()
+    const path = `student-profiles/${profile.auth_user_id}/avatar.${ext}`
+
+    const { error: uploadError } = await supabase.storage
+      .from('avatars')
+      .upload(path, file, { upsert: true })
+
+    if (uploadError) {
+      toast.error('Upload failed. Please try again.')
+      setUploading(false)
+      return
+    }
+
+    const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path)
+
+    await supabase
+      .from('student_profiles')
+      .update({ profile_image_url: publicUrl })
+      .eq('id', profile.id)
+
+    setProfile(prev => prev ? { ...prev, profile_image_url: publicUrl } : prev)
+    toast.success('Profile picture updated')
+    setUploading(false)
+  }
+
   return (
     <div className="mx-auto max-w-3xl space-y-6">
+      {/* Profile picture required warning */}
+      {!profile.profile_image_url && (
+        <div className="rounded-xl bg-amber-50/70 border border-amber-200/50 p-4 backdrop-blur-sm flex items-start gap-3">
+          <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-sm font-medium text-amber-800">Profile picture required</p>
+            <p className="mt-1 text-xs text-amber-700">
+              A recent profile picture is mandatory. Please upload your photo below to continue using the platform.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Profile header */}
       <Card>
         <CardContent className="p-6">
           <div className="flex flex-col items-center gap-6 sm:flex-row">
-            <div className="relative">
+            <div className="relative group">
               <Avatar
                 src={profile.profile_image_url}
                 fallback={initials}
                 size="lg"
                 className="h-20 w-20 text-xl"
               />
+              <label className="absolute inset-0 flex cursor-pointer items-center justify-center rounded-full bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
+                <Camera className="h-6 w-6 text-white" />
+                <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={uploading} />
+              </label>
+              {uploading && (
+                <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40">
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                </div>
+              )}
             </div>
             <div className="flex-1 text-center sm:text-left">
               <h2 className="text-xl font-bold text-gray-900">

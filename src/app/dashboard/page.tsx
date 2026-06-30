@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { EmptyState } from '@/components/ui/empty-state'
+import { PerformanceChart } from '@/components/dashboard/performance-chart'
 import {
   CheckCircle,
   XCircle,
@@ -214,6 +215,15 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Performance Charts */}
+      <PerformanceChart
+        studentId={profile.id}
+        batchId={profile.batch_id}
+        presentCount={classesAttended}
+        absentCount={classesAbsent}
+        lateCount={profile.late_count ?? 0}
+      />
 
       {/* Certificate Progress and Upcoming Sessions */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">

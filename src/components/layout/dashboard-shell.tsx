@@ -4,10 +4,11 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Sidebar } from './sidebar'
 import { Header } from './header'
+import { Footer } from './footer'
 
 interface DashboardShellProps {
   children: React.ReactNode
-  role: 'student' | 'admin'
+  role: 'student' | 'teacher' | 'admin'
   currentPath: string
   userName?: string
   userEmail?: string
@@ -22,6 +23,15 @@ const pageTitles: Record<string, string> = {
   '/dashboard/notifications': 'Notifications',
   '/dashboard/profile': 'Profile',
   '/dashboard/settings': 'Settings',
+  '/dashboard/announcements': 'Announcements',
+  '/dashboard/schedules': 'Schedules',
+  '/teacher': 'Teacher Dashboard',
+  '/teacher/students': 'Students',
+  '/teacher/attendance': 'Attendance',
+  '/teacher/schedules': 'Schedules',
+  '/teacher/announcements': 'Announcements',
+  '/teacher/reports': 'Reports',
+  '/teacher/profile': 'Profile',
   '/admin': 'Admin Dashboard',
   '/admin/students': 'Students',
   '/admin/sessions': 'Sessions',
@@ -88,7 +98,8 @@ export function DashboardShell({
           onMenuClick={() => setMobileOpen(true)}
         />
 
-        <main className="p-4 lg:p-6">{children}</main>
+        <main className="flex-1 p-4 lg:p-6">{children}</main>
+        <Footer />
       </div>
     </div>
   )

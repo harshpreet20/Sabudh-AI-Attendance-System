@@ -267,6 +267,60 @@ export interface Certificate {
   created_at: string;
 }
 
+export type AnnouncementPriority = 'low' | 'normal' | 'high' | 'urgent'
+
+export type ScheduleType = 'class' | 'assessment' | 'topic' | 'holiday' | 'event'
+
+export type ScheduleStatus = 'scheduled' | 'in_progress' | 'completed' | 'cancelled' | 'postponed'
+
+export interface TeacherProfile {
+  id: string
+  auth_user_id: string
+  organization_id: string
+  full_name: string
+  email: string
+  phone: string | null
+  profile_image_url: string | null
+  subject_expertise: string | null
+  qualification: string | null
+  bio: string | null
+  status: 'active' | 'inactive'
+  created_at: string
+  updated_at: string
+}
+
+export interface Announcement {
+  id: string
+  organization_id: string
+  batch_id: string | null
+  author_id: string
+  title: string
+  content: string
+  priority: AnnouncementPriority
+  is_pinned: boolean
+  published_at: string
+  expires_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ClassSchedule {
+  id: string
+  organization_id: string
+  batch_id: string
+  instructor_id: string
+  schedule_type: ScheduleType
+  title: string
+  description: string | null
+  scheduled_date: string
+  start_time: string | null
+  end_time: string | null
+  location: string | null
+  status: ScheduleStatus
+  created_at: string
+  updated_at: string
+}
+
 export interface AuditLog {
   id: string;
   actor_id: string | null;

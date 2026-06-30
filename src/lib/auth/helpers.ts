@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import type { UserRole, UserRoleRecord, StudentProfile } from '@/types/database'
+import type { UserRole, UserRoleRecord, StudentProfile, TeacherProfile } from '@/types/database'
 
 export async function getCurrentUser() {
   const supabase = await createClient()
@@ -52,6 +52,24 @@ export async function getUserProfile(
   return data as StudentProfile
 }
 
+export async function getTeacherProfile(
+  userId: string,
+): Promise<TeacherProfile | null> {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase
+    .from('teacher_profiles')
+    .select('*')
+    .eq('auth_user_id', userId)
+    .single()
+
+  if (error || !data) {
+    return null
+  }
+
+  return data as TeacherProfile
+}
+
 export async function requireAuth() {
   const user = await getCurrentUser()
 
@@ -68,6 +86,18 @@ export async function requireAdmin() {
   const role = await getUserRole(user.id)
 
   if (!role || !(['admin', 'super_admin'] as UserRole[]).includes(role.role)) {
+    redirect('/dashboard')
+  }
+
+  return { user, role }
+}
+
+export async function requireInstructor() {
+  const user = await requireAuth()
+
+  const role = await getUserRole(user.id)
+
+  if (!role || role.role !== 'instructor') {
     redirect('/dashboard')
   }
 

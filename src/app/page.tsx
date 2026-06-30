@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Footer } from "@/components/layout/footer";
 import {
   Shield,
   Users,
@@ -202,14 +203,7 @@ export default function HomePage() {
         </section>
       </main>
 
-      <footer className="border-t border-white/20 py-8">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <p className="text-center text-sm text-gray-400">
-            &copy; {new Date().getFullYear()} Sabudh Foundation. All rights
-            reserved.
-          </p>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

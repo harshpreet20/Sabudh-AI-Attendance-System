@@ -13,7 +13,7 @@ const publicRoutes = [
 
 const authRoutes = ['/login', '/register']
 
-const protectedPrefixes = ['/dashboard', '/admin']
+const protectedPrefixes = ['/dashboard', '/admin', '/teacher']
 
 function isPublicRoute(pathname: string): boolean {
   return publicRoutes.some(

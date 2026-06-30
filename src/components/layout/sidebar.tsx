@@ -25,6 +25,9 @@ import {
   Menu,
   X,
   Upload,
+  Megaphone,
+  ClipboardList,
+  GraduationCap,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -38,10 +41,22 @@ const studentNavItems: NavItem[] = [
   { label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
   { label: 'Attendance', icon: CheckSquare, href: '/dashboard/attendance' },
   { label: 'History', icon: History, href: '/dashboard/history' },
+  { label: 'Schedules', icon: Calendar, href: '/dashboard/schedules' },
+  { label: 'Announcements', icon: Megaphone, href: '/dashboard/announcements' },
   { label: 'Certificate', icon: Award, href: '/dashboard/certificate' },
   { label: 'Notifications', icon: Bell, href: '/dashboard/notifications' },
   { label: 'Profile', icon: User, href: '/dashboard/profile' },
   { label: 'Settings', icon: Settings, href: '/dashboard/settings' },
+]
+
+const teacherNavItems: NavItem[] = [
+  { label: 'Dashboard', icon: LayoutDashboard, href: '/teacher' },
+  { label: 'Students', icon: GraduationCap, href: '/teacher/students' },
+  { label: 'Attendance', icon: CheckSquare, href: '/teacher/attendance' },
+  { label: 'Schedules', icon: Calendar, href: '/teacher/schedules' },
+  { label: 'Announcements', icon: Megaphone, href: '/teacher/announcements' },
+  { label: 'Reports', icon: ClipboardList, href: '/teacher/reports' },
+  { label: 'Profile', icon: User, href: '/teacher/profile' },
 ]
 
 const adminNavItems: NavItem[] = [
@@ -57,7 +72,7 @@ const adminNavItems: NavItem[] = [
 ]
 
 interface SidebarProps {
-  role: 'student' | 'admin'
+  role: 'student' | 'teacher' | 'admin'
   currentPath: string
   userName?: string
   userEmail?: string
@@ -77,7 +92,7 @@ export function Sidebar({
 }: SidebarProps) {
   const router = useRouter()
   const [signingOut, setSigningOut] = useState(false)
-  const navItems = role === 'admin' ? adminNavItems : studentNavItems
+  const navItems = role === 'admin' ? adminNavItems : role === 'teacher' ? teacherNavItems : studentNavItems
 
   const initials = userName
     .split(' ')
@@ -94,7 +109,7 @@ export function Sidebar({
   }
 
   function isActive(href: string) {
-    if (href === '/dashboard' || href === '/admin') {
+    if (href === '/dashboard' || href === '/admin' || href === '/teacher') {
       return currentPath === href
     }
     return currentPath.startsWith(href)
@@ -147,8 +162,8 @@ export function Sidebar({
             <p className="truncate text-sm font-medium text-gray-900">
               {userName}
             </p>
-            <Badge variant={role === 'admin' ? 'default' : 'secondary'}>
-              {role === 'admin' ? 'Admin' : 'Student'}
+            <Badge variant={role === 'admin' ? 'default' : role === 'teacher' ? 'default' : 'secondary'}>
+              {role === 'admin' ? 'Admin' : role === 'teacher' ? 'Teacher' : 'Student'}
             </Badge>
           </div>
           <button
