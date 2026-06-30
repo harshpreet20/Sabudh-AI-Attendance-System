@@ -44,11 +44,11 @@ export function Header({
   }
 
   return (
-    <header className="sticky top-0 z-20 flex h-16 items-center gap-4 border-b border-gray-200 bg-white px-4 lg:px-6">
+    <header className="sticky top-0 z-20 flex h-16 items-center gap-4 glass-strong px-4 lg:px-6">
       {/* Mobile menu button */}
       <button
         onClick={onMenuClick}
-        className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 lg:hidden"
+        className="rounded-xl p-2 text-gray-500 hover:bg-white/50 lg:hidden transition-all duration-200"
         aria-label="Open menu"
       >
         <Menu className="h-5 w-5" />
@@ -63,12 +63,12 @@ export function Header({
         {/* Notification bell */}
         <Link
           href="/dashboard/notifications"
-          className="relative rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100"
+          className="relative rounded-xl p-2 text-gray-500 transition-all duration-200 hover:bg-white/50"
           aria-label={`Notifications${notificationCount > 0 ? ` (${notificationCount} unread)` : ''}`}
         >
           <Bell className="h-5 w-5" />
           {notificationCount > 0 && (
-            <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+            <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white shadow-lg shadow-red-500/30">
               {notificationCount > 99 ? '99+' : notificationCount}
             </span>
           )}
@@ -82,7 +82,7 @@ export function Header({
               src={avatarUrl}
               fallback={initials}
               size="sm"
-              className="cursor-pointer ring-2 ring-transparent hover:ring-gray-200"
+              className="cursor-pointer ring-2 ring-white/40 hover:ring-indigo-300/50 transition-all duration-200"
             />
           }
         >

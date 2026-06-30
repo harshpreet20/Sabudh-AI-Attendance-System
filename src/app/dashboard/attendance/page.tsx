@@ -155,7 +155,6 @@ export default function AttendancePage() {
     )
   }
 
-  // Countdown timer
   useEffect(() => {
     if (pageState !== 'window_open' || !session?.attendance_close) return
 
@@ -296,8 +295,8 @@ export default function AttendancePage() {
       <div className="mx-auto max-w-2xl space-y-6">
         <Card>
           <CardContent className="flex flex-col items-center py-12 text-center">
-            <div className="mb-4 rounded-full bg-green-100 p-4">
-              <CheckCircle className="h-12 w-12 text-green-600" />
+            <div className="mb-4 rounded-full bg-emerald-100/70 p-4 backdrop-blur-sm">
+              <CheckCircle className="h-12 w-12 text-emerald-600" />
             </div>
             <h2 className="text-xl font-semibold text-gray-900">
               Attendance Already Recorded
@@ -349,8 +348,8 @@ export default function AttendancePage() {
       <div className="mx-auto max-w-2xl space-y-6">
         <Card>
           <CardContent className="flex flex-col items-center py-12 text-center">
-            <div className="mb-4 animate-bounce rounded-full bg-green-100 p-4">
-              <ShieldCheck className="h-12 w-12 text-green-600" />
+            <div className="mb-4 animate-bounce rounded-full bg-emerald-100/70 p-4 backdrop-blur-sm">
+              <ShieldCheck className="h-12 w-12 text-emerald-600" />
             </div>
             <h2 className="text-xl font-semibold text-gray-900">
               Attendance Marked Successfully!
@@ -377,7 +376,6 @@ export default function AttendancePage() {
     )
   }
 
-  // Attendance window is open
   const canSubmit = locationStatus === 'granted' && coords !== null
 
   return (
@@ -410,7 +408,7 @@ export default function AttendancePage() {
 
       {/* Countdown timer */}
       {timeRemaining && (
-        <Card className="border-amber-200 bg-amber-50">
+        <Card className="!bg-amber-50/60 !border-amber-200/50">
           <CardContent className="flex items-center gap-3 p-4">
             <Timer className="h-5 w-5 text-amber-600" />
             <div>
@@ -426,32 +424,32 @@ export default function AttendancePage() {
       {/* Location verification card */}
       <Card className={
         locationStatus === 'granted'
-          ? 'border-green-200 bg-green-50'
+          ? '!bg-emerald-50/60 !border-emerald-200/50'
           : locationStatus === 'denied' || locationStatus === 'error'
-            ? 'border-red-200 bg-red-50'
-            : 'border-blue-200 bg-blue-50'
+            ? '!bg-red-50/60 !border-red-200/50'
+            : '!bg-indigo-50/60 !border-indigo-200/50'
       }>
         <CardContent className="flex items-center gap-3 p-4">
           {locationStatus === 'idle' || locationStatus === 'requesting' ? (
             <>
-              <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+              <Loader2 className="h-5 w-5 animate-spin text-indigo-600" />
               <div>
-                <p className="text-sm font-medium text-blue-800">Requesting Location...</p>
-                <p className="text-xs text-blue-600">
+                <p className="text-sm font-medium text-indigo-800">Requesting Location...</p>
+                <p className="text-xs text-indigo-600">
                   Please allow location access to mark attendance
                 </p>
               </div>
             </>
           ) : locationStatus === 'granted' ? (
             <>
-              <MapPin className="h-5 w-5 text-green-600" />
+              <MapPin className="h-5 w-5 text-emerald-600" />
               <div className="flex-1">
-                <p className="text-sm font-medium text-green-800">Location Verified</p>
-                <p className="text-xs text-green-600">
+                <p className="text-sm font-medium text-emerald-800">Location Verified</p>
+                <p className="text-xs text-emerald-600">
                   Accuracy: {coords ? `${Math.round(coords.accuracy)}m` : 'N/A'}
                 </p>
               </div>
-              <Navigation className="h-4 w-4 text-green-500" />
+              <Navigation className="h-4 w-4 text-emerald-500" />
             </>
           ) : (
             <>
@@ -508,18 +506,18 @@ function VerificationStep({
   return (
     <div className="flex items-center gap-3">
       <div
-        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
+        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full backdrop-blur-sm ${
           completed
-            ? 'bg-green-100'
+            ? 'bg-emerald-100/70'
             : active
-              ? 'bg-blue-100'
-              : 'bg-gray-100'
+              ? 'bg-indigo-100/70'
+              : 'bg-white/40'
         }`}
       >
         {completed ? (
-          <CheckCircle className="h-5 w-5 text-green-600" />
+          <CheckCircle className="h-5 w-5 text-emerald-600" />
         ) : active ? (
-          <div className="h-3 w-3 animate-pulse rounded-full bg-blue-500" />
+          <div className="h-3 w-3 animate-pulse rounded-full bg-indigo-500" />
         ) : (
           <div className="h-3 w-3 rounded-full bg-gray-300" />
         )}
@@ -527,9 +525,9 @@ function VerificationStep({
       <span
         className={`text-sm ${
           completed
-            ? 'font-medium text-green-700'
+            ? 'font-medium text-emerald-700'
             : active
-              ? 'font-medium text-blue-700'
+              ? 'font-medium text-indigo-700'
               : 'text-gray-500'
         }`}
       >

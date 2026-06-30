@@ -102,7 +102,9 @@ export default function ImportStudentsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <FileSpreadsheet className="h-5 w-5 text-green-600" />
+            <div className="rounded-xl bg-emerald-100/60 p-1.5 backdrop-blur-sm">
+              <FileSpreadsheet className="h-5 w-5 text-emerald-600" />
+            </div>
             Google Sheet Import
           </CardTitle>
           <CardDescription>
@@ -131,7 +133,7 @@ export default function ImportStudentsPage() {
             ))}
           </Select>
 
-          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+          <div className="rounded-xl bg-amber-50/60 border border-amber-200/50 p-4 backdrop-blur-sm">
             <h4 className="text-sm font-medium text-amber-800">Expected columns:</h4>
             <p className="mt-1 text-xs text-amber-700">
               <strong>Required:</strong> Name, Email<br />
@@ -158,15 +160,15 @@ export default function ImportStudentsPage() {
           </CardHeader>
           <CardContent>
             <div className="mb-4 grid grid-cols-3 gap-4">
-              <div className="rounded-lg bg-green-50 p-3 text-center">
-                <p className="text-2xl font-bold text-green-700">{response.created}</p>
-                <p className="text-xs text-green-600">Created</p>
+              <div className="rounded-xl bg-emerald-50/60 p-3 text-center backdrop-blur-sm border border-emerald-200/40">
+                <p className="text-2xl font-bold text-emerald-700">{response.created}</p>
+                <p className="text-xs text-emerald-600">Created</p>
               </div>
-              <div className="rounded-lg bg-blue-50 p-3 text-center">
-                <p className="text-2xl font-bold text-blue-700">{response.exists}</p>
-                <p className="text-xs text-blue-600">Already Existed</p>
+              <div className="rounded-xl bg-indigo-50/60 p-3 text-center backdrop-blur-sm border border-indigo-200/40">
+                <p className="text-2xl font-bold text-indigo-700">{response.exists}</p>
+                <p className="text-xs text-indigo-600">Already Existed</p>
               </div>
-              <div className="rounded-lg bg-red-50 p-3 text-center">
+              <div className="rounded-xl bg-red-50/60 p-3 text-center backdrop-blur-sm border border-red-200/40">
                 <p className="text-2xl font-bold text-red-700">{response.errors}</p>
                 <p className="text-xs text-red-600">Errors</p>
               </div>
@@ -176,7 +178,7 @@ export default function ImportStudentsPage() {
               {response.results.map((r, i) => (
                 <div
                   key={i}
-                  className="flex items-center justify-between rounded-lg border border-gray-100 px-3 py-2"
+                  className="flex items-center justify-between rounded-xl glass-subtle px-3 py-2"
                 >
                   <span className="text-sm text-gray-700">{r.email}</span>
                   <div className="flex items-center gap-2">

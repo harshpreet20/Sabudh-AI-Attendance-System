@@ -104,7 +104,7 @@ export function Sidebar({
     <div className="flex h-full flex-col">
       {/* Logo */}
       <div className="flex h-16 items-center gap-2.5 px-6">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600">
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-500/90 shadow-lg shadow-indigo-500/20">
           <Shield className="h-5 w-5 text-white" />
         </div>
         <span className="text-lg font-bold text-gray-900">Sabudh AI</span>
@@ -120,17 +120,17 @@ export function Sidebar({
               href={item.href}
               onClick={onMobileClose}
               className={cn(
-                'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200',
                 active
-                  ? 'bg-blue-50 text-blue-700'
-                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                  ? 'bg-indigo-500/10 text-indigo-700 shadow-sm backdrop-blur-sm'
+                  : 'text-gray-600 hover:bg-white/50 hover:text-gray-900'
               )}
               aria-current={active ? 'page' : undefined}
             >
               <item.icon
                 className={cn(
                   'h-5 w-5 shrink-0',
-                  active ? 'text-blue-600' : 'text-gray-400'
+                  active ? 'text-indigo-500' : 'text-gray-400'
                 )}
               />
               {item.label}
@@ -140,7 +140,7 @@ export function Sidebar({
       </nav>
 
       {/* User profile section */}
-      <div className="border-t border-gray-200 p-4">
+      <div className="border-t border-white/20 p-4">
         <div className="flex items-center gap-3">
           <Avatar src={avatarUrl} fallback={initials} size="sm" />
           <div className="flex-1 overflow-hidden">
@@ -154,7 +154,7 @@ export function Sidebar({
           <button
             onClick={handleSignOut}
             disabled={signingOut}
-            className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+            className="rounded-xl p-1.5 text-gray-400 transition-all duration-200 hover:bg-white/50 hover:text-gray-600"
             aria-label="Sign out"
             title="Sign out"
           >
@@ -168,7 +168,7 @@ export function Sidebar({
   return (
     <>
       {/* Desktop sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r border-gray-200 bg-white lg:block">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 glass-strong lg:block">
         {sidebarContent}
       </aside>
 
@@ -176,15 +176,15 @@ export function Sidebar({
       {mobileOpen && (
         <div className="fixed inset-0 z-40 lg:hidden">
           <div
-            className="fixed inset-0 bg-black/50"
+            className="fixed inset-0 bg-black/20 backdrop-blur-sm"
             onClick={onMobileClose}
             aria-hidden="true"
           />
-          <aside className="fixed inset-y-0 left-0 z-50 w-64 border-r border-gray-200 bg-white shadow-xl">
+          <aside className="fixed inset-y-0 left-0 z-50 w-64 glass-strong shadow-spatial">
             <div className="absolute right-3 top-3">
               <button
                 onClick={onMobileClose}
-                className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                className="rounded-xl p-1.5 text-gray-400 hover:bg-white/50 hover:text-gray-600"
                 aria-label="Close menu"
               >
                 <X className="h-5 w-5" />

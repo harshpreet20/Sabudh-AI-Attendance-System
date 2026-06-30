@@ -18,10 +18,10 @@ function Skeleton({
   return (
     <div
       className={cn(
-        "animate-pulse bg-gray-200",
-        shape === "line" && "h-4 w-full rounded-md",
-        shape === "circle" && "h-10 w-10 rounded-full",
-        shape === "rect" && "h-24 w-full rounded-lg",
+        "glass-shimmer rounded-2xl backdrop-blur-sm",
+        shape === "line" && "h-4 w-full !rounded-lg",
+        shape === "circle" && "h-10 w-10 !rounded-full",
+        shape === "rect" && "h-24 w-full",
         className
       )}
       style={{

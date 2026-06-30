@@ -68,7 +68,7 @@ function DropdownMenu({
           ref={menuRef}
           role="menu"
           className={cn(
-            "absolute z-50 mt-2 min-w-[180px] overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg",
+            "absolute z-50 mt-2 min-w-[180px] overflow-hidden rounded-2xl py-1 glass-strong shadow-spatial",
             align === "right" ? "right-0" : "left-0"
           )}
         >
@@ -95,11 +95,11 @@ function DropdownMenuItem({
     <button
       role="menuitem"
       className={cn(
-        "flex w-full items-center gap-2 px-4 py-2 text-left text-sm transition-colors",
-        "focus:outline-none focus:bg-gray-100",
+        "flex w-full items-center gap-2 px-4 py-2 text-left text-sm transition-all duration-150",
+        "focus:outline-none",
         destructive
-          ? "text-red-600 hover:bg-red-50"
-          : "text-gray-700 hover:bg-gray-100",
+          ? "text-red-600 hover:bg-red-50/60 focus:bg-red-50/60"
+          : "text-gray-700 hover:bg-white/50 focus:bg-white/50",
         className
       )}
       onClick={onClick}
@@ -114,7 +114,7 @@ function DropdownMenuSeparator({ className }: { className?: string }) {
   return (
     <div
       role="separator"
-      className={cn("my-1 h-px bg-gray-200", className)}
+      className={cn("my-1 h-px bg-white/20", className)}
     />
   )
 }

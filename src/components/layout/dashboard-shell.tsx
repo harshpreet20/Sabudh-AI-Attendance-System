@@ -67,7 +67,7 @@ export function DashboardShell({
   const pageTitle = pageTitles[currentPath] || 'Dashboard'
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen spatial-bg-rich">
       <Sidebar
         role={role}
         currentPath={currentPath}

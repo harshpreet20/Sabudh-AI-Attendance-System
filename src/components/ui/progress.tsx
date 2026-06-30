@@ -2,10 +2,10 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 
 const variantClasses = {
-  default: "bg-blue-600",
-  success: "bg-green-600",
-  warning: "bg-amber-500",
-  danger: "bg-red-600",
+  default: "bg-indigo-500/80",
+  success: "bg-emerald-500/80",
+  warning: "bg-amber-500/80",
+  danger: "bg-red-500/80",
 } as const
 
 const sizeClasses = {
@@ -43,7 +43,7 @@ function Progress({
       )}
       <div
         className={cn(
-          "w-full overflow-hidden rounded-full bg-gray-200",
+          "w-full overflow-hidden rounded-full bg-white/40 backdrop-blur-sm",
           sizeClasses[size]
         )}
         role="progressbar"
@@ -53,7 +53,7 @@ function Progress({
       >
         <div
           className={cn(
-            "h-full rounded-full transition-all duration-300 ease-in-out",
+            "h-full rounded-full transition-all duration-500 ease-out",
             variantClasses[variant]
           )}
           style={{ width: `${clampedValue}%` }}

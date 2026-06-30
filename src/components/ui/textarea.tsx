@@ -27,10 +27,10 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
           id={textareaId}
           ref={ref}
           className={cn(
-            "flex min-h-[80px] w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 transition-colors",
-            "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500",
-            "disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-500",
-            error && "border-red-500 focus:ring-red-500 focus:border-red-500",
+            "flex min-h-[80px] w-full rounded-xl px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 transition-all duration-200",
+            "glass-input",
+            "disabled:cursor-not-allowed disabled:opacity-60",
+            error && "!border-red-400/60 focus:!border-red-400",
             className
           )}
           aria-invalid={error ? "true" : undefined}

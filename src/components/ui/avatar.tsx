@@ -31,7 +31,7 @@ function Avatar({
   return (
     <div
       className={cn(
-        "relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-200",
+        "relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/50 backdrop-blur-sm ring-2 ring-white/30",
         sizeClasses[size],
         className
       )}

@@ -66,8 +66,9 @@ function Dialog({
     <dialog
       ref={dialogRef}
       className={cn(
-        "fixed m-auto max-h-[85vh] w-full max-w-lg rounded-xl border border-gray-200 bg-white p-0 shadow-xl",
-        "backdrop:bg-black/50 backdrop:backdrop-blur-sm",
+        "fixed m-auto max-h-[85vh] w-full max-w-lg rounded-2xl p-0",
+        "glass-strong shadow-spatial",
+        "backdrop:bg-black/30 backdrop:backdrop-blur-md",
         "open:animate-in open:fade-in-0 open:zoom-in-95",
         className
       )}
@@ -76,7 +77,6 @@ function Dialog({
       onClick={handleBackdropClick}
     >
       <div className="flex flex-col">
-        {/* Header */}
         <div className="flex items-start justify-between p-6 pb-0">
           <div className="flex-1">
             {title && (
@@ -95,19 +95,17 @@ function Dialog({
           </div>
           <button
             onClick={onClose}
-            className="ml-4 rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="ml-4 rounded-xl p-1.5 text-gray-400 transition-all duration-200 hover:bg-white/60 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-400/50"
             aria-label="Close dialog"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        {/* Content */}
         <div className="overflow-y-auto p-6">{children}</div>
 
-        {/* Footer */}
         {footer && (
-          <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-6 py-4">
+          <div className="flex items-center justify-end gap-3 border-t border-white/20 px-6 py-4">
             {footer}
           </div>
         )}
