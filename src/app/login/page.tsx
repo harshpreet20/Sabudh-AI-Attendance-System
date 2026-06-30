@@ -45,7 +45,34 @@ function LoginForm() {
         return;
       }
 
-      router.push("/dashboard");
+      const { data: { user: loggedInUser } } = await supabase.auth.getUser()
+      if (loggedInUser) {
+        const { data: role } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', loggedInUser.id)
+          .single()
+
+        if (role?.role === 'admin' || role?.role === 'super_admin') {
+          router.push('/admin')
+        } else if (role?.role === 'instructor') {
+          const { data: tp } = await supabase
+            .from('teacher_profiles')
+            .select('status')
+            .eq('auth_user_id', loggedInUser.id)
+            .single()
+          router.push(tp?.status === 'pending' ? '/pending-approval' : '/teacher')
+        } else {
+          const { data: sp } = await supabase
+            .from('student_profiles')
+            .select('status')
+            .eq('auth_user_id', loggedInUser.id)
+            .single()
+          router.push(sp?.status === 'pending' ? '/pending-approval' : '/dashboard')
+        }
+      } else {
+        router.push('/dashboard')
+      }
       router.refresh();
     } catch {
       setError("An unexpected error occurred. Please try again.");

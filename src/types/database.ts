@@ -284,7 +284,7 @@ export interface TeacherProfile {
   subject_expertise: string | null
   qualification: string | null
   bio: string | null
-  status: 'active' | 'inactive'
+  status: 'pending' | 'active' | 'inactive'
   created_at: string
   updated_at: string
 }

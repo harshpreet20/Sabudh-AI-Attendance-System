@@ -22,6 +22,10 @@ export default async function DashboardLayout({
     redirect('/teacher')
   }
 
+  if (profile?.status === 'pending') {
+    redirect('/pending-approval')
+  }
+
   const userName = profile?.full_name || user.user_metadata?.full_name || 'Student'
   const userEmail = profile?.email || user.email || ''
   const avatarUrl = profile?.profile_image_url || null

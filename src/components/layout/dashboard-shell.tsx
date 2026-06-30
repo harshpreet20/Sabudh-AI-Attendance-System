@@ -35,6 +35,7 @@ const pageTitles: Record<string, string> = {
   '/teacher/reports': 'Reports',
   '/teacher/profile': 'Profile',
   '/admin': 'Admin Dashboard',
+  '/admin/approvals': 'Account Approvals',
   '/admin/students': 'Students',
   '/admin/sessions': 'Sessions',
   '/admin/classrooms': 'Classrooms',
