@@ -9,13 +9,16 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
 import {
-  Camera,
   CheckCircle,
   Clock,
   CalendarOff,
   Timer,
   ShieldCheck,
   AlertCircle,
+  MapPin,
+  Navigation,
+  Loader2,
+  XCircle,
 } from 'lucide-react'
 import type { Session, StudentProfile, Attendance } from '@/types/database'
 
@@ -36,6 +39,9 @@ export default function AttendancePage() {
   const [submitting, setSubmitting] = useState(false)
   const [timeRemaining, setTimeRemaining] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
+  const [locationStatus, setLocationStatus] = useState<'idle' | 'requesting' | 'granted' | 'denied' | 'error'>('idle')
+  const [coords, setCoords] = useState<{ lat: number; lng: number; accuracy: number } | null>(null)
+  const [locationError, setLocationError] = useState('')
 
   const fetchData = useCallback(async () => {
     try {
@@ -50,7 +56,6 @@ export default function AttendancePage() {
         return
       }
 
-      // Get student profile
       const { data: profileData } = await supabase
         .from('student_profiles')
         .select('*')
@@ -69,7 +74,6 @@ export default function AttendancePage() {
         return
       }
 
-      // Check for open session today
       const today = new Date().toISOString().split('T')[0]
       const { data: sessions } = await supabase
         .from('sessions')
@@ -87,7 +91,6 @@ export default function AttendancePage() {
       const activeSession = sessions[0] as Session
       setSession(activeSession)
 
-      // Check if already submitted
       const { data: attendance } = await supabase
         .from('attendance')
         .select('*')
@@ -111,6 +114,46 @@ export default function AttendancePage() {
   useEffect(() => {
     fetchData()
   }, [fetchData])
+
+  useEffect(() => {
+    if (pageState !== 'window_open') return
+    requestLocation()
+  }, [pageState])
+
+  function requestLocation() {
+    if (!navigator.geolocation) {
+      setLocationStatus('error')
+      setLocationError('Geolocation is not supported by your browser.')
+      return
+    }
+
+    setLocationStatus('requesting')
+    setLocationError('')
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setCoords({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+          accuracy: position.coords.accuracy,
+        })
+        setLocationStatus('granted')
+      },
+      (err) => {
+        if (err.code === err.PERMISSION_DENIED) {
+          setLocationStatus('denied')
+          setLocationError('Location access denied. Please enable location permissions to mark attendance.')
+        } else if (err.code === err.POSITION_UNAVAILABLE) {
+          setLocationStatus('error')
+          setLocationError('Unable to determine your location. Please try again.')
+        } else {
+          setLocationStatus('error')
+          setLocationError('Location request timed out. Please try again.')
+        }
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    )
+  }
 
   // Countdown timer
   useEffect(() => {
@@ -143,27 +186,40 @@ export default function AttendancePage() {
   async function handleMarkAttendance() {
     if (!session || !profile) return
 
+    if (!coords) {
+      toast.error('Location is required to mark attendance. Please enable location access.')
+      return
+    }
+
     setSubmitting(true)
     try {
-      const supabase = createClient()
-
-      const { data, error } = await supabase
-        .from('attendance')
-        .insert({
+      const res = await fetch('/api/attendance/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           session_id: session.id,
-          student_id: profile.id,
-          status: 'draft',
-          submitted_at: new Date().toISOString(),
-        })
-        .select()
-        .single()
+          latitude: coords.lat,
+          longitude: coords.lng,
+          location_accuracy: coords.accuracy,
+        }),
+      })
 
-      if (error) {
-        toast.error('Failed to mark attendance. Please try again.')
+      const data = await res.json()
+
+      if (!res.ok) {
+        const errorMsg = data.error?.message || 'Failed to mark attendance.'
+        toast.error(errorMsg)
         return
       }
 
-      setExistingAttendance(data as Attendance)
+      setExistingAttendance({
+        id: data.data.attendance_id,
+        status: data.data.status,
+        decision: data.data.decision,
+        submitted_at: data.data.submitted_at,
+        session_id: session.id,
+        student_id: profile.id,
+      } as Attendance)
       setPageState('submitted_success')
       toast.success('Attendance marked successfully!')
     } catch {
@@ -173,7 +229,6 @@ export default function AttendancePage() {
     }
   }
 
-  // Loading state
   if (pageState === 'loading') {
     return (
       <div className="mx-auto max-w-2xl space-y-6">
@@ -183,7 +238,6 @@ export default function AttendancePage() {
     )
   }
 
-  // No profile
   if (pageState === 'no_profile') {
     return (
       <div className="mx-auto max-w-2xl py-12">
@@ -196,7 +250,6 @@ export default function AttendancePage() {
     )
   }
 
-  // Error
   if (pageState === 'error') {
     return (
       <div className="mx-auto max-w-2xl py-12">
@@ -214,7 +267,6 @@ export default function AttendancePage() {
     )
   }
 
-  // No session today
   if (pageState === 'no_session') {
     return (
       <div className="mx-auto max-w-2xl py-12">
@@ -227,7 +279,6 @@ export default function AttendancePage() {
     )
   }
 
-  // Already submitted
   if (pageState === 'already_submitted' && existingAttendance) {
     const statusConfig: Record<string, { variant: 'success' | 'warning' | 'default' | 'destructive'; label: string }> = {
       draft: { variant: 'default', label: 'Submitted' },
@@ -270,35 +321,17 @@ export default function AttendancePage() {
           </CardContent>
         </Card>
 
-        {/* Verification status */}
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Verification Status</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
+              <VerificationStep label="Attendance Submitted" completed={true} />
               <VerificationStep
-                label="Attendance Submitted"
-                completed={true}
-              />
-              <VerificationStep
-                label="Photo Verification"
-                completed={
-                  existingAttendance.status !== 'draft' &&
-                  existingAttendance.status !== 'uploaded'
-                }
-                active={
-                  existingAttendance.status === 'uploaded' ||
-                  existingAttendance.status === 'processing'
-                }
-              />
-              <VerificationStep
-                label="AI Decision"
-                completed={
-                  existingAttendance.status === 'approved' ||
-                  existingAttendance.status === 'rejected'
-                }
-                active={existingAttendance.status === 'processing'}
+                label="Location Verified"
+                completed={existingAttendance.status === 'approved'}
+                active={existingAttendance.status === 'draft'}
               />
               <VerificationStep
                 label="Final Approval"
@@ -311,7 +344,6 @@ export default function AttendancePage() {
     )
   }
 
-  // Submitted success (just submitted)
   if (pageState === 'submitted_success') {
     return (
       <div className="mx-auto max-w-2xl space-y-6">
@@ -324,7 +356,7 @@ export default function AttendancePage() {
               Attendance Marked Successfully!
             </h2>
             <p className="mt-2 text-gray-500">
-              Your attendance has been recorded. It will be verified shortly.
+              Your attendance has been recorded and location verified.
             </p>
             {existingAttendance?.submitted_at && (
               <p className="mt-2 text-sm text-gray-400">
@@ -337,7 +369,7 @@ export default function AttendancePage() {
             )}
             <Badge variant="success" className="mt-4">
               <CheckCircle className="mr-1 h-3 w-3" />
-              Submitted
+              Verified
             </Badge>
           </CardContent>
         </Card>
@@ -346,6 +378,8 @@ export default function AttendancePage() {
   }
 
   // Attendance window is open
+  const canSubmit = locationStatus === 'granted' && coords !== null
+
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       {/* Session info */}
@@ -389,36 +423,55 @@ export default function AttendancePage() {
         </Card>
       )}
 
-      {/* Random word display - placeholder for actual word from session */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base text-center">Attendance Word</CardTitle>
-        </CardHeader>
-        <CardContent className="text-center">
-          <p className="text-4xl font-bold tracking-wider text-blue-600">
-            VERIFY
-          </p>
-          <p className="mt-2 text-sm text-gray-500">
-            Say this word during verification
-          </p>
-        </CardContent>
-      </Card>
-
-      {/* Camera preview area */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Camera Verification</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 p-12">
-            <Camera className="h-16 w-16 text-gray-300" />
-            <p className="mt-4 text-sm font-medium text-gray-500">
-              Camera preview
-            </p>
-            <p className="mt-1 text-xs text-gray-400">
-              Photo verification will be enabled in a future update
-            </p>
-          </div>
+      {/* Location verification card */}
+      <Card className={
+        locationStatus === 'granted'
+          ? 'border-green-200 bg-green-50'
+          : locationStatus === 'denied' || locationStatus === 'error'
+            ? 'border-red-200 bg-red-50'
+            : 'border-blue-200 bg-blue-50'
+      }>
+        <CardContent className="flex items-center gap-3 p-4">
+          {locationStatus === 'idle' || locationStatus === 'requesting' ? (
+            <>
+              <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+              <div>
+                <p className="text-sm font-medium text-blue-800">Requesting Location...</p>
+                <p className="text-xs text-blue-600">
+                  Please allow location access to mark attendance
+                </p>
+              </div>
+            </>
+          ) : locationStatus === 'granted' ? (
+            <>
+              <MapPin className="h-5 w-5 text-green-600" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-green-800">Location Verified</p>
+                <p className="text-xs text-green-600">
+                  Accuracy: {coords ? `${Math.round(coords.accuracy)}m` : 'N/A'}
+                </p>
+              </div>
+              <Navigation className="h-4 w-4 text-green-500" />
+            </>
+          ) : (
+            <>
+              <XCircle className="h-5 w-5 text-red-600" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-red-800">
+                  {locationStatus === 'denied' ? 'Location Access Denied' : 'Location Error'}
+                </p>
+                <p className="text-xs text-red-600">{locationError}</p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={requestLocation}
+                className="shrink-0"
+              >
+                Retry
+              </Button>
+            </>
+          )}
         </CardContent>
       </Card>
 
@@ -426,12 +479,19 @@ export default function AttendancePage() {
       <Button
         onClick={handleMarkAttendance}
         loading={submitting}
+        disabled={!canSubmit}
         size="lg"
         className="w-full"
       >
         <CheckCircle className="h-5 w-5" />
-        Mark Attendance
+        {canSubmit ? 'Mark Attendance' : 'Enable Location to Continue'}
       </Button>
+
+      {!canSubmit && locationStatus !== 'requesting' && locationStatus !== 'idle' && (
+        <p className="text-center text-xs text-gray-500">
+          You must be within 500m of the class location to mark attendance.
+        </p>
+      )}
     </div>
   )
 }

@@ -24,6 +24,7 @@ import {
   LogOut,
   Menu,
   X,
+  Upload,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -50,6 +51,7 @@ const adminNavItems: NavItem[] = [
   { label: 'Classrooms', icon: Building2, href: '/admin/classrooms' },
   { label: 'Analytics', icon: BarChart3, href: '/admin/analytics' },
   { label: 'Certificates', icon: Award, href: '/admin/certificates' },
+  { label: 'Import Students', icon: Upload, href: '/admin/import' },
   { label: 'Audit Logs', icon: FileText, href: '/admin/audit-logs' },
   { label: 'Settings', icon: Settings, href: '/admin/settings' },
 ]

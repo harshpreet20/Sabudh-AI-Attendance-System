@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { isWithinAnyZone } from "@/lib/geofence";
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,7 +17,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { session_id } = body;
+    const { session_id, latitude, longitude, location_accuracy } = body;
 
     if (!session_id) {
       return NextResponse.json(
@@ -74,6 +75,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (latitude == null || longitude == null) {
+      return NextResponse.json(
+        { success: false, error: { code: "LOCATION_REQUIRED", message: "Location access is required to mark attendance" } },
+        { status: 400 }
+      );
+    }
+
+    const locationCheck = isWithinAnyZone(latitude, longitude);
+    if (!locationCheck.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "OUTSIDE_GEOFENCE",
+            message: `You are ${Math.round(locationCheck.distance)}m away from the nearest allowed zone (${locationCheck.zone?.name}). You must be within 500m to mark attendance.`,
+          },
+        },
+        { status: 403 }
+      );
+    }
+
     const { data: existing } = await supabase
       .from("attendance")
       .select("id")
@@ -103,6 +125,10 @@ export async function POST(request: NextRequest) {
         verified_at: now.toISOString(),
         browser: userAgent,
         ip_address: ip !== "unknown" ? ip : null,
+        latitude,
+        longitude,
+        location_accuracy: location_accuracy || null,
+        location_address: locationCheck.zone?.name || null,
       })
       .select("id, status, decision, submitted_at")
       .single();

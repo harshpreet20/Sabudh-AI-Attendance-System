@@ -183,6 +183,10 @@ export interface Attendance {
   browser: string | null;
   operating_system: string | null;
   ip_address: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  location_accuracy: number | null;
+  location_address: string | null;
   created_at: string;
   updated_at: string;
 }
