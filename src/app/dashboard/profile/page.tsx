@@ -20,6 +20,10 @@ import {
   Camera,
   AlertCircle,
   Shield,
+  Briefcase,
+  GraduationCap,
+  Building2,
+  Heart,
 } from 'lucide-react'
 import type { StudentProfile } from '@/types/database'
 
@@ -29,10 +33,15 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false)
   const [userEmail, setUserEmail] = useState('')
 
-  // Editable fields
   const [phone, setPhone] = useState('')
   const [city, setCity] = useState('')
   const [learningGoal, setLearningGoal] = useState('')
+  const [profession, setProfession] = useState('')
+  const [qualification, setQualification] = useState('')
+  const [organizationName, setOrganizationName] = useState('')
+  const [gender, setGender] = useState('')
+  const [dateOfBirth, setDateOfBirth] = useState('')
+  const [emergencyContact, setEmergencyContact] = useState('')
   const [uploading, setUploading] = useState(false)
 
   const fetchProfile = useCallback(async () => {
@@ -60,6 +69,12 @@ export default function ProfilePage() {
       setPhone(profileData.phone || '')
       setCity(profileData.city || '')
       setLearningGoal(profileData.learning_goal || '')
+      setProfession(profileData.profession || '')
+      setQualification(profileData.qualification || '')
+      setOrganizationName(profileData.organization_name || '')
+      setGender(profileData.gender || '')
+      setDateOfBirth(profileData.date_of_birth || '')
+      setEmergencyContact(profileData.emergency_contact || '')
     }
 
     setLoading(false)
@@ -75,29 +90,28 @@ export default function ProfilePage() {
     setSaving(true)
     const supabase = createClient()
 
+    const updates = {
+      phone: phone || null,
+      city: city || null,
+      learning_goal: learningGoal || null,
+      profession: profession || null,
+      qualification: qualification || null,
+      organization_name: organizationName || null,
+      gender: gender || null,
+      date_of_birth: dateOfBirth || null,
+      emergency_contact: emergencyContact || null,
+    }
+
     const { error } = await supabase
       .from('student_profiles')
-      .update({
-        phone: phone || null,
-        city: city || null,
-        learning_goal: learningGoal || null,
-      })
+      .update(updates)
       .eq('id', profile.id)
 
     if (error) {
       toast.error('Failed to save profile. Please try again.')
     } else {
       toast.success('Profile updated successfully.')
-      setProfile((prev) =>
-        prev
-          ? {
-              ...prev,
-              phone: phone || null,
-              city: city || null,
-              learning_goal: learningGoal || null,
-            }
-          : prev
-      )
+      setProfile((prev) => prev ? { ...prev, ...updates } : prev)
     }
     setSaving(false)
   }
@@ -301,6 +315,57 @@ export default function ProfilePage() {
                 value={city}
                 onChange={(e) => setCity(e.target.value)}
                 placeholder="Enter your city"
+              />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700">Gender</label>
+                <select
+                  value={gender}
+                  onChange={(e) => setGender(e.target.value)}
+                  className="flex h-10 w-full appearance-none rounded-xl px-3 py-2 text-sm text-gray-900 transition-all duration-200 glass-input"
+                >
+                  <option value="">Select gender</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                  <option value="other">Other</option>
+                  <option value="prefer_not_to_say">Prefer not to say</option>
+                </select>
+              </div>
+              <Input
+                label="Date of Birth"
+                type="date"
+                value={dateOfBirth}
+                onChange={(e) => setDateOfBirth(e.target.value)}
+              />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Input
+                label="Profession"
+                value={profession}
+                onChange={(e) => setProfession(e.target.value)}
+                placeholder="e.g. Software Engineer, Student"
+              />
+              <Input
+                label="Qualification"
+                value={qualification}
+                onChange={(e) => setQualification(e.target.value)}
+                placeholder="e.g. B.Tech, M.Sc"
+              />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Input
+                label="Organization"
+                value={organizationName}
+                onChange={(e) => setOrganizationName(e.target.value)}
+                placeholder="Company or institution name"
+              />
+              <Input
+                label="Emergency Contact"
+                type="tel"
+                value={emergencyContact}
+                onChange={(e) => setEmergencyContact(e.target.value)}
+                placeholder="+91 12345 67890"
               />
             </div>
             <Textarea

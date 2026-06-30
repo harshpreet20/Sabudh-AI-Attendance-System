@@ -22,6 +22,136 @@ export function generatePassword(length = 12): string {
   return password
 }
 
+export function leaveStatusEmailHtml(params: {
+  studentName: string
+  leaveDate: string
+  status: 'approved' | 'rejected'
+  reviewerNote?: string
+}): string {
+  const statusColor = params.status === 'approved' ? '#10b981' : '#ef4444'
+  const statusIcon = params.status === 'approved' ? '✅' : '❌'
+  const statusText = params.status === 'approved' ? 'Approved' : 'Rejected'
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background-color:#0a0a1a;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#0a0a1a;padding:40px 20px;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#0f1628 0%,#1a1a3e 50%,#0f1628 100%);border-radius:16px;overflow:hidden;border:1px solid rgba(139,92,246,0.3);">
+        <tr><td style="padding:40px 40px 20px;text-align:center;background:linear-gradient(180deg,rgba(139,92,246,0.15) 0%,transparent 100%);">
+          <div style="font-size:48px;margin-bottom:8px;">${statusIcon}</div>
+          <h1 style="margin:0;color:#e2e8f0;font-size:24px;font-weight:700;">Leave Request ${statusText}</h1>
+          <p style="margin:4px 0 0;color:#8b5cf6;font-size:13px;text-transform:uppercase;letter-spacing:3px;font-weight:600;">Sabudh Foundation</p>
+        </td></tr>
+        <tr><td style="padding:0 40px;"><div style="height:1px;background:linear-gradient(90deg,transparent,rgba(139,92,246,0.5),rgba(234,179,8,0.5),rgba(139,92,246,0.5),transparent);"></div></td></tr>
+        <tr><td style="padding:30px 40px;">
+          <p style="color:#94a3b8;font-size:14px;margin:0 0 4px;">Dear ${params.studentName},</p>
+          <p style="color:#f1f5f9;font-size:15px;line-height:1.6;margin:12px 0 0;">
+            Your leave request for <strong style="color:#a78bfa;">${params.leaveDate}</strong> has been
+            <span style="color:${statusColor};font-weight:700;"> ${statusText.toLowerCase()}</span>.
+          </p>
+          ${params.reviewerNote ? `<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:20px;background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.2);border-radius:12px;">
+            <tr><td style="padding:16px 20px;">
+              <p style="margin:0 0 8px;color:#c4b5fd;font-size:12px;text-transform:uppercase;letter-spacing:2px;font-weight:600;">Reviewer Note</p>
+              <p style="margin:0;color:#e2e8f0;font-size:14px;">${params.reviewerNote}</p>
+            </td></tr>
+          </table>` : ''}
+        </td></tr>
+        <tr><td style="padding:20px 40px 30px;text-align:center;">
+          <p style="color:#64748b;font-size:12px;margin:0;">Sabudh Foundation &bull; GEN AI Course<br>GK Duggal Memorial Centre, Rajouri Garden, New Delhi</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`
+}
+
+export function attendanceAlertEmailHtml(params: {
+  studentName: string
+  attendancePercentage: number
+  threshold: number
+}): string {
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background-color:#0a0a1a;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#0a0a1a;padding:40px 20px;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#0f1628 0%,#1a1a3e 50%,#0f1628 100%);border-radius:16px;overflow:hidden;border:1px solid rgba(239,68,68,0.3);">
+        <tr><td style="padding:40px 40px 20px;text-align:center;background:linear-gradient(180deg,rgba(239,68,68,0.15) 0%,transparent 100%);">
+          <div style="font-size:48px;margin-bottom:8px;">⚠️</div>
+          <h1 style="margin:0;color:#e2e8f0;font-size:24px;font-weight:700;">Low Attendance Alert</h1>
+          <p style="margin:4px 0 0;color:#ef4444;font-size:13px;text-transform:uppercase;letter-spacing:3px;font-weight:600;">Action Required</p>
+        </td></tr>
+        <tr><td style="padding:0 40px;"><div style="height:1px;background:linear-gradient(90deg,transparent,rgba(239,68,68,0.5),rgba(234,179,8,0.5),rgba(239,68,68,0.5),transparent);"></div></td></tr>
+        <tr><td style="padding:30px 40px;">
+          <p style="color:#94a3b8;font-size:14px;margin:0 0 4px;">Dear ${params.studentName},</p>
+          <p style="color:#f1f5f9;font-size:15px;line-height:1.6;margin:12px 0 0;">
+            Your current attendance is at <span style="color:#ef4444;font-weight:700;font-size:20px;">${params.attendancePercentage}%</span>,
+            which is below the required <span style="color:#fbbf24;font-weight:700;">${params.threshold}%</span> threshold.
+          </p>
+          <p style="color:#94a3b8;font-size:14px;line-height:1.6;margin:16px 0 0;">
+            Please ensure you attend upcoming sessions to maintain your eligibility for the course certificate.
+          </p>
+        </td></tr>
+        <tr><td style="padding:20px 40px 30px;text-align:center;">
+          <p style="color:#64748b;font-size:12px;margin:0;">Sabudh Foundation &bull; GEN AI Course<br>GK Duggal Memorial Centre, Rajouri Garden, New Delhi</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`
+}
+
+export function weeklyDigestEmailHtml(params: {
+  studentName: string
+  weeklyPercentage: number
+  overallPercentage: number
+  sessionsAttended: number
+  totalSessions: number
+  weekStart: string
+  weekEnd: string
+}): string {
+  const color = params.weeklyPercentage >= 75 ? '#10b981' : params.weeklyPercentage >= 50 ? '#f59e0b' : '#ef4444'
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background-color:#0a0a1a;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#0a0a1a;padding:40px 20px;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#0f1628 0%,#1a1a3e 50%,#0f1628 100%);border-radius:16px;overflow:hidden;border:1px solid rgba(139,92,246,0.3);">
+        <tr><td style="padding:40px 40px 20px;text-align:center;background:linear-gradient(180deg,rgba(139,92,246,0.15) 0%,transparent 100%);">
+          <div style="font-size:48px;margin-bottom:8px;">📊</div>
+          <h1 style="margin:0;color:#e2e8f0;font-size:24px;font-weight:700;">Weekly Attendance Report</h1>
+          <p style="margin:4px 0 0;color:#8b5cf6;font-size:13px;text-transform:uppercase;letter-spacing:3px;font-weight:600;">${params.weekStart} — ${params.weekEnd}</p>
+        </td></tr>
+        <tr><td style="padding:0 40px;"><div style="height:1px;background:linear-gradient(90deg,transparent,rgba(139,92,246,0.5),rgba(234,179,8,0.5),rgba(139,92,246,0.5),transparent);"></div></td></tr>
+        <tr><td style="padding:30px 40px;">
+          <p style="color:#94a3b8;font-size:14px;margin:0 0 16px;">Dear ${params.studentName},</p>
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.2);border-radius:12px;">
+            <tr>
+              <td style="padding:20px;text-align:center;width:50%;border-right:1px solid rgba(139,92,246,0.15);">
+                <p style="margin:0;color:#94a3b8;font-size:12px;text-transform:uppercase;letter-spacing:1px;">This Week</p>
+                <p style="margin:8px 0 0;color:${color};font-size:32px;font-weight:800;">${params.weeklyPercentage}%</p>
+                <p style="margin:4px 0 0;color:#94a3b8;font-size:12px;">${params.sessionsAttended}/${params.totalSessions} sessions</p>
+              </td>
+              <td style="padding:20px;text-align:center;width:50%;">
+                <p style="margin:0;color:#94a3b8;font-size:12px;text-transform:uppercase;letter-spacing:1px;">Overall</p>
+                <p style="margin:8px 0 0;color:#a78bfa;font-size:32px;font-weight:800;">${params.overallPercentage}%</p>
+                <p style="margin:4px 0 0;color:#94a3b8;font-size:12px;">cumulative</p>
+              </td>
+            </tr>
+          </table>
+        </td></tr>
+        <tr><td style="padding:20px 40px 30px;text-align:center;">
+          <p style="color:#64748b;font-size:12px;margin:0;">Sabudh Foundation &bull; GEN AI Course<br>GK Duggal Memorial Centre, Rajouri Garden, New Delhi</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`
+}
+
 export function welcomeEmailHtml(params: {
   studentName: string
   email: string

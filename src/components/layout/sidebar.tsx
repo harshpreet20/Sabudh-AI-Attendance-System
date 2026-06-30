@@ -28,6 +28,7 @@ import {
   Megaphone,
   ClipboardList,
   GraduationCap,
+  CalendarOff,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -42,6 +43,7 @@ const studentNavItems: NavItem[] = [
   { label: 'Attendance', icon: CheckSquare, href: '/dashboard/attendance' },
   { label: 'History', icon: History, href: '/dashboard/history' },
   { label: 'Schedules', icon: Calendar, href: '/dashboard/schedules' },
+  { label: 'Leave', icon: CalendarOff, href: '/dashboard/leave' },
   { label: 'Announcements', icon: Megaphone, href: '/dashboard/announcements' },
   { label: 'Certificate', icon: Award, href: '/dashboard/certificate' },
   { label: 'Notifications', icon: Bell, href: '/dashboard/notifications' },
@@ -55,6 +57,7 @@ const teacherNavItems: NavItem[] = [
   { label: 'Attendance', icon: CheckSquare, href: '/teacher/attendance' },
   { label: 'Schedules', icon: Calendar, href: '/teacher/schedules' },
   { label: 'Announcements', icon: Megaphone, href: '/teacher/announcements' },
+  { label: 'Leave Requests', icon: CalendarOff, href: '/teacher/leave' },
   { label: 'Reports', icon: ClipboardList, href: '/teacher/reports' },
   { label: 'Profile', icon: User, href: '/teacher/profile' },
 ]

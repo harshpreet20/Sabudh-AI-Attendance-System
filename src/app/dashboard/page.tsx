@@ -5,6 +5,8 @@ import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PerformanceChart } from '@/components/dashboard/performance-chart'
+import { PriorityAnnouncements } from '@/components/dashboard/priority-announcements'
+import { WeeklyAttendance } from '@/components/dashboard/weekly-attendance'
 import {
   CheckCircle,
   XCircle,
@@ -149,6 +151,12 @@ export default async function DashboardPage() {
         </CardContent>
       </Card>
 
+      {/* Priority Announcements */}
+      <PriorityAnnouncements
+        batchId={profile.batch_id}
+        organizationId={profile.organization_id}
+      />
+
       {/* Attendance Summary Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
@@ -224,6 +232,9 @@ export default async function DashboardPage() {
         absentCount={classesAbsent}
         lateCount={profile.late_count ?? 0}
       />
+
+      {/* Weekly Attendance */}
+      <WeeklyAttendance studentId={profile.id} batchId={profile.batch_id} />
 
       {/* Certificate Progress and Upcoming Sessions */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">

@@ -321,6 +321,22 @@ export interface ClassSchedule {
   updated_at: string
 }
 
+export type LeaveStatus = 'pending' | 'approved' | 'rejected'
+
+export interface LeaveRequest {
+  id: string
+  student_id: string
+  batch_id: string
+  leave_date: string
+  reason: string
+  status: LeaveStatus
+  reviewed_by: string | null
+  reviewed_at: string | null
+  reviewer_note: string | null
+  created_at: string
+  updated_at: string
+}
+
 export interface AuditLog {
   id: string;
   actor_id: string | null;
