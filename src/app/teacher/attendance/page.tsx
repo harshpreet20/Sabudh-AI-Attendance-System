@@ -163,7 +163,7 @@ export default function TeacherAttendancePage() {
             <option value="">Select Session</option>
             {sessions.map((s) => (
               <option key={s.id} value={s.id}>
-                {new Date(s.session_date).toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric' })} — {s.status}
+                {new Date(s.session_date).toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric' })}  - {s.status}
               </option>
             ))}
           </Select>

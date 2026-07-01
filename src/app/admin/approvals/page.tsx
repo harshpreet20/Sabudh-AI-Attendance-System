@@ -106,6 +106,19 @@ export default function AdminApprovalsPage() {
     } else {
       toast.success(`${assignDialog.full_name} has been approved`)
       setPendingUsers(prev => prev.filter(u => u.id !== assignDialog.id))
+
+      const batchName = selectedBatch ? batches.find(b => b.id === selectedBatch)?.name : undefined
+      fetch('/api/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'approval_notification',
+          studentEmail: assignDialog.email,
+          studentName: assignDialog.full_name,
+          status: 'approved',
+          batchName,
+        }),
+      }).catch(() => {})
     }
 
     setProcessing(null)
@@ -126,6 +139,17 @@ export default function AdminApprovalsPage() {
     } else {
       toast.success(`${user.full_name} has been approved as a teacher`)
       setPendingUsers(prev => prev.filter(u => u.id !== user.id))
+
+      fetch('/api/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'approval_notification',
+          studentEmail: user.email,
+          studentName: user.full_name,
+          status: 'approved',
+        }),
+      }).catch(() => {})
     }
 
     setProcessing(null)
@@ -145,6 +169,17 @@ export default function AdminApprovalsPage() {
     } else {
       toast.success(`${user.full_name} has been rejected`)
       setPendingUsers(prev => prev.filter(u => u.id !== user.id))
+
+      fetch('/api/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'approval_notification',
+          studentEmail: user.email,
+          studentName: user.full_name,
+          status: 'rejected',
+        }),
+      }).catch(() => {})
     }
 
     setProcessing(null)

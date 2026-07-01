@@ -246,7 +246,7 @@ export default function TeacherSchedulesPage() {
                   </div>
                   <div className="mt-1 flex flex-wrap items-center gap-3 text-sm text-gray-500">
                     <span>{new Date(schedule.scheduled_date).toLocaleDateString('en-IN', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}</span>
-                    {schedule.start_time && <span>{schedule.start_time}{schedule.end_time ? ` — ${schedule.end_time}` : ''}</span>}
+                    {schedule.start_time && <span>{schedule.start_time}{schedule.end_time ? `  - ${schedule.end_time}` : ''}</span>}
                     <span>{getBatchName(schedule.batch_id)}</span>
                     {schedule.location && <span>{schedule.location}</span>}
                     {schedule.meeting_url && (

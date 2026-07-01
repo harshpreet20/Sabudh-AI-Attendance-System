@@ -107,13 +107,13 @@ function StatCard({
 
   if (href) {
     return (
-      <Link href={href} className="block">
-        <Card className="transition-shadow hover:shadow-md">{content}</Card>
+      <Link href={href} className="block h-full">
+        <Card className="h-full transition-shadow hover:shadow-md">{content}</Card>
       </Link>
     )
   }
 
-  return <Card>{content}</Card>
+  return <Card className="h-full">{content}</Card>
 }
 
 export default async function AdminDashboardPage() {

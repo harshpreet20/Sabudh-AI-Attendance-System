@@ -134,7 +134,7 @@ export function WeeklyAttendance({ studentId, batchId }: WeeklyAttendanceProps) 
               </div>
               <p className="text-xs font-medium text-gray-600">{w.label}</p>
               <p className="text-xs text-gray-400">
-                {w.total > 0 ? `${w.attended}/${w.total}` : '—'}
+                {w.total > 0 ? `${w.attended}/${w.total}` : '-'}
               </p>
             </div>
           ))}

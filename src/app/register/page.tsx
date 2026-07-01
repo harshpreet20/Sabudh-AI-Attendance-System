@@ -3,9 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Shield, Eye, EyeOff, Loader2, Check } from "lucide-react";
+import { Eye, EyeOff, Loader2, Check } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { ElectricBorder } from "@/components/ui/electric-border";
+import { LogoWithText } from "@/components/ui/logo";
 
 type Step = 1 | 2 | 3;
 
@@ -121,11 +122,8 @@ export default function RegisterPage() {
     <div className="flex min-h-screen items-center justify-center spatial-bg-rich px-4 py-12">
       <div className="w-full max-w-lg">
         <div className="text-center">
-          <Link href="/" className="inline-flex items-center gap-2.5">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-500/90 shadow-lg shadow-indigo-500/20">
-              <Shield className="h-6 w-6 text-white" />
-            </div>
-            <span className="text-2xl font-bold text-gray-900">Sabudh AI</span>
+          <Link href="/">
+            <LogoWithText />
           </Link>
           <h1 className="mt-8 text-2xl font-bold text-gray-900">Create your account</h1>
           <p className="mt-2 text-sm text-gray-500">

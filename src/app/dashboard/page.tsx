@@ -159,7 +159,7 @@ export default async function DashboardPage() {
 
       {/* Attendance Summary Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
+        <Card className="h-full">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -175,7 +175,7 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="h-full">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -191,7 +191,7 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="h-full">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -207,7 +207,7 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="h-full">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -239,7 +239,7 @@ export default async function DashboardPage() {
       {/* Certificate Progress and Upcoming Sessions */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Certificate Progress */}
-        <Card>
+        <Card className="h-full">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Award className="h-5 w-5 text-amber-500" />
@@ -293,7 +293,7 @@ export default async function DashboardPage() {
         </Card>
 
         {/* Upcoming Sessions */}
-        <Card>
+        <Card className="h-full">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Clock className="h-5 w-5 text-blue-500" />

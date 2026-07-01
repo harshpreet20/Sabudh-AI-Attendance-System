@@ -31,8 +31,15 @@ import {
   ShieldOff,
   Hash,
   Tag,
+  Paperclip,
+  FileText,
+  Download,
+  X,
+  CircleDot,
+  CircleCheck,
+  Image as ImageIcon,
 } from 'lucide-react'
-import type { DiscussionThread, DiscussionReply, DiscussionTopic } from '@/types/database'
+import type { DiscussionThread, DiscussionReply, DiscussionTopic, DiscussionAttachment } from '@/types/database'
 
 interface ThreadWithAuthor extends DiscussionThread {
   author_name: string
@@ -64,6 +71,177 @@ function RoleBadge({ role }: { role: string }) {
   return null
 }
 
+function isImageFile(name: string): boolean {
+  return /\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i.test(name)
+}
+
+function formatFileSize(bytes: number | null): string {
+  if (!bytes) return ''
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function renderFormattedContent(text: string) {
+  const codeBlockRegex = /```([\s\S]*?)```/g
+  const parts: { type: 'text' | 'codeblock'; content: string }[] = []
+  let lastIndex = 0
+  let match
+
+  while ((match = codeBlockRegex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push({ type: 'text', content: text.slice(lastIndex, match.index) })
+    }
+    parts.push({ type: 'codeblock', content: match[1].trim() })
+    lastIndex = match.index + match[0].length
+  }
+  if (lastIndex < text.length) {
+    parts.push({ type: 'text', content: text.slice(lastIndex) })
+  }
+
+  function renderInline(content: string) {
+    const tokens: (string | React.ReactElement)[] = []
+    const inlineRegex = /(\*\*(.+?)\*\*|\*(.+?)\*|`([^`]+)`)/g
+    let last = 0
+    let m
+    let key = 0
+
+    while ((m = inlineRegex.exec(content)) !== null) {
+      if (m.index > last) {
+        tokens.push(content.slice(last, m.index))
+      }
+      if (m[2]) {
+        tokens.push(<strong key={key++} className="font-semibold">{m[2]}</strong>)
+      } else if (m[3]) {
+        tokens.push(<em key={key++} className="italic">{m[3]}</em>)
+      } else if (m[4]) {
+        tokens.push(<code key={key++} className="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-mono text-indigo-700">{m[4]}</code>)
+      }
+      last = m.index + m[0].length
+    }
+    if (last < content.length) {
+      tokens.push(content.slice(last))
+    }
+    return tokens
+  }
+
+  return (
+    <div className="text-sm text-gray-700 space-y-1">
+      {parts.map((part, i) => {
+        if (part.type === 'codeblock') {
+          return (
+            <pre key={i} className="my-2 overflow-x-auto rounded-lg bg-gray-900 p-3 text-xs text-gray-100 font-mono">
+              <code>{part.content}</code>
+            </pre>
+          )
+        }
+        return (
+          <span key={i} className="whitespace-pre-wrap">
+            {renderInline(part.content)}
+          </span>
+        )
+      })}
+    </div>
+  )
+}
+
+function AttachmentDisplay({ attachments }: { attachments: DiscussionAttachment[] }) {
+  if (!attachments.length) return null
+
+  const images = attachments.filter(a => isImageFile(a.file_name))
+  const files = attachments.filter(a => !isImageFile(a.file_name))
+
+  return (
+    <div className="mt-3 space-y-2">
+      {images.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {images.map(img => (
+            <a key={img.id} href={img.file_url} target="_blank" rel="noopener noreferrer" className="block">
+              <img
+                src={img.file_url}
+                alt={img.file_name}
+                className="max-h-48 max-w-xs rounded-lg border border-gray-200 object-cover hover:opacity-90 transition-opacity"
+              />
+            </a>
+          ))}
+        </div>
+      )}
+      {files.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {files.map(file => (
+            <a
+              key={file.id}
+              href={file.file_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100 transition-colors"
+            >
+              <FileText className="h-3.5 w-3.5 text-gray-400" />
+              <span className="max-w-[150px] truncate">{file.file_name}</span>
+              {file.file_size && <span className="text-gray-400">({formatFileSize(file.file_size)})</span>}
+              <Download className="h-3 w-3 text-gray-400" />
+            </a>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function FileUploadButton({ files, onChange, onRemove }: {
+  files: File[]
+  onChange: (files: File[]) => void
+  onRemove: (index: number) => void
+}) {
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  return (
+    <div>
+      <input
+        ref={inputRef}
+        type="file"
+        multiple
+        accept="image/*,.pdf,.doc,.docx,.txt,.zip,.csv,.xls,.xlsx,.ppt,.pptx"
+        className="hidden"
+        onChange={(e) => {
+          const selected = Array.from(e.target.files || [])
+          onChange([...files, ...selected])
+          if (inputRef.current) inputRef.current.value = ''
+        }}
+      />
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
+      >
+        <Paperclip className="h-3.5 w-3.5" />
+        Attach
+      </button>
+      {files.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {files.map((file, i) => (
+            <span key={i} className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-600">
+              {isImageFile(file.name) ? <ImageIcon className="h-3 w-3" /> : <FileText className="h-3 w-3" />}
+              <span className="max-w-[120px] truncate">{file.name}</span>
+              <button onClick={() => onRemove(i)} className="ml-0.5 rounded-full p-0.5 hover:bg-gray-200">
+                <X className="h-2.5 w-2.5" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function FormattingHint() {
+  return (
+    <p className="text-[10px] text-gray-400 mt-1">
+      **bold** *italic* `code` ```code block```
+    </p>
+  )
+}
+
 export default function TeacherDiscussionsPage() {
   const supabase = createClient()
   const [threads, setThreads] = useState<ThreadWithAuthor[]>([])
@@ -75,12 +253,14 @@ export default function TeacherDiscussionsPage() {
   const [newDialog, setNewDialog] = useState(false)
   const [newTitle, setNewTitle] = useState('')
   const [newContent, setNewContent] = useState('')
+  const [newFiles, setNewFiles] = useState<File[]>([])
   const [posting, setPosting] = useState(false)
 
   const [activeThread, setActiveThread] = useState<ThreadWithAuthor | null>(null)
   const [replies, setReplies] = useState<ReplyWithAuthor[]>([])
   const [repliesLoading, setRepliesLoading] = useState(false)
   const [replyContent, setReplyContent] = useState('')
+  const [replyFiles, setReplyFiles] = useState<File[]>([])
   const [replying, setReplying] = useState(false)
 
   const [deleteDialog, setDeleteDialog] = useState<{ type: 'thread' | 'reply'; id: string; name: string } | null>(null)
@@ -88,11 +268,70 @@ export default function TeacherDiscussionsPage() {
 
   const [topics, setTopics] = useState<DiscussionTopic[]>([])
   const [topicFilter, setTopicFilter] = useState<string>('all')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'resolved'>('all')
   const [newTopicId, setNewTopicId] = useState<string>('')
   const [showTopicDialog, setShowTopicDialog] = useState(false)
   const [newTopicName, setNewTopicName] = useState('')
   const [newTopicDesc, setNewTopicDesc] = useState('')
   const [newTopicColor, setNewTopicColor] = useState('#6366f1')
+
+  const [threadAttachments, setThreadAttachments] = useState<Record<string, DiscussionAttachment[]>>({})
+  const [replyAttachments, setReplyAttachments] = useState<Record<string, DiscussionAttachment[]>>({})
+
+  async function uploadFiles(files: File[], threadId: string, replyId: string | null, authorId: string) {
+    for (const file of files) {
+      const ext = file.name.split('.').pop() || ''
+      const storagePath = `discussion-attachments/${threadId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('uploads')
+        .upload(storagePath, file)
+
+      if (uploadError) {
+        toast.error(`Failed to upload ${file.name}`)
+        continue
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('uploads')
+        .getPublicUrl(storagePath)
+
+      await supabase.from('discussion_attachments').insert({
+        thread_id: threadId,
+        reply_id: replyId,
+        author_id: authorId,
+        file_url: publicUrl,
+        file_name: file.name,
+        file_size: file.size,
+        file_type: file.type || null,
+        storage_path: storagePath,
+      })
+    }
+  }
+
+  async function fetchAttachmentsForThread(threadId: string) {
+    const { data } = await supabase
+      .from('discussion_attachments')
+      .select('*')
+      .eq('thread_id', threadId)
+
+    if (!data) return
+
+    const threadAtt: DiscussionAttachment[] = []
+    const replyAtt: Record<string, DiscussionAttachment[]> = {}
+
+    for (const a of data) {
+      if (a.reply_id) {
+        if (!replyAtt[a.reply_id]) replyAtt[a.reply_id] = []
+        replyAtt[a.reply_id].push(a)
+      } else {
+        threadAtt.push(a)
+      }
+    }
+
+    setThreadAttachments(prev => ({ ...prev, [threadId]: threadAtt }))
+    setReplyAttachments(replyAtt)
+  }
 
   const fetchThreads = useCallback(async () => {
     setLoading(true)
@@ -218,6 +457,8 @@ export default function TeacherDiscussionsPage() {
       has_upvoted: upvotedSet.has(r.id),
     })))
     setRepliesLoading(false)
+
+    fetchAttachmentsForThread(threadId)
   }
 
   useEffect(() => {
@@ -254,22 +495,27 @@ export default function TeacherDiscussionsPage() {
     if (!newTitle.trim() || !newContent.trim() || !userId) return
     setPosting(true)
 
-    const { error } = await supabase.from('discussion_threads').insert({
+    const { data: thread, error } = await supabase.from('discussion_threads').insert({
       batch_id: batchIds[0] || null,
       author_id: userId,
       author_role: 'instructor',
       title: newTitle.trim(),
       content: newContent.trim(),
       topic_id: newTopicId || null,
-    })
+    }).select('id').single()
 
-    if (error) toast.error('Failed to create post')
-    else {
+    if (error || !thread) {
+      toast.error('Failed to create post')
+    } else {
+      if (newFiles.length > 0) {
+        await uploadFiles(newFiles, thread.id, null, userId)
+      }
       toast.success('Post created')
       setNewDialog(false)
       setNewTitle('')
       setNewContent('')
       setNewTopicId('')
+      setNewFiles([])
       fetchThreads()
     }
     setPosting(false)
@@ -317,16 +563,21 @@ export default function TeacherDiscussionsPage() {
     if (!replyContent.trim() || !activeThread || !userId) return
     setReplying(true)
 
-    const { error } = await supabase.from('discussion_replies').insert({
+    const { data: reply, error } = await supabase.from('discussion_replies').insert({
       thread_id: activeThread.id,
       author_id: userId,
       author_role: 'instructor',
       content: replyContent.trim(),
-    })
+    }).select('id').single()
 
-    if (error) toast.error('Failed to post reply')
-    else {
+    if (error || !reply) {
+      toast.error('Failed to post reply')
+    } else {
+      if (replyFiles.length > 0) {
+        await uploadFiles(replyFiles, activeThread.id, reply.id, userId)
+      }
       setReplyContent('')
+      setReplyFiles([])
       fetchReplies(activeThread.id)
       await supabase.from('discussion_threads')
         .update({ reply_count: activeThread.reply_count + 1, last_activity_at: new Date().toISOString() })
@@ -365,6 +616,16 @@ export default function TeacherDiscussionsPage() {
         setActiveThread(prev => prev ? { ...prev, locked: !prev.locked } : null)
       }
       fetchThreads()
+    }
+  }
+
+  async function toggleResolved(thread: ThreadWithAuthor) {
+    const { error } = await supabase.from('discussion_threads').update({ is_resolved: !thread.is_resolved }).eq('id', thread.id)
+    if (error) toast.error('Failed')
+    else {
+      toast.success(thread.is_resolved ? 'Reopened' : 'Marked as resolved')
+      if (activeThread?.id === thread.id) setActiveThread(prev => prev ? { ...prev, is_resolved: !prev.is_resolved } : null)
+      setThreads(prev => prev.map(t => t.id === thread.id ? { ...t, is_resolved: !t.is_resolved } : t))
     }
   }
 
@@ -441,6 +702,9 @@ export default function TeacherDiscussionsPage() {
     setActiveThread(thread)
     setReplies([])
     setReplyContent('')
+    setReplyFiles([])
+    setThreadAttachments({})
+    setReplyAttachments({})
     fetchReplies(thread.id)
   }
 
@@ -450,10 +714,10 @@ export default function TeacherDiscussionsPage() {
       t.content.toLowerCase().includes(search.toLowerCase()) ||
       t.author_name.toLowerCase().includes(search.toLowerCase())
     const matchTopic = topicFilter === 'all' || t.topic_id === topicFilter || (topicFilter === 'uncategorized' && !t.topic_id)
-    return matchSearch && matchTopic
+    const matchStatus = statusFilter === 'all' || (statusFilter === 'resolved' && t.is_resolved) || (statusFilter === 'open' && !t.is_resolved)
+    return matchSearch && matchTopic && matchStatus
   })
 
-  // Thread detail view
   if (activeThread) {
     const topLevel = replies.filter(r => !r.parent_reply_id)
 
@@ -481,10 +745,12 @@ export default function TeacherDiscussionsPage() {
                   <RoleBadge role={activeThread.author_role} />
                   {activeThread.pinned && <Badge variant="warning" className="text-[10px] px-1.5 py-0"><Pin className="mr-0.5 h-2.5 w-2.5" />Pinned</Badge>}
                   {activeThread.locked && <Badge variant="secondary" className="text-[10px] px-1.5 py-0"><Lock className="mr-0.5 h-2.5 w-2.5" />Locked</Badge>}
+                  {activeThread.is_resolved && <Badge variant="success" className="text-[10px] px-1.5 py-0"><CircleCheck className="mr-0.5 h-2.5 w-2.5" />Resolved</Badge>}
                 </div>
                 <p className="text-xs text-gray-400 mt-0.5">{timeAgo(activeThread.created_at)}</p>
                 <h2 className="mt-3 text-lg font-bold text-gray-900">{activeThread.title}</h2>
-                <p className="mt-2 text-sm text-gray-700 whitespace-pre-wrap">{activeThread.content}</p>
+                <div className="mt-2">{renderFormattedContent(activeThread.content)}</div>
+                <AttachmentDisplay attachments={threadAttachments[activeThread.id] || []} />
 
                 <div className="mt-4 flex flex-wrap items-center gap-2">
                   <button
@@ -501,7 +767,11 @@ export default function TeacherDiscussionsPage() {
 
                   <span className="mx-1 text-gray-300">|</span>
 
-                  {/* Moderation actions */}
+                  <Button variant="ghost" size="sm" onClick={() => toggleResolved(activeThread)} className="h-7 text-xs">
+                    {activeThread.is_resolved
+                      ? <><CircleDot className="mr-1 h-3 w-3" />Reopen</>
+                      : <><CircleCheck className="mr-1 h-3 w-3 text-emerald-500" />Mark Resolved</>}
+                  </Button>
                   <Button variant="ghost" size="sm" onClick={() => togglePin(activeThread)} className="h-7 text-xs">
                     {activeThread.pinned ? <><PinOff className="mr-1 h-3 w-3" />Unpin</> : <><Pin className="mr-1 h-3 w-3" />Pin</>}
                   </Button>
@@ -532,18 +802,28 @@ export default function TeacherDiscussionsPage() {
           </CardContent>
         </Card>
 
-        {/* Reply input */}
         {!activeThread.locked && (
           <Card>
             <CardContent className="p-4">
               <div className="flex gap-3">
-                <Textarea
-                  value={replyContent}
-                  onChange={(e) => setReplyContent(e.target.value)}
-                  placeholder="Write a reply..."
-                  rows={2}
-                  className="flex-1"
-                />
+                <div className="flex-1 space-y-1">
+                  <Textarea
+                    value={replyContent}
+                    onChange={(e) => setReplyContent(e.target.value)}
+                    placeholder="Write a reply..."
+                    rows={2}
+                  />
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <FileUploadButton
+                        files={replyFiles}
+                        onChange={setReplyFiles}
+                        onRemove={(i) => setReplyFiles(prev => prev.filter((_, idx) => idx !== i))}
+                      />
+                      <FormattingHint />
+                    </div>
+                  </div>
+                </div>
                 <Button onClick={handleReply} disabled={!replyContent.trim() || replying} loading={replying} size="sm" className="self-end">
                   <Send className="h-4 w-4" />
                 </Button>
@@ -552,7 +832,6 @@ export default function TeacherDiscussionsPage() {
           </Card>
         )}
 
-        {/* Replies */}
         {repliesLoading ? (
           <div className="space-y-3">
             {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-24" />)}
@@ -577,7 +856,8 @@ export default function TeacherDiscussionsPage() {
                         {reply.is_answer && <Badge variant="success" className="text-[10px] px-1.5 py-0"><CheckCircle2 className="mr-0.5 h-2.5 w-2.5" />Answer</Badge>}
                         <span className="text-xs text-gray-400">{timeAgo(reply.created_at)}</span>
                       </div>
-                      <p className="mt-1.5 text-sm text-gray-700 whitespace-pre-wrap">{reply.content}</p>
+                      <div className="mt-1.5">{renderFormattedContent(reply.content)}</div>
+                      <AttachmentDisplay attachments={replyAttachments[reply.id] || []} />
                       <div className="mt-2 flex items-center gap-2">
                         <button
                           onClick={() => toggleUpvoteReply(reply)}
@@ -617,7 +897,6 @@ export default function TeacherDiscussionsPage() {
           </div>
         )}
 
-        {/* Delete confirmation */}
         <Dialog
           open={!!deleteDialog}
           onClose={() => setDeleteDialog(null)}
@@ -640,7 +919,6 @@ export default function TeacherDiscussionsPage() {
     )
   }
 
-  // Thread list view
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -665,6 +943,15 @@ export default function TeacherDiscussionsPage() {
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <Input placeholder="Search discussions..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
         </div>
+        <select
+          value={statusFilter}
+          onChange={e => setStatusFilter(e.target.value as 'all' | 'open' | 'resolved')}
+          className="rounded-xl border border-gray-200 bg-white/60 px-3 py-2 text-sm backdrop-blur-sm focus:border-indigo-300 focus:outline-none"
+        >
+          <option value="all">All Status</option>
+          <option value="open">Open</option>
+          <option value="resolved">Resolved</option>
+        </select>
         {topics.length > 0 && (
           <select
             value={topicFilter}
@@ -719,6 +1006,7 @@ export default function TeacherDiscussionsPage() {
                       {thread.pinned && <Pin className="h-3.5 w-3.5 text-amber-500" />}
                       <h3 className="font-semibold text-gray-900 truncate">{thread.title}</h3>
                       {thread.locked && <Lock className="h-3 w-3 text-gray-400" />}
+                      {thread.is_resolved && <Badge variant="success" className="text-[10px] px-1.5 py-0"><CircleCheck className="mr-0.5 h-2.5 w-2.5" />Resolved</Badge>}
                       {thread.topic_id && topics.find(t => t.id === thread.topic_id) && (
                         <span
                           className="inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-medium text-white"
@@ -751,7 +1039,6 @@ export default function TeacherDiscussionsPage() {
         </div>
       )}
 
-      {/* New Thread Dialog */}
       <Dialog
         open={newDialog}
         onClose={() => setNewDialog(false)}
@@ -759,7 +1046,7 @@ export default function TeacherDiscussionsPage() {
         description="Share a topic, resource, or start a discussion with your students"
         footer={
           <>
-            <Button variant="secondary" onClick={() => setNewDialog(false)}>Cancel</Button>
+            <Button variant="secondary" onClick={() => { setNewDialog(false); setNewFiles([]) }}>Cancel</Button>
             <Button onClick={handleNewThread} loading={posting} disabled={!newTitle.trim() || !newContent.trim()}>
               <Send className="mr-1 h-3.5 w-3.5" />Post
             </Button>
@@ -783,11 +1070,18 @@ export default function TeacherDiscussionsPage() {
               </select>
             </div>
           )}
-          <Textarea label="Content" placeholder="Write your post..." value={newContent} onChange={(e) => setNewContent(e.target.value)} rows={5} />
+          <div>
+            <Textarea label="Content" placeholder="Write your post..." value={newContent} onChange={(e) => setNewContent(e.target.value)} rows={5} />
+            <FormattingHint />
+          </div>
+          <FileUploadButton
+            files={newFiles}
+            onChange={setNewFiles}
+            onRemove={(i) => setNewFiles(prev => prev.filter((_, idx) => idx !== i))}
+          />
         </div>
       </Dialog>
 
-      {/* Topic Management Dialog */}
       <Dialog
         open={showTopicDialog}
         onClose={() => setShowTopicDialog(false)}

@@ -112,7 +112,7 @@ export default function StudentSchedulesPage() {
                         {schedule.start_time && (
                           <span>
                             {schedule.start_time}
-                            {schedule.end_time ? ` — ${schedule.end_time}` : ''}
+                            {schedule.end_time ? `  - ${schedule.end_time}` : ''}
                           </span>
                         )}
                         {schedule.location && <span>{schedule.location}</span>}

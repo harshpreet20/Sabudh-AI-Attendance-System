@@ -455,11 +455,25 @@ export interface DiscussionThread {
   content: string
   pinned: boolean
   locked: boolean
+  is_resolved: boolean
   upvote_count: number
   reply_count: number
   last_activity_at: string
   created_at: string
   updated_at: string
+}
+
+export interface DiscussionAttachment {
+  id: string
+  thread_id: string | null
+  reply_id: string | null
+  author_id: string | null
+  file_url: string
+  file_name: string
+  file_size: number | null
+  file_type: string | null
+  storage_path: string | null
+  created_at: string
 }
 
 export interface DiscussionReply {

@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Shield, Loader2, ArrowLeft, Mail } from "lucide-react";
+import { Loader2, ArrowLeft, Mail } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { LogoWithText } from "@/components/ui/logo";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -63,11 +64,8 @@ export default function ForgotPasswordPage() {
     <div className="flex min-h-screen items-center justify-center spatial-bg-rich px-4">
       <div className="w-full max-w-md">
         <div className="text-center">
-          <Link href="/" className="inline-flex items-center gap-2.5">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-500/90 shadow-lg shadow-indigo-500/20">
-              <Shield className="h-6 w-6 text-white" />
-            </div>
-            <span className="text-2xl font-bold text-gray-900">Sabudh AI</span>
+          <Link href="/">
+            <LogoWithText />
           </Link>
           <h1 className="mt-8 text-2xl font-bold text-gray-900">Reset your password</h1>
           <p className="mt-2 text-sm text-gray-500">

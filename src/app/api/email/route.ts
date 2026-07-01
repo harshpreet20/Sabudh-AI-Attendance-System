@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { getResend, leaveStatusEmailHtml, attendanceAlertEmailHtml, weeklyDigestEmailHtml, announcementEmailHtml } from '@/lib/resend'
+import { getResend, leaveStatusEmailHtml, attendanceAlertEmailHtml, weeklyDigestEmailHtml, announcementEmailHtml, approvalNotificationEmailHtml } from '@/lib/resend'
 
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'Sabudh Foundation <noreply@sabudh.org>'
 
@@ -70,6 +70,22 @@ export async function POST(req: NextRequest) {
         to: studentEmail,
         subject: `${priority === 'urgent' ? '[URGENT] ' : ''}${title}`,
         html: announcementEmailHtml({ studentName, title, content, priority, dashboardUrl }),
+      })
+      return NextResponse.json({ success: true })
+    }
+
+    if (type === 'approval_notification') {
+      const { studentEmail, studentName, status, batchName } = body
+      const loginUrl = process.env.NEXT_PUBLIC_APP_URL
+        ? `${process.env.NEXT_PUBLIC_APP_URL}/login`
+        : 'https://attendanceai.harshpreetbhasin.com/login'
+      await resend.emails.send({
+        from: FROM_EMAIL,
+        to: studentEmail,
+        subject: status === 'approved'
+          ? 'Your Sabudh AI Account Has Been Approved!'
+          : 'Sabudh AI Account Registration Update',
+        html: approvalNotificationEmailHtml({ studentName, status, loginUrl, batchName }),
       })
       return NextResponse.json({ success: true })
     }

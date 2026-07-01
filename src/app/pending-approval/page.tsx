@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Shield, Clock, LogOut } from 'lucide-react'
+import { Clock, LogOut } from 'lucide-react'
 import Link from 'next/link'
+import { LogoWithText } from '@/components/ui/logo'
 
 export default function PendingApprovalPage() {
   const router = useRouter()
@@ -74,11 +75,8 @@ export default function PendingApprovalPage() {
   return (
     <div className="flex min-h-screen items-center justify-center spatial-bg-rich px-4">
       <div className="w-full max-w-md text-center">
-        <Link href="/" className="inline-flex items-center gap-2.5">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-500/90 shadow-lg shadow-indigo-500/20">
-            <Shield className="h-6 w-6 text-white" />
-          </div>
-          <span className="text-2xl font-bold text-gray-900">Sabudh AI</span>
+        <Link href="/">
+          <LogoWithText />
         </Link>
 
         <div className="mt-8 glass rounded-2xl p-8 shadow-spatial">

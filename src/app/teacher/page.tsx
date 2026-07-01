@@ -283,7 +283,7 @@ export default function TeacherDashboardPage() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {statCards.map((card) => (
-          <Card key={card.label}>
+          <Card key={card.label} className="h-full">
             <CardContent className="flex items-center gap-4 p-5">
               <div className={`rounded-xl ${card.bg} p-3 backdrop-blur-sm`}>
                 <card.icon className={`h-6 w-6 ${card.color}`} />
@@ -356,7 +356,7 @@ export default function TeacherDashboardPage() {
                   {batchData.map((b, i) => (
                     <Badge key={b.name} variant="secondary" className="gap-1.5">
                       <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }} />
-                      {b.name} — {b.percentage}%
+                      {b.name}  - {b.percentage}%
                     </Badge>
                   ))}
                 </div>

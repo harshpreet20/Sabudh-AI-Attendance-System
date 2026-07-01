@@ -14,10 +14,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Sabudh AI Attendance System",
+  title: "Sabudh AI  - Post-Lecture Engagement Platform | Sabudh Foundation",
   description:
-    "AI-powered attendance verification and student management platform",
-  icons: { icon: "/favicon.ico" },
+    "Sabudh Foundation's AI-powered post-lecture engagement platform  - attendance verification, discussions, assignments, projects, and certificate management for the GEN AI Course.",
+  icons: { icon: "/sabudh-logo.png" },
 };
 
 export default function RootLayout({

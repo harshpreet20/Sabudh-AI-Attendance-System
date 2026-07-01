@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
+import { Logo } from '@/components/ui/logo'
 import { Avatar } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { createClient } from '@/lib/supabase/client'
@@ -20,7 +21,6 @@ import {
   Building2,
   BarChart3,
   FileText,
-  Shield,
   LogOut,
   Menu,
   X,
@@ -54,6 +54,7 @@ const studentNavItems: NavItem[] = [
   { label: 'Schedules', icon: Calendar, href: '/dashboard/schedules' },
   { label: 'Leave', icon: CalendarOff, href: '/dashboard/leave' },
   { label: 'Discussions', icon: MessageSquare, href: '/dashboard/discussions' },
+  { label: 'Messages', icon: MessageSquare, href: '/dashboard/messages' },
   { label: 'Announcements', icon: Megaphone, href: '/dashboard/announcements' },
   { label: 'My Journey', icon: MapPin, href: '/dashboard/journey' },
   { label: 'Certificate', icon: Award, href: '/dashboard/certificate' },
@@ -71,6 +72,7 @@ const teacherNavItems: NavItem[] = [
   { label: 'Progress', icon: TrendingUp, href: '/teacher/progress' },
   { label: 'Schedules', icon: Calendar, href: '/teacher/schedules' },
   { label: 'Discussions', icon: MessageSquare, href: '/teacher/discussions' },
+  { label: 'Messages', icon: MessageSquare, href: '/teacher/messages' },
   { label: 'Announcements', icon: Megaphone, href: '/teacher/announcements' },
   { label: 'Leave Requests', icon: CalendarOff, href: '/teacher/leave' },
   { label: 'Profile', icon: User, href: '/teacher/profile' },
@@ -139,9 +141,7 @@ export function Sidebar({
     <div className="flex h-full flex-col">
       {/* Logo */}
       <div className="flex h-16 items-center gap-2.5 px-6">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-500/90 shadow-lg shadow-indigo-500/20">
-          <Shield className="h-5 w-5 text-white" />
-        </div>
+        <Logo size="sm" />
         <span className="text-lg font-bold text-gray-900">Sabudh AI</span>
       </div>
 

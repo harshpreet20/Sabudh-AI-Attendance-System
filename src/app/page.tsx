@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Footer } from "@/components/layout/footer";
+import { Logo } from "@/components/ui/logo";
 import {
   Shield,
   Users,
@@ -25,9 +26,7 @@ export default function HomePage() {
       <header className="glass-strong sticky top-0 z-30">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-500/90 shadow-lg shadow-indigo-500/20">
-              <Shield className="h-5 w-5 text-white" />
-            </div>
+            <Logo size="sm" />
             <div>
               <span className="text-xl font-bold text-gray-900">Sabudh AI</span>
               <span className="ml-1.5 hidden text-xs font-medium text-gray-400 sm:inline">by Sabudh Foundation</span>
@@ -65,7 +64,7 @@ export default function HomePage() {
                 Platform
               </h1>
               <p className="mt-6 text-lg leading-8 text-gray-500">
-                More than attendance — a collaborative ecosystem where students and teachers
+                More than attendance  - a collaborative ecosystem where students and teachers
                 connect beyond the classroom. Track attendance with AI verification, collaborate
                 through discussions, manage assignments and projects, all in one place.
               </p>
