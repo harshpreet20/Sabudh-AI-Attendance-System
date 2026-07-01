@@ -29,12 +29,14 @@ export default async function DashboardLayout({
   const userName = profile?.full_name || user.user_metadata?.full_name || 'Student'
   const userEmail = profile?.email || user.email || ''
   const avatarUrl = profile?.profile_image_url || null
+  const profileComplete = !!profile?.profile_image_url
 
   return (
     <StudentShellWrapper
       userName={userName}
       userEmail={userEmail}
       avatarUrl={avatarUrl}
+      profileComplete={profileComplete}
     >
       {children}
     </StudentShellWrapper>

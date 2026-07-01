@@ -34,13 +34,23 @@ export async function GET(request: Request) {
             .single()
 
           if (!existingStudent) {
-            const fullName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'New User'
+            const meta = user.user_metadata || {}
+            const fullName = meta.full_name || user.email?.split('@')[0] || 'New User'
 
             await supabase.from('student_profiles').insert({
               auth_user_id: user.id,
               organization_id: ORG_ID,
               full_name: fullName,
               email: user.email || '',
+              phone: meta.phone || null,
+              date_of_birth: meta.date_of_birth || null,
+              gender: meta.gender || null,
+              qualification: meta.qualification || null,
+              profession: meta.profession || null,
+              organization_name: meta.organization_name || null,
+              city: meta.city || null,
+              emergency_contact: meta.emergency_contact || null,
+              learning_goal: meta.learning_goal || null,
               status: 'pending',
               preferred_language: 'en',
               attendance_percentage: 0,

@@ -62,7 +62,16 @@ export default function RegisterPage() {
   }
 
   function canProceedStep2() {
-    return formData.profession.trim() && formData.city.trim();
+    return (
+      formData.date_of_birth.trim() &&
+      formData.gender.trim() &&
+      formData.qualification.trim() &&
+      formData.profession.trim() &&
+      formData.organization_name.trim() &&
+      formData.city.trim() &&
+      formData.emergency_contact.trim() &&
+      formData.learning_goal.trim()
+    );
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -79,6 +88,14 @@ export default function RegisterPage() {
           data: {
             full_name: formData.full_name,
             phone: formData.phone,
+            date_of_birth: formData.date_of_birth,
+            gender: formData.gender,
+            qualification: formData.qualification,
+            profession: formData.profession,
+            organization_name: formData.organization_name,
+            city: formData.city,
+            emergency_contact: formData.emergency_contact,
+            learning_goal: formData.learning_goal,
           },
           emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
@@ -111,7 +128,7 @@ export default function RegisterPage() {
           </Link>
           <h1 className="mt-8 text-2xl font-bold text-gray-900">Create your account</h1>
           <p className="mt-2 text-sm text-gray-500">
-            Step {step} of 3 — {step === 1 ? "Account" : step === 2 ? "Personal Info" : "Review"}
+            Step {step} of 3 - {step === 1 ? "Account" : step === 2 ? "Personal Info" : "Review"}
           </p>
         </div>
 
@@ -248,24 +265,26 @@ export default function RegisterPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label htmlFor="dob" className="block text-sm font-medium text-gray-700 mb-1.5">
-                      Date of Birth
+                      Date of Birth *
                     </label>
                     <input
                       id="dob"
                       type="date"
                       value={formData.date_of_birth}
                       onChange={(e) => updateField("date_of_birth", e.target.value)}
+                      required
                       className="w-full rounded-xl px-3 py-2.5 text-sm glass-input"
                     />
                   </div>
                   <div>
                     <label htmlFor="gender" className="block text-sm font-medium text-gray-700 mb-1.5">
-                      Gender
+                      Gender *
                     </label>
                     <select
                       id="gender"
                       value={formData.gender}
                       onChange={(e) => updateField("gender", e.target.value)}
+                      required
                       className="w-full rounded-xl px-3 py-2.5 text-sm glass-input appearance-none"
                     >
                       <option value="">Select</option>
@@ -285,32 +304,35 @@ export default function RegisterPage() {
                     type="text"
                     value={formData.profession}
                     onChange={(e) => updateField("profession", e.target.value)}
+                    required
                     className="w-full rounded-xl px-3 py-2.5 text-sm glass-input"
                     placeholder="Software Engineer"
                   />
                 </div>
                 <div>
                   <label htmlFor="org" className="block text-sm font-medium text-gray-700 mb-1.5">
-                    Organization / College
+                    Organization / College *
                   </label>
                   <input
                     id="org"
                     type="text"
                     value={formData.organization_name}
                     onChange={(e) => updateField("organization_name", e.target.value)}
+                    required
                     className="w-full rounded-xl px-3 py-2.5 text-sm glass-input"
                     placeholder="Punjab Engineering College"
                   />
                 </div>
                 <div>
                   <label htmlFor="qualification" className="block text-sm font-medium text-gray-700 mb-1.5">
-                    Highest Qualification
+                    Highest Qualification *
                   </label>
                   <input
                     id="qualification"
                     type="text"
                     value={formData.qualification}
                     onChange={(e) => updateField("qualification", e.target.value)}
+                    required
                     className="w-full rounded-xl px-3 py-2.5 text-sm glass-input"
                     placeholder="B.Tech Computer Science"
                   />
@@ -325,19 +347,21 @@ export default function RegisterPage() {
                       type="text"
                       value={formData.city}
                       onChange={(e) => updateField("city", e.target.value)}
+                      required
                       className="w-full rounded-xl px-3 py-2.5 text-sm glass-input"
                       placeholder="Chandigarh"
                     />
                   </div>
                   <div>
                     <label htmlFor="emergency" className="block text-sm font-medium text-gray-700 mb-1.5">
-                      Emergency Contact
+                      Emergency Contact *
                     </label>
                     <input
                       id="emergency"
                       type="tel"
                       value={formData.emergency_contact}
                       onChange={(e) => updateField("emergency_contact", e.target.value)}
+                      required
                       className="w-full rounded-xl px-3 py-2.5 text-sm glass-input"
                       placeholder="+91 98765 43210"
                     />
@@ -345,13 +369,14 @@ export default function RegisterPage() {
                 </div>
                 <div>
                   <label htmlFor="goal" className="block text-sm font-medium text-gray-700 mb-1.5">
-                    Learning Goal
+                    Learning Goal *
                   </label>
                   <textarea
                     id="goal"
                     value={formData.learning_goal}
                     onChange={(e) => updateField("learning_goal", e.target.value)}
                     rows={3}
+                    required
                     className="w-full rounded-xl px-3 py-2.5 text-sm glass-input resize-none"
                     placeholder="I want to learn AI and machine learning..."
                   />
@@ -384,9 +409,13 @@ export default function RegisterPage() {
                     ["Name", formData.full_name],
                     ["Email", formData.email],
                     ["Phone", formData.phone],
+                    ["Date of Birth", formData.date_of_birth],
+                    ["Gender", formData.gender],
+                    ["Qualification", formData.qualification],
                     ["Profession", formData.profession],
                     ["Organization", formData.organization_name],
                     ["City", formData.city],
+                    ["Emergency Contact", formData.emergency_contact],
                     ["Learning Goal", formData.learning_goal],
                   ]
                     .filter(([, v]) => v)
