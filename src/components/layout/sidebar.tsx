@@ -32,6 +32,7 @@ import {
   ShieldCheck,
   FolderKanban,
   TrendingUp,
+  UserPlus,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -72,6 +73,7 @@ const teacherNavItems: NavItem[] = [
 const adminNavItems: NavItem[] = [
   { label: 'Dashboard', icon: LayoutDashboard, href: '/admin' },
   { label: 'Approvals', icon: ShieldCheck, href: '/admin/approvals' },
+  { label: 'Manage Users', icon: UserPlus, href: '/admin/users' },
   { label: 'Students', icon: Users, href: '/admin/students' },
   { label: 'Sessions', icon: Calendar, href: '/admin/sessions' },
   { label: 'Classrooms', icon: Building2, href: '/admin/classrooms' },

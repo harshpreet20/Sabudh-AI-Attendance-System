@@ -16,6 +16,8 @@ interface SheetRow {
   full_name: string
   email: string
   phone?: string
+  alternate_phone?: string
+  date_of_birth?: string
   city?: string
   profession?: string
   qualification?: string
@@ -24,41 +26,104 @@ interface SheetRow {
   learning_goal?: string
 }
 
+function parseCSVLine(line: string): string[] {
+  const fields: string[] = []
+  let current = ''
+  let inQuotes = false
+
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i]
+    if (inQuotes) {
+      if (ch === '"' && line[i + 1] === '"') {
+        current += '"'
+        i++
+      } else if (ch === '"') {
+        inQuotes = false
+      } else {
+        current += ch
+      }
+    } else {
+      if (ch === '"') {
+        inQuotes = true
+      } else if (ch === ',') {
+        fields.push(current.trim())
+        current = ''
+      } else {
+        current += ch
+      }
+    }
+  }
+  fields.push(current.trim())
+  return fields
+}
+
+function normalizeHeader(h: string): string {
+  return h.toLowerCase().replace(/[^a-z0-9]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '')
+}
+
+function matchesAny(header: string, patterns: string[]): boolean {
+  return patterns.some(p => header.includes(p))
+}
+
 function parseCSV(csv: string): SheetRow[] {
   const lines = csv.split('\n').filter((l) => l.trim())
   if (lines.length < 2) return []
 
-  const headers = lines[0].split(',').map((h) => h.trim().toLowerCase().replace(/\s+/g, '_'))
+  const rawHeaders = parseCSVLine(lines[0])
+  const headers = rawHeaders.map(normalizeHeader)
 
-  const nameIdx = headers.findIndex((h) => h.includes('name'))
-  const emailIdx = headers.findIndex((h) => h.includes('email'))
-  const phoneIdx = headers.findIndex((h) => h.includes('phone') || h.includes('mobile'))
-  const cityIdx = headers.findIndex((h) => h.includes('city'))
-  const profIdx = headers.findIndex((h) => h.includes('profession') || h.includes('occupation'))
-  const qualIdx = headers.findIndex((h) => h.includes('qualification') || h.includes('education'))
-  const orgIdx = headers.findIndex((h) => h.includes('organization') || h.includes('company'))
-  const genderIdx = headers.findIndex((h) => h.includes('gender'))
-  const goalIdx = headers.findIndex((h) => h.includes('goal') || h.includes('interest'))
+  const nameIdx = headers.findIndex((h) => matchesAny(h, ['full_name', 'name']))
+  const emailIdx = headers.findIndex((h) => matchesAny(h, ['email']))
+  const phoneIdx = headers.findIndex((h) =>
+    matchesAny(h, ['phone_number', 'phone', 'mobile']) && !h.includes('alternate')
+  )
+  const altPhoneIdx = headers.findIndex((h) => matchesAny(h, ['alternate_phone']))
+  const dobIdx = headers.findIndex((h) => matchesAny(h, ['date_of_birth', 'dob', 'birth']))
+  const cityIdx = headers.findIndex((h) => matchesAny(h, ['city']))
+  const profIdx = headers.findIndex((h) =>
+    matchesAny(h, ['profession', 'occupation', 'professional_experience', 'what_s_your_professional'])
+  )
+  const qualIdx = headers.findIndex((h) =>
+    matchesAny(h, ['qualification', 'education', 'grade_year_level', 'grade'])
+  )
+  const orgIdx = headers.findIndex((h) => matchesAny(h, ['organization', 'company', 'college']))
+  const genderIdx = headers.findIndex((h) => matchesAny(h, ['gender']))
+  const goalIdx = headers.findIndex((h) =>
+    matchesAny(h, ['goal', 'interest', 'prior_programming', 'ai_experience'])
+  )
 
   if (nameIdx === -1 || emailIdx === -1) return []
 
   const rows: SheetRow[] = []
   for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split(',').map((c) => c.trim().replace(/^"|"$/g, ''))
-    const email = cols[emailIdx]?.toLowerCase()
-    const name = cols[nameIdx]
+    const cols = parseCSVLine(lines[i])
+    const email = cols[emailIdx]?.toLowerCase().replace(/^"|"$/g, '')
+    const name = cols[nameIdx]?.replace(/^"|"$/g, '')
     if (!email || !name) continue
+
+    let dob: string | undefined
+    if (dobIdx >= 0 && cols[dobIdx]) {
+      const raw = cols[dobIdx].replace(/^"|"$/g, '')
+      const ddmmyyyy = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+      if (ddmmyyyy) {
+        dob = `${ddmmyyyy[3]}-${ddmmyyyy[2].padStart(2, '0')}-${ddmmyyyy[1].padStart(2, '0')}`
+      } else {
+        dob = raw
+      }
+    }
 
     rows.push({
       full_name: name,
       email,
-      phone: phoneIdx >= 0 ? cols[phoneIdx] || undefined : undefined,
-      city: cityIdx >= 0 ? cols[cityIdx] || undefined : undefined,
-      profession: profIdx >= 0 ? cols[profIdx] || undefined : undefined,
-      qualification: qualIdx >= 0 ? cols[qualIdx] || undefined : undefined,
-      organization_name: orgIdx >= 0 ? cols[orgIdx] || undefined : undefined,
-      gender: genderIdx >= 0 ? cols[genderIdx]?.toLowerCase() || undefined : undefined,
-      learning_goal: goalIdx >= 0 ? cols[goalIdx] || undefined : undefined,
+      phone: phoneIdx >= 0 ? cols[phoneIdx]?.replace(/^"|"$/g, '') || undefined : undefined,
+      alternate_phone: altPhoneIdx >= 0 ? cols[altPhoneIdx]?.replace(/^"|"$/g, '') || undefined : undefined,
+      date_of_birth: dob,
+      city: cityIdx >= 0 ? cols[cityIdx]?.replace(/^"|"$/g, '') || undefined : undefined,
+      profession: profIdx >= 0 ? cols[profIdx]?.replace(/^"|"$/g, '') || undefined : undefined,
+      qualification: qualIdx >= 0 ? cols[qualIdx]?.replace(/^"|"$/g, '') || undefined : undefined,
+      organization_name: orgIdx >= 0 ? cols[orgIdx]?.replace(/^"|"$/g, '') || undefined : undefined,
+      gender: genderIdx >= 0 ? cols[genderIdx]?.replace(/^"|"$/g, '').toLowerCase() || undefined : undefined,
+      learning_goal: goalIdx >= 0 ? cols[goalIdx]?.replace(/^"|"$/g, '') || undefined : undefined,
     })
   }
   return rows
@@ -68,32 +133,36 @@ export async function POST(request: NextRequest) {
   try {
     await requireAdmin()
 
-    const { sheetUrl, batchId } = await request.json()
+    const { sheetUrl, csvText, batchId } = await request.json()
 
-    if (!sheetUrl) {
-      return NextResponse.json({ error: 'Sheet URL is required' }, { status: 400 })
+    let csvData: string
+
+    if (csvText) {
+      csvData = csvText
+    } else if (sheetUrl) {
+      const csvUrl = sheetUrl.includes('/pub?')
+        ? sheetUrl
+        : sheetUrl
+            .replace(/\/edit.*$/, '')
+            .replace(/\/view.*$/, '') + '/export?format=csv'
+
+      const csvResponse = await fetch(csvUrl)
+      if (!csvResponse.ok) {
+        return NextResponse.json(
+          { error: 'Failed to fetch Google Sheet. Make sure it is published to the web (File > Share > Publish to web > CSV).' },
+          { status: 400 }
+        )
+      }
+      csvData = await csvResponse.text()
+    } else {
+      return NextResponse.json({ error: 'Provide sheetUrl or csvText' }, { status: 400 })
     }
 
-    const csvUrl = sheetUrl.includes('/pub?')
-      ? sheetUrl
-      : sheetUrl
-          .replace(/\/edit.*$/, '')
-          .replace(/\/view.*$/, '') + '/export?format=csv'
-
-    const csvResponse = await fetch(csvUrl)
-    if (!csvResponse.ok) {
-      return NextResponse.json(
-        { error: 'Failed to fetch Google Sheet. Make sure it is published to the web (File → Share → Publish to web → CSV).' },
-        { status: 400 }
-      )
-    }
-
-    const csvText = await csvResponse.text()
-    const rows = parseCSV(csvText)
+    const rows = parseCSV(csvData)
 
     if (rows.length === 0) {
       return NextResponse.json(
-        { error: 'No valid rows found. Sheet must have "Name" and "Email" columns.' },
+        { error: 'No valid rows found. The file must have "Name" and "Email" columns.' },
         { status: 400 }
       )
     }
@@ -102,7 +171,7 @@ export async function POST(request: NextRequest) {
       auth: { autoRefreshToken: false, persistSession: false },
     })
 
-    const results: Array<{ email: string; status: 'created' | 'exists' | 'error'; error?: string }> = []
+    const results: Array<{ email: string; name: string; status: 'created' | 'exists' | 'error'; error?: string }> = []
     const loginUrl = process.env.NEXT_PUBLIC_APP_URL
       ? `${process.env.NEXT_PUBLIC_APP_URL}/login`
       : 'https://sabudh-ai-attendance-system.vercel.app/login'
@@ -116,7 +185,7 @@ export async function POST(request: NextRequest) {
           .maybeSingle()
 
         if (existingProfile) {
-          results.push({ email: row.email, status: 'exists' })
+          results.push({ email: row.email, name: row.full_name, status: 'exists' })
           continue
         }
 
@@ -126,11 +195,21 @@ export async function POST(request: NextRequest) {
           email: row.email,
           password,
           email_confirm: true,
-          user_metadata: { full_name: row.full_name },
+          user_metadata: {
+            full_name: row.full_name,
+            phone: row.phone,
+            date_of_birth: row.date_of_birth,
+            qualification: row.qualification,
+            profession: row.profession,
+            city: row.city,
+            organization_name: row.organization_name,
+            gender: row.gender,
+            learning_goal: row.learning_goal,
+          },
         })
 
         if (authError || !authData.user) {
-          results.push({ email: row.email, status: 'error', error: authError?.message || 'Auth creation failed' })
+          results.push({ email: row.email, name: row.full_name, status: 'error', error: authError?.message || 'Auth creation failed' })
           continue
         }
 
@@ -147,12 +226,14 @@ export async function POST(request: NextRequest) {
           full_name: row.full_name,
           email: row.email,
           phone: row.phone || null,
+          date_of_birth: row.date_of_birth || null,
           city: row.city || null,
           profession: row.profession || null,
           qualification: row.qualification || null,
           organization_name: row.organization_name || null,
           gender: row.gender || null,
           learning_goal: row.learning_goal || null,
+          emergency_contact: row.alternate_phone || null,
           status: 'active',
         })
 
@@ -161,7 +242,7 @@ export async function POST(request: NextRequest) {
             await resend.emails.send({
               from: process.env.RESEND_FROM_EMAIL || 'Sabudh Foundation <noreply@sabudh.org>',
               to: row.email,
-              subject: `🙏 Welcome to ${COURSE_NAME} - Your Credentials Inside`,
+              subject: `Welcome to ${COURSE_NAME} - Your Credentials Inside`,
               html: welcomeEmailHtml({
                 studentName: row.full_name,
                 email: row.email,
@@ -176,10 +257,11 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        results.push({ email: row.email, status: 'created' })
+        results.push({ email: row.email, name: row.full_name, status: 'created' })
       } catch (err) {
         results.push({
           email: row.email,
+          name: row.full_name,
           status: 'error',
           error: err instanceof Error ? err.message : 'Unknown error',
         })

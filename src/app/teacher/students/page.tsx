@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
@@ -20,6 +20,9 @@ import {
   UserCheck,
   UserX,
   Clock,
+  UserPlus,
+  Ban,
+  UserMinus,
 } from 'lucide-react'
 import type { StudentProfile, Batch } from '@/types/database'
 
@@ -39,9 +42,17 @@ export default function TeacherStudentsPage() {
   const [tab, setTab] = useState<'active' | 'pending'>('active')
   const [processing, setProcessing] = useState<string | null>(null)
 
-  // Assign batch dialog for approving pending students
   const [approveDialog, setApproveDialog] = useState<StudentProfile | null>(null)
   const [assignBatch, setAssignBatch] = useState('')
+
+  const [banDialog, setBanDialog] = useState<StudentProfile | null>(null)
+  const [removeDialog, setRemoveDialog] = useState<StudentProfile | null>(null)
+
+  const [addDialog, setAddDialog] = useState(false)
+  const [addName, setAddName] = useState('')
+  const [addEmail, setAddEmail] = useState('')
+  const [addPhone, setAddPhone] = useState('')
+  const [addLoading, setAddLoading] = useState(false)
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -58,7 +69,6 @@ export default function TeacherStudentsPage() {
     setBatches((myBatches as Batch[]) ?? [])
     const batchIds = myBatches?.map(b => b.id) ?? []
 
-    // Fetch pending students (no batch assigned yet, or in teacher's batches)
     const { data: pending } = await supabase
       .from('student_profiles')
       .select('*')
@@ -143,13 +153,101 @@ export default function TeacherStudentsPage() {
     setProcessing(null)
   }
 
+  async function handleBan() {
+    if (!banDialog) return
+    setProcessing(banDialog.id)
+
+    const { error } = await supabase
+      .from('student_profiles')
+      .update({ status: 'suspended' })
+      .eq('id', banDialog.id)
+
+    if (error) {
+      toast.error('Failed to ban student')
+    } else {
+      toast.success(`${banDialog.full_name} has been banned`)
+      setStudents(prev => prev.filter(s => s.id !== banDialog.id))
+      setTotal(prev => prev - 1)
+    }
+
+    setProcessing(null)
+    setBanDialog(null)
+  }
+
+  async function handleRemove() {
+    if (!removeDialog) return
+    setProcessing(removeDialog.id)
+
+    const { error } = await supabase
+      .from('student_profiles')
+      .update({ batch_id: null })
+      .eq('id', removeDialog.id)
+
+    if (error) {
+      toast.error('Failed to remove student from batch')
+    } else {
+      toast.success(`${removeDialog.full_name} removed from batch`)
+      setStudents(prev => prev.filter(s => s.id !== removeDialog.id))
+      setTotal(prev => prev - 1)
+    }
+
+    setProcessing(null)
+    setRemoveDialog(null)
+  }
+
+  async function handleAddStudent(e: React.FormEvent) {
+    e.preventDefault()
+    if (!addName.trim() || !addEmail.trim()) {
+      toast.error('Name and email are required')
+      return
+    }
+
+    setAddLoading(true)
+
+    try {
+      const res = await fetch('/api/teacher/add-student', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          full_name: addName.trim(),
+          email: addEmail.trim(),
+          phone: addPhone.trim() || null,
+        }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        toast.error(data.error || 'Failed to add student')
+        return
+      }
+
+      toast.success('Student added. They will appear in Pending after email confirmation.')
+      setAddDialog(false)
+      setAddName('')
+      setAddEmail('')
+      setAddPhone('')
+      fetchData()
+    } catch {
+      toast.error('Failed to add student')
+    } finally {
+      setAddLoading(false)
+    }
+  }
+
   const totalPages = Math.ceil(total / PAGE_SIZE)
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Students</h1>
-        <p className="mt-1 text-sm text-gray-500">View and manage student profiles</p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Students</h1>
+          <p className="mt-1 text-sm text-gray-500">View and manage student profiles</p>
+        </div>
+        <Button onClick={() => setAddDialog(true)} size="sm">
+          <UserPlus className="mr-1 h-4 w-4" />
+          Add Student
+        </Button>
       </div>
 
       {/* Tabs */}
@@ -259,6 +357,27 @@ export default function TeacherStudentsPage() {
                                 <span className="font-medium text-gray-900 text-right max-w-[60%] truncate">{value}</span>
                               </div>
                             ))}
+
+                          <div className="flex gap-2 pt-3 border-t border-white/20">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="flex-1"
+                              onClick={(e) => { e.stopPropagation(); setRemoveDialog(student) }}
+                            >
+                              <UserMinus className="mr-1 h-3.5 w-3.5" />
+                              Remove
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              className="flex-1"
+                              onClick={(e) => { e.stopPropagation(); setBanDialog(student) }}
+                            >
+                              <Ban className="mr-1 h-3.5 w-3.5" />
+                              Ban
+                            </Button>
+                          </div>
                         </div>
                       )}
                     </CardContent>
@@ -269,7 +388,7 @@ export default function TeacherStudentsPage() {
               {totalPages > 1 && (
                 <div className="flex items-center justify-between">
                   <p className="text-sm text-gray-500">
-                    Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, total)} of {total}
+                    Showing {page * PAGE_SIZE + 1}-{Math.min((page + 1) * PAGE_SIZE, total)} of {total}
                   </p>
                   <div className="flex gap-2">
                     <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(p => p - 1)}>
@@ -371,6 +490,93 @@ export default function TeacherStudentsPage() {
             <option key={b.id} value={b.id}>{b.name}</option>
           ))}
         </Select>
+      </Dialog>
+
+      {/* Ban Confirmation Dialog */}
+      <Dialog
+        open={!!banDialog}
+        onClose={() => setBanDialog(null)}
+        title="Ban Student"
+        description={banDialog ? `Are you sure you want to ban ${banDialog.full_name}? They will not be able to access the platform until unbanned.` : ''}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setBanDialog(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleBan} loading={!!processing}>
+              <Ban className="h-4 w-4" />
+              Ban Student
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-gray-600">
+          This will suspend the student&apos;s account. They will not be able to mark attendance or access course materials.
+        </p>
+      </Dialog>
+
+      {/* Remove from Batch Dialog */}
+      <Dialog
+        open={!!removeDialog}
+        onClose={() => setRemoveDialog(null)}
+        title="Remove from Batch"
+        description={removeDialog ? `Remove ${removeDialog.full_name} from their current batch?` : ''}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setRemoveDialog(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleRemove} loading={!!processing}>
+              <UserMinus className="h-4 w-4" />
+              Remove
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-gray-600">
+          The student will be removed from their batch but their account will remain active. You can reassign them to a batch later.
+        </p>
+      </Dialog>
+
+      {/* Add Student Dialog */}
+      <Dialog
+        open={addDialog}
+        onClose={() => { setAddDialog(false); setAddName(''); setAddEmail(''); setAddPhone('') }}
+        title="Add Student"
+        description="Create a new student account. They will need teacher approval before accessing the platform."
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => { setAddDialog(false); setAddName(''); setAddEmail(''); setAddPhone('') }}>Cancel</Button>
+            <Button onClick={handleAddStudent} loading={addLoading} disabled={!addName.trim() || !addEmail.trim()}>
+              <UserPlus className="h-4 w-4" />
+              Add Student
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <Input
+            label="Full Name *"
+            placeholder="Rahul Sharma"
+            value={addName}
+            onChange={(e) => setAddName(e.target.value)}
+            required
+          />
+          <Input
+            label="Email *"
+            type="email"
+            placeholder="rahul@example.com"
+            value={addEmail}
+            onChange={(e) => setAddEmail(e.target.value)}
+            required
+          />
+          <Input
+            label="Phone"
+            type="tel"
+            placeholder="+91 98765 43210"
+            value={addPhone}
+            onChange={(e) => setAddPhone(e.target.value)}
+          />
+          <p className="text-xs text-gray-500">
+            A password will be auto-generated and sent via email. The student will be in pending status until approved.
+          </p>
+        </div>
       </Dialog>
     </div>
   )
