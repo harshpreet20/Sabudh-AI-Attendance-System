@@ -33,6 +33,7 @@ import {
   FolderKanban,
   TrendingUp,
   UserPlus,
+  MessageSquare,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -50,6 +51,7 @@ const studentNavItems: NavItem[] = [
   { label: 'History', icon: History, href: '/dashboard/history' },
   { label: 'Schedules', icon: Calendar, href: '/dashboard/schedules' },
   { label: 'Leave', icon: CalendarOff, href: '/dashboard/leave' },
+  { label: 'Discussions', icon: MessageSquare, href: '/dashboard/discussions' },
   { label: 'Announcements', icon: Megaphone, href: '/dashboard/announcements' },
   { label: 'Certificate', icon: Award, href: '/dashboard/certificate' },
   { label: 'Notifications', icon: Bell, href: '/dashboard/notifications' },
@@ -65,6 +67,7 @@ const teacherNavItems: NavItem[] = [
   { label: 'Projects', icon: FolderKanban, href: '/teacher/projects' },
   { label: 'Progress', icon: TrendingUp, href: '/teacher/progress' },
   { label: 'Schedules', icon: Calendar, href: '/teacher/schedules' },
+  { label: 'Discussions', icon: MessageSquare, href: '/teacher/discussions' },
   { label: 'Announcements', icon: Megaphone, href: '/teacher/announcements' },
   { label: 'Leave Requests', icon: CalendarOff, href: '/teacher/leave' },
   { label: 'Profile', icon: User, href: '/teacher/profile' },

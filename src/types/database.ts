@@ -443,3 +443,41 @@ export interface SystemSetting {
   created_at: string;
   updated_at: string;
 }
+
+export interface DiscussionThread {
+  id: string
+  batch_id: string | null
+  session_id: string | null
+  author_id: string
+  author_role: 'student' | 'instructor' | 'admin'
+  title: string
+  content: string
+  pinned: boolean
+  locked: boolean
+  upvote_count: number
+  reply_count: number
+  last_activity_at: string
+  created_at: string
+  updated_at: string
+}
+
+export interface DiscussionReply {
+  id: string
+  thread_id: string
+  parent_reply_id: string | null
+  author_id: string
+  author_role: 'student' | 'instructor' | 'admin'
+  content: string
+  upvote_count: number
+  is_answer: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface DiscussionUpvote {
+  id: string
+  user_id: string
+  thread_id: string | null
+  reply_id: string | null
+  created_at: string
+}
