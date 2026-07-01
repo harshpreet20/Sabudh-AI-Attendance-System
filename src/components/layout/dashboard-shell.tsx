@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Sidebar } from './sidebar'
 import { Header } from './header'
 import { Footer } from './footer'
+import { MobileNav } from './mobile-nav'
 
 interface DashboardShellProps {
   children: React.ReactNode
@@ -26,13 +27,17 @@ const pageTitles: Record<string, string> = {
   '/dashboard/leave': 'Leave Applications',
   '/dashboard/announcements': 'Announcements',
   '/dashboard/schedules': 'Schedules',
+  '/dashboard/assignments': 'Assignments',
+  '/dashboard/projects': 'Projects',
   '/teacher': 'Teacher Dashboard',
   '/teacher/students': 'Students',
   '/teacher/attendance': 'Attendance',
   '/teacher/schedules': 'Schedules',
   '/teacher/announcements': 'Announcements',
   '/teacher/leave': 'Leave Requests',
-  '/teacher/reports': 'Reports',
+  '/teacher/assignments': 'Assignments',
+  '/teacher/projects': 'Projects',
+  '/teacher/progress': 'Progress Reviews',
   '/teacher/profile': 'Profile',
   '/admin': 'Admin Dashboard',
   '/admin/approvals': 'Account Approvals',
@@ -101,9 +106,11 @@ export function DashboardShell({
           onMenuClick={() => setMobileOpen(true)}
         />
 
-        <main className="flex-1 p-4 lg:p-6">{children}</main>
-        <Footer />
+        <main className="flex-1 p-4 pb-20 lg:p-6 lg:pb-6">{children}</main>
+        <Footer className="hidden lg:block" />
       </div>
+
+      <MobileNav role={role} currentPath={currentPath} />
     </div>
   )
 }

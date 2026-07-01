@@ -30,6 +30,8 @@ import {
   GraduationCap,
   CalendarOff,
   ShieldCheck,
+  FolderKanban,
+  TrendingUp,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -42,6 +44,8 @@ interface NavItem {
 const studentNavItems: NavItem[] = [
   { label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
   { label: 'Attendance', icon: CheckSquare, href: '/dashboard/attendance' },
+  { label: 'Assignments', icon: ClipboardList, href: '/dashboard/assignments' },
+  { label: 'Projects', icon: FolderKanban, href: '/dashboard/projects' },
   { label: 'History', icon: History, href: '/dashboard/history' },
   { label: 'Schedules', icon: Calendar, href: '/dashboard/schedules' },
   { label: 'Leave', icon: CalendarOff, href: '/dashboard/leave' },
@@ -56,10 +60,12 @@ const teacherNavItems: NavItem[] = [
   { label: 'Dashboard', icon: LayoutDashboard, href: '/teacher' },
   { label: 'Students', icon: GraduationCap, href: '/teacher/students' },
   { label: 'Attendance', icon: CheckSquare, href: '/teacher/attendance' },
+  { label: 'Assignments', icon: ClipboardList, href: '/teacher/assignments' },
+  { label: 'Projects', icon: FolderKanban, href: '/teacher/projects' },
+  { label: 'Progress', icon: TrendingUp, href: '/teacher/progress' },
   { label: 'Schedules', icon: Calendar, href: '/teacher/schedules' },
   { label: 'Announcements', icon: Megaphone, href: '/teacher/announcements' },
   { label: 'Leave Requests', icon: CalendarOff, href: '/teacher/leave' },
-  { label: 'Reports', icon: ClipboardList, href: '/teacher/reports' },
   { label: 'Profile', icon: User, href: '/teacher/profile' },
 ]
 

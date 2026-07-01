@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge'
 import { Dialog } from '@/components/ui/dialog'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Plus, Calendar, Pencil, Trash2 } from 'lucide-react'
+import { Plus, Calendar, Pencil, Trash2, Video, ExternalLink } from 'lucide-react'
 import type { ClassSchedule, Batch } from '@/types/database'
 
 const ORG_ID = 'a0000000-0000-0000-0000-000000000001'
@@ -61,6 +61,8 @@ export default function TeacherSchedulesPage() {
     start_time: '',
     end_time: '',
     location: '',
+    meeting_url: '',
+    meeting_provider: '',
   })
 
   const resetForm = () => {
@@ -73,6 +75,8 @@ export default function TeacherSchedulesPage() {
       start_time: '',
       end_time: '',
       location: '',
+      meeting_url: '',
+      meeting_provider: '',
     })
     setEditingId(null)
   }
@@ -130,6 +134,8 @@ export default function TeacherSchedulesPage() {
       start_time: form.start_time || null,
       end_time: form.end_time || null,
       location: form.location.trim() || null,
+      meeting_url: form.meeting_url.trim() || null,
+      meeting_provider: form.meeting_provider || null,
     }
 
     if (editingId) {
@@ -174,6 +180,8 @@ export default function TeacherSchedulesPage() {
       start_time: schedule.start_time ?? '',
       end_time: schedule.end_time ?? '',
       location: schedule.location ?? '',
+      meeting_url: schedule.meeting_url ?? '',
+      meeting_provider: schedule.meeting_provider ?? '',
     })
     setEditingId(schedule.id)
     setShowDialog(true)
@@ -241,6 +249,13 @@ export default function TeacherSchedulesPage() {
                     {schedule.start_time && <span>{schedule.start_time}{schedule.end_time ? ` — ${schedule.end_time}` : ''}</span>}
                     <span>{getBatchName(schedule.batch_id)}</span>
                     {schedule.location && <span>{schedule.location}</span>}
+                    {schedule.meeting_url && (
+                      <a href={schedule.meeting_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-500">
+                        <Video className="h-3.5 w-3.5" />
+                        {schedule.meeting_provider === 'google_meet' ? 'Google Meet' : schedule.meeting_provider === 'zoom' ? 'Zoom' : schedule.meeting_provider === 'teams' ? 'Teams' : 'Join Meeting'}
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    )}
                   </div>
                   {schedule.description && <p className="mt-1 text-sm text-gray-400 truncate">{schedule.description}</p>}
                 </div>
@@ -323,6 +338,24 @@ export default function TeacherSchedulesPage() {
             onChange={(e) => setForm(f => ({ ...f, location: e.target.value }))}
             placeholder="e.g., Room 101"
           />
+          <Select
+            label="Meeting Provider"
+            value={form.meeting_provider}
+            onChange={(e) => setForm(f => ({ ...f, meeting_provider: e.target.value }))}
+          >
+            <option value="">No online meeting</option>
+            <option value="google_meet">Google Meet</option>
+            <option value="zoom">Zoom</option>
+            <option value="teams">Microsoft Teams</option>
+          </Select>
+          {form.meeting_provider && (
+            <Input
+              label="Meeting URL"
+              value={form.meeting_url}
+              onChange={(e) => setForm(f => ({ ...f, meeting_url: e.target.value }))}
+              placeholder={form.meeting_provider === 'google_meet' ? 'https://meet.google.com/...' : form.meeting_provider === 'zoom' ? 'https://zoom.us/j/...' : 'https://teams.microsoft.com/...'}
+            />
+          )}
           <Button onClick={handleSave} disabled={saving} className="w-full">
             {saving ? 'Saving...' : editingId ? 'Update Schedule' : 'Create Schedule'}
           </Button>

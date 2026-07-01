@@ -146,3 +146,8 @@ body {
   background-size: 200% 100%;
   animation: glass-shimmer 2s ease-in-out infinite;
 }
+
+/* Safe area for mobile bottom nav */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}

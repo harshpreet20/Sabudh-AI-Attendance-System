@@ -316,6 +316,8 @@ export interface ClassSchedule {
   start_time: string | null
   end_time: string | null
   location: string | null
+  meeting_url: string | null
+  meeting_provider: string | null
   status: ScheduleStatus
   created_at: string
   updated_at: string
@@ -333,6 +335,86 @@ export interface LeaveRequest {
   reviewed_by: string | null
   reviewed_at: string | null
   reviewer_note: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type AssignmentStatus = 'draft' | 'active' | 'closed' | 'archived'
+export type SubmissionStatus = 'submitted' | 'graded' | 'returned' | 'resubmitted'
+export type ProjectStatus = 'draft' | 'active' | 'in_review' | 'completed' | 'archived'
+export type ProjectSubmissionStatus = 'submitted' | 'in_review' | 'graded' | 'returned' | 'resubmitted'
+
+export interface Assignment {
+  id: string
+  organization_id: string
+  batch_id: string
+  instructor_id: string
+  title: string
+  description: string | null
+  due_date: string
+  max_score: number
+  status: AssignmentStatus
+  created_at: string
+  updated_at: string
+}
+
+export interface AssignmentSubmission {
+  id: string
+  assignment_id: string
+  student_id: string
+  content: string | null
+  file_urls: string[]
+  score: number | null
+  feedback: string | null
+  status: SubmissionStatus
+  submitted_at: string
+  graded_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ProgressReview {
+  id: string
+  student_id: string
+  instructor_id: string
+  batch_id: string
+  rating: number
+  review: string
+  areas_of_improvement: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface Project {
+  id: string
+  organization_id: string
+  batch_id: string
+  instructor_id: string
+  title: string
+  description: string | null
+  objectives: string | null
+  requirements: string | null
+  resources: string | null
+  due_date: string | null
+  max_score: number
+  status: ProjectStatus
+  created_at: string
+  updated_at: string
+}
+
+export interface ProjectSubmission {
+  id: string
+  project_id: string
+  student_id: string
+  title: string | null
+  content: string | null
+  file_urls: string[]
+  demo_url: string | null
+  score: number | null
+  feedback: string | null
+  status: ProjectSubmissionStatus
+  submitted_at: string
+  graded_at: string | null
   created_at: string
   updated_at: string
 }

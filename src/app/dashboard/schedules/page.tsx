@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/ui/empty-state'
-import { Calendar } from 'lucide-react'
+import { Calendar, Video, ExternalLink } from 'lucide-react'
 import type { ClassSchedule } from '@/types/database'
 
 const TYPE_LABELS: Record<string, string> = {
@@ -116,6 +116,13 @@ export default function StudentSchedulesPage() {
                           </span>
                         )}
                         {schedule.location && <span>{schedule.location}</span>}
+                        {schedule.meeting_url && (
+                          <a href={schedule.meeting_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-500 font-medium">
+                            <Video className="h-3.5 w-3.5" />
+                            {schedule.meeting_provider === 'google_meet' ? 'Join Google Meet' : schedule.meeting_provider === 'zoom' ? 'Join Zoom' : schedule.meeting_provider === 'teams' ? 'Join Teams' : 'Join Meeting'}
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        )}
                       </div>
                       {schedule.description && (
                         <p className="mt-2 text-sm text-gray-400">{schedule.description}</p>
