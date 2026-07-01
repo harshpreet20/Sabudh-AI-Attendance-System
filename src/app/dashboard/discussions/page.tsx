@@ -36,6 +36,10 @@ import {
   CircleDot,
   CircleCheck,
   Image as ImageIcon,
+  Bold,
+  Italic,
+  Code,
+  Braces,
 } from 'lucide-react'
 import type { DiscussionThread, DiscussionReply, DiscussionTopic, DiscussionAttachment } from '@/types/database'
 
@@ -232,11 +236,48 @@ function FileUploadButton({ files, onChange, onRemove }: {
   )
 }
 
-function FormattingHint() {
+function FormattingToolbar({ textareaRef, value, setValue }: {
+  textareaRef: React.RefObject<HTMLTextAreaElement | null>
+  value: string
+  setValue: (v: string) => void
+}) {
+  function apply(format: 'bold' | 'italic' | 'code' | 'codeblock') {
+    const textarea = textareaRef.current
+    if (!textarea) return
+
+    const start = textarea.selectionStart
+    const end = textarea.selectionEnd
+    const selected = value.slice(start, end)
+
+    const markers = { bold: ['**', '**'], italic: ['*', '*'], code: ['`', '`'], codeblock: ['```\n', '\n```'] }
+    const [before, after] = markers[format]
+    const placeholder = format === 'codeblock' ? 'code' : 'text'
+    const insertion = selected || placeholder
+
+    const newValue = value.slice(0, start) + before + insertion + after + value.slice(end)
+    setValue(newValue)
+
+    requestAnimationFrame(() => {
+      textarea.focus()
+      textarea.setSelectionRange(start + before.length, start + before.length + insertion.length)
+    })
+  }
+
   return (
-    <p className="text-[10px] text-gray-400 mt-1">
-      **bold** *italic* `code` ```code block```
-    </p>
+    <div className="flex items-center gap-0.5">
+      <button type="button" onClick={() => apply('bold')} className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors" title="Bold (**text**)">
+        <Bold className="h-3.5 w-3.5" />
+      </button>
+      <button type="button" onClick={() => apply('italic')} className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors" title="Italic (*text*)">
+        <Italic className="h-3.5 w-3.5" />
+      </button>
+      <button type="button" onClick={() => apply('code')} className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors" title="Inline Code (`code`)">
+        <Code className="h-3.5 w-3.5" />
+      </button>
+      <button type="button" onClick={() => apply('codeblock')} className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors" title="Code Block (```code```)">
+        <Braces className="h-3.5 w-3.5" />
+      </button>
+    </div>
   )
 }
 
@@ -270,6 +311,7 @@ export default function StudentDiscussionsPage() {
   const [replying, setReplying] = useState(false)
   const [expandedReplies, setExpandedReplies] = useState<Set<string>>(new Set())
   const replyInputRef = useRef<HTMLTextAreaElement>(null)
+  const newContentRef = useRef<HTMLTextAreaElement>(null)
 
   const [threadAttachments, setThreadAttachments] = useState<Record<string, DiscussionAttachment[]>>({})
   const [replyAttachments, setReplyAttachments] = useState<Record<string, DiscussionAttachment[]>>({})
@@ -770,7 +812,7 @@ export default function StudentDiscussionsPage() {
                         onChange={setReplyFiles}
                         onRemove={(i) => setReplyFiles(prev => prev.filter((_, idx) => idx !== i))}
                       />
-                      <FormattingHint />
+                      <FormattingToolbar textareaRef={replyInputRef} value={replyContent} setValue={setReplyContent} />
                     </div>
                   </div>
                 </div>
@@ -1016,13 +1058,14 @@ export default function StudentDiscussionsPage() {
           )}
           <div>
             <Textarea
+              ref={newContentRef}
               label="Content"
               placeholder="Add details, context, or your question..."
               value={newContent}
               onChange={(e) => setNewContent(e.target.value)}
               rows={5}
             />
-            <FormattingHint />
+            <FormattingToolbar textareaRef={newContentRef} value={newContent} setValue={setNewContent} />
           </div>
           <FileUploadButton
             files={newFiles}

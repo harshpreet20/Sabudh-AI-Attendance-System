@@ -1,7 +1,6 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { Camera, Upload, Loader2, CheckCircle, AlertCircle } from 'lucide-react'
@@ -10,7 +9,6 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
 const ACCEPTED_TYPES = ['image/png', 'image/jpeg', 'image/webp']
 
 export default function CompleteProfilePage() {
-  const router = useRouter()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [file, setFile] = useState<File | null>(null)
@@ -94,8 +92,7 @@ export default function CompleteProfilePage() {
       setSuccess(true)
       toast.success('Profile photo uploaded successfully.')
       setTimeout(() => {
-        router.push('/dashboard')
-        router.refresh()
+        window.location.href = '/dashboard'
       }, 1200)
     } catch {
       setError('An unexpected error occurred. Please try again.')
