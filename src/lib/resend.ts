@@ -123,7 +123,7 @@ export function weeklyDigestEmailHtml(params: {
         <tr><td style="padding:40px 40px 20px;text-align:center;background:linear-gradient(180deg,rgba(139,92,246,0.15) 0%,transparent 100%);">
           <div style="font-size:48px;margin-bottom:8px;">📊</div>
           <h1 style="margin:0;color:#e2e8f0;font-size:24px;font-weight:700;">Weekly Attendance Report</h1>
-          <p style="margin:4px 0 0;color:#8b5cf6;font-size:13px;text-transform:uppercase;letter-spacing:3px;font-weight:600;">${params.weekStart} — ${params.weekEnd}</p>
+          <p style="margin:4px 0 0;color:#8b5cf6;font-size:13px;text-transform:uppercase;letter-spacing:3px;font-weight:600;">${params.weekStart} to ${params.weekEnd}</p>
         </td></tr>
         <tr><td style="padding:0 40px;"><div style="height:1px;background:linear-gradient(90deg,transparent,rgba(139,92,246,0.5),rgba(234,179,8,0.5),rgba(139,92,246,0.5),transparent);"></div></td></tr>
         <tr><td style="padding:30px 40px;">
@@ -145,6 +145,126 @@ export function weeklyDigestEmailHtml(params: {
         </td></tr>
         <tr><td style="padding:20px 40px 30px;text-align:center;">
           <p style="color:#64748b;font-size:12px;margin:0;">Sabudh Foundation &bull; GEN AI Course<br>GK Duggal Memorial Centre, Rajouri Garden, New Delhi</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`
+}
+
+export function signupConfirmationEmailHtml(params: {
+  confirmUrl: string
+}): string {
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background-color:#0a0a1a;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#0a0a1a;padding:40px 20px;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#0f1628 0%,#1a1a3e 50%,#0f1628 100%);border-radius:16px;overflow:hidden;border:1px solid rgba(139,92,246,0.3);">
+        <tr><td style="padding:40px 40px 20px;text-align:center;background:linear-gradient(180deg,rgba(139,92,246,0.15) 0%,transparent 100%);">
+          <div style="display:inline-block;width:56px;height:56px;line-height:56px;text-align:center;background:linear-gradient(135deg,#7c3aed,#6d28d9);border-radius:14px;font-size:28px;box-shadow:0 4px 15px rgba(124,58,237,0.4);">
+            <span style="color:#ffffff;">S</span>
+          </div>
+          <h1 style="margin:16px 0 0;color:#e2e8f0;font-size:22px;font-weight:700;">Confirm Your Email</h1>
+          <p style="margin:4px 0 0;color:#8b5cf6;font-size:12px;text-transform:uppercase;letter-spacing:3px;font-weight:600;">Sabudh AI</p>
+        </td></tr>
+        <tr><td style="padding:0 40px;"><div style="height:1px;background:linear-gradient(90deg,transparent,rgba(139,92,246,0.5),rgba(234,179,8,0.5),rgba(139,92,246,0.5),transparent);"></div></td></tr>
+        <tr><td style="padding:30px 40px;">
+          <p style="color:#f1f5f9;font-size:15px;line-height:1.7;margin:0;">
+            Thank you for signing up. Please confirm your email address by clicking the button below.
+          </p>
+          <div style="text-align:center;margin:28px 0;">
+            <a href="${params.confirmUrl}" style="display:inline-block;background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#ffffff;text-decoration:none;padding:14px 40px;border-radius:10px;font-size:15px;font-weight:600;letter-spacing:0.3px;box-shadow:0 4px 15px rgba(124,58,237,0.4);">
+              Confirm Email Address
+            </a>
+          </div>
+          <p style="color:#94a3b8;font-size:13px;line-height:1.6;margin:0;">
+            If you did not create an account, you can safely ignore this email. This link will expire in 24 hours.
+          </p>
+        </td></tr>
+        <tr><td style="padding:0 40px;"><div style="height:1px;background:linear-gradient(90deg,transparent,rgba(139,92,246,0.2),transparent);"></div></td></tr>
+        <tr><td style="padding:20px 40px 30px;text-align:center;">
+          <p style="color:#64748b;font-size:11px;margin:0;line-height:1.5;">Sabudh Foundation<br>GK Duggal Memorial Centre, Rajouri Garden, New Delhi</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`
+}
+
+export function passwordResetEmailHtml(params: {
+  resetUrl: string
+}): string {
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background-color:#0a0a1a;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#0a0a1a;padding:40px 20px;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#0f1628 0%,#1a1a3e 50%,#0f1628 100%);border-radius:16px;overflow:hidden;border:1px solid rgba(139,92,246,0.3);">
+        <tr><td style="padding:40px 40px 20px;text-align:center;background:linear-gradient(180deg,rgba(139,92,246,0.15) 0%,transparent 100%);">
+          <div style="display:inline-block;width:56px;height:56px;line-height:56px;text-align:center;background:linear-gradient(135deg,#7c3aed,#6d28d9);border-radius:14px;font-size:28px;box-shadow:0 4px 15px rgba(124,58,237,0.4);">
+            <span style="color:#ffffff;">S</span>
+          </div>
+          <h1 style="margin:16px 0 0;color:#e2e8f0;font-size:22px;font-weight:700;">Reset Your Password</h1>
+          <p style="margin:4px 0 0;color:#8b5cf6;font-size:12px;text-transform:uppercase;letter-spacing:3px;font-weight:600;">Sabudh AI</p>
+        </td></tr>
+        <tr><td style="padding:0 40px;"><div style="height:1px;background:linear-gradient(90deg,transparent,rgba(139,92,246,0.5),rgba(234,179,8,0.5),rgba(139,92,246,0.5),transparent);"></div></td></tr>
+        <tr><td style="padding:30px 40px;">
+          <p style="color:#f1f5f9;font-size:15px;line-height:1.7;margin:0;">
+            We received a request to reset your password. Click the button below to choose a new password.
+          </p>
+          <div style="text-align:center;margin:28px 0;">
+            <a href="${params.resetUrl}" style="display:inline-block;background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#ffffff;text-decoration:none;padding:14px 40px;border-radius:10px;font-size:15px;font-weight:600;letter-spacing:0.3px;box-shadow:0 4px 15px rgba(124,58,237,0.4);">
+              Reset Password
+            </a>
+          </div>
+          <p style="color:#94a3b8;font-size:13px;line-height:1.6;margin:0;">
+            If you did not request a password reset, please ignore this email. Your password will remain unchanged. This link will expire in 1 hour.
+          </p>
+        </td></tr>
+        <tr><td style="padding:0 40px;"><div style="height:1px;background:linear-gradient(90deg,transparent,rgba(139,92,246,0.2),transparent);"></div></td></tr>
+        <tr><td style="padding:20px 40px 30px;text-align:center;">
+          <p style="color:#64748b;font-size:11px;margin:0;line-height:1.5;">Sabudh Foundation<br>GK Duggal Memorial Centre, Rajouri Garden, New Delhi</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`
+}
+
+export function passwordChangedEmailHtml(): string {
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background-color:#0a0a1a;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#0a0a1a;padding:40px 20px;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#0f1628 0%,#1a1a3e 50%,#0f1628 100%);border-radius:16px;overflow:hidden;border:1px solid rgba(139,92,246,0.3);">
+        <tr><td style="padding:40px 40px 20px;text-align:center;background:linear-gradient(180deg,rgba(34,197,94,0.12) 0%,transparent 100%);">
+          <div style="display:inline-block;width:56px;height:56px;line-height:56px;text-align:center;background:linear-gradient(135deg,#7c3aed,#6d28d9);border-radius:14px;font-size:28px;box-shadow:0 4px 15px rgba(124,58,237,0.4);">
+            <span style="color:#ffffff;">S</span>
+          </div>
+          <h1 style="margin:16px 0 0;color:#e2e8f0;font-size:22px;font-weight:700;">Password Changed</h1>
+          <p style="margin:4px 0 0;color:#22c55e;font-size:12px;text-transform:uppercase;letter-spacing:3px;font-weight:600;">Confirmed</p>
+        </td></tr>
+        <tr><td style="padding:0 40px;"><div style="height:1px;background:linear-gradient(90deg,transparent,rgba(34,197,94,0.4),rgba(139,92,246,0.4),transparent);"></div></td></tr>
+        <tr><td style="padding:30px 40px;">
+          <p style="color:#f1f5f9;font-size:15px;line-height:1.7;margin:0;">
+            Your password has been successfully updated. You can now sign in with your new password.
+          </p>
+          <table width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0;background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.15);border-radius:12px;">
+            <tr><td style="padding:16px 20px;">
+              <p style="margin:0;color:#fca5a5;font-size:13px;line-height:1.5;">
+                If you did not make this change, please reset your password immediately or contact support.
+              </p>
+            </td></tr>
+          </table>
+        </td></tr>
+        <tr><td style="padding:0 40px;"><div style="height:1px;background:linear-gradient(90deg,transparent,rgba(139,92,246,0.2),transparent);"></div></td></tr>
+        <tr><td style="padding:20px 40px 30px;text-align:center;">
+          <p style="color:#64748b;font-size:11px;margin:0;line-height:1.5;">Sabudh Foundation<br>GK Duggal Memorial Centre, Rajouri Garden, New Delhi</p>
         </td></tr>
       </table>
     </td></tr>
@@ -201,7 +321,7 @@ export function welcomeEmailHtml(params: {
               </h2>
               <p style="color:#94a3b8;font-size:15px;line-height:1.6;margin:12px 0 0;">
                 You have been enrolled in the <strong style="color:#a78bfa;">${params.courseName}</strong> program.
-                Your journey from zero to one in Generative AI begins now — where ancient wisdom meets cutting-edge technology.
+                Your journey from zero to one in Generative AI begins now, where ancient wisdom meets cutting-edge technology.
               </p>
             </td>
           </tr>
@@ -260,7 +380,7 @@ export function welcomeEmailHtml(params: {
                       ${params.location}
                     </p>
                     <p style="margin:8px 0 0;color:#94a3b8;font-size:12px;">
-                      Attendance is location-verified — please be within 500m of the centre
+                      Attendance is location-verified. Please be within 500m of the centre
                     </p>
                   </td>
                 </tr>

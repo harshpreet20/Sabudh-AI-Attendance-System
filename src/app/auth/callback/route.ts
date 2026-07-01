@@ -13,6 +13,10 @@ export async function GET(request: Request) {
     const { error } = await supabase.auth.exchangeCodeForSession(code)
 
     if (!error) {
+      if (next === '/reset-password') {
+        return NextResponse.redirect(`${origin}/reset-password`)
+      }
+
       const { data: { user } } = await supabase.auth.getUser()
 
       if (user) {

@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
       await resend.emails.send({
         from: FROM_EMAIL,
         to: studentEmail,
-        subject: `Leave Request ${status === 'approved' ? 'Approved' : 'Rejected'} — ${leaveDate}`,
+        subject: `Leave Request ${status === 'approved' ? 'Approved' : 'Rejected'} - ${leaveDate}`,
         html: leaveStatusEmailHtml({ studentName, leaveDate, status, reviewerNote }),
       })
       return NextResponse.json({ success: true })
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
       await resend.emails.send({
         from: FROM_EMAIL,
         to: studentEmail,
-        subject: `Low Attendance Alert — ${attendancePercentage}%`,
+        subject: `Low Attendance Alert - ${attendancePercentage}%`,
         html: attendanceAlertEmailHtml({ studentName, attendancePercentage, threshold }),
       })
       return NextResponse.json({ success: true })
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
       await resend.emails.send({
         from: FROM_EMAIL,
         to: studentEmail,
-        subject: `Weekly Attendance Report — ${weekStart} to ${weekEnd}`,
+        subject: `Weekly Attendance Report - ${weekStart} to ${weekEnd}`,
         html: weeklyDigestEmailHtml({ studentName, weeklyPercentage, overallPercentage, sessionsAttended, totalSessions, weekStart, weekEnd }),
       })
       return NextResponse.json({ success: true })

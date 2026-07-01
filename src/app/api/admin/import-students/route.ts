@@ -161,7 +161,7 @@ export async function POST(request: NextRequest) {
             await resend.emails.send({
               from: process.env.RESEND_FROM_EMAIL || 'Sabudh Foundation <noreply@sabudh.org>',
               to: row.email,
-              subject: `🙏 Welcome to ${COURSE_NAME} — Your Credentials Inside`,
+              subject: `🙏 Welcome to ${COURSE_NAME} - Your Credentials Inside`,
               html: welcomeEmailHtml({
                 studentName: row.full_name,
                 email: row.email,

@@ -9,6 +9,7 @@ const publicRoutes = [
   '/auth/callback',
   '/auth/confirm',
   '/verify-certificate',
+  '/reset-password',
 ]
 
 const authRoutes = ['/login', '/register']
