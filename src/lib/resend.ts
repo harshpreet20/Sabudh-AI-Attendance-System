@@ -415,3 +415,50 @@ export function welcomeEmailHtml(params: {
 </body>
 </html>`
 }
+
+export function announcementEmailHtml(params: {
+  studentName: string
+  title: string
+  content: string
+  priority: string
+  dashboardUrl: string
+}): string {
+  const priorityColors: Record<string, string> = {
+    urgent: '#ef4444',
+    high: '#f97316',
+    normal: '#8b5cf6',
+    low: '#6b7280',
+  }
+  const color = priorityColors[params.priority] || '#8b5cf6'
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background-color:#0a0a1a;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#0a0a1a;padding:40px 20px;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#0f1628 0%,#1a1a3e 50%,#0f1628 100%);border-radius:16px;overflow:hidden;border:1px solid rgba(139,92,246,0.3);">
+        <tr><td style="padding:40px 40px 20px;text-align:center;background:linear-gradient(180deg,rgba(139,92,246,0.15) 0%,transparent 100%);">
+          <div style="display:inline-block;width:56px;height:56px;line-height:56px;text-align:center;background:linear-gradient(135deg,#7c3aed,#6d28d9);border-radius:14px;font-size:28px;box-shadow:0 4px 15px rgba(124,58,237,0.4);">
+            <span style="color:#ffffff;">S</span>
+          </div>
+          <h1 style="margin:16px 0 0;color:#e2e8f0;font-size:22px;font-weight:700;">New Announcement</h1>
+          <p style="margin:4px 0 0;color:${color};font-size:12px;text-transform:uppercase;letter-spacing:3px;font-weight:600;">${params.priority} Priority</p>
+        </td></tr>
+        <tr><td style="padding:0 40px;"><div style="height:1px;background:linear-gradient(90deg,transparent,rgba(139,92,246,0.5),rgba(234,179,8,0.5),rgba(139,92,246,0.5),transparent);"></div></td></tr>
+        <tr><td style="padding:30px 40px;">
+          <p style="color:#94a3b8;font-size:14px;margin:0 0 16px;">Dear ${params.studentName},</p>
+          <h2 style="margin:0 0 12px;color:#f1f5f9;font-size:18px;font-weight:600;">${params.title}</h2>
+          <p style="color:#e2e8f0;font-size:14px;line-height:1.7;margin:0;">${params.content.slice(0, 500)}${params.content.length > 500 ? '...' : ''}</p>
+          <div style="text-align:center;margin:28px 0 0;">
+            <a href="${params.dashboardUrl}" style="display:inline-block;background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#ffffff;text-decoration:none;padding:12px 32px;border-radius:10px;font-size:14px;font-weight:600;box-shadow:0 4px 15px rgba(124,58,237,0.4);">View on Dashboard</a>
+          </div>
+        </td></tr>
+        <tr><td style="padding:0 40px;"><div style="height:1px;background:linear-gradient(90deg,transparent,rgba(139,92,246,0.2),transparent);"></div></td></tr>
+        <tr><td style="padding:20px 40px 30px;text-align:center;">
+          <p style="color:#64748b;font-size:11px;margin:0;line-height:1.5;">Sabudh Foundation<br>GK Duggal Memorial Centre, Rajouri Garden, New Delhi</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`
+}

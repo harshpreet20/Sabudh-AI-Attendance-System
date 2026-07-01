@@ -6,6 +6,7 @@ import { Sidebar } from './sidebar'
 import { Header } from './header'
 import { Footer } from './footer'
 import { MobileNav } from './mobile-nav'
+import { ChatWidget } from '@/components/chatbot/chat-widget'
 
 interface DashboardShellProps {
   children: React.ReactNode
@@ -30,6 +31,7 @@ const pageTitles: Record<string, string> = {
   '/dashboard/assignments': 'Assignments',
   '/dashboard/discussions': 'Discussions',
   '/dashboard/projects': 'Projects',
+  '/dashboard/journey': 'My Journey',
   '/teacher': 'Teacher Dashboard',
   '/teacher/students': 'Students',
   '/teacher/attendance': 'Attendance',
@@ -52,6 +54,7 @@ const pageTitles: Record<string, string> = {
   '/admin/import': 'Import Students',
   '/admin/audit-logs': 'Audit Logs',
   '/admin/settings': 'Settings',
+  '/admin/knowledge-base': 'Knowledge Base',
 }
 
 export function DashboardShell({
@@ -114,6 +117,7 @@ export function DashboardShell({
       </div>
 
       <MobileNav role={role} currentPath={currentPath} />
+      <ChatWidget />
     </div>
   )
 }

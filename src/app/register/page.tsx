@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Shield, Eye, EyeOff, Loader2, Check } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { ElectricBorder } from "@/components/ui/electric-border";
 
 type Step = 1 | 2 | 3;
 
@@ -145,6 +146,7 @@ export default function RegisterPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="mt-6">
+          <ElectricBorder borderRadius={16} duration={4}>
           <div className="glass rounded-2xl p-8 shadow-spatial">
             {error && (
               <div className="mb-6 rounded-xl bg-red-50/70 p-4 text-sm text-red-600 border border-red-200/50 backdrop-blur-sm">
@@ -451,6 +453,7 @@ export default function RegisterPage() {
               </div>
             )}
           </div>
+          </ElectricBorder>
         </form>
 
         <p className="mt-6 text-center text-sm text-gray-500">

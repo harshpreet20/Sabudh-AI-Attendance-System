@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { getResend, leaveStatusEmailHtml, attendanceAlertEmailHtml, weeklyDigestEmailHtml } from '@/lib/resend'
+import { getResend, leaveStatusEmailHtml, attendanceAlertEmailHtml, weeklyDigestEmailHtml, announcementEmailHtml } from '@/lib/resend'
 
-const FROM_EMAIL = 'Sabudh AI <noreply@sabudh.org>'
+const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'Sabudh Foundation <noreply@sabudh.org>'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -56,6 +56,20 @@ export async function POST(req: NextRequest) {
         to: studentEmail,
         subject: `Weekly Attendance Report - ${weekStart} to ${weekEnd}`,
         html: weeklyDigestEmailHtml({ studentName, weeklyPercentage, overallPercentage, sessionsAttended, totalSessions, weekStart, weekEnd }),
+      })
+      return NextResponse.json({ success: true })
+    }
+
+    if (type === 'announcement') {
+      const { studentEmail, studentName, title, content, priority } = body
+      const dashboardUrl = process.env.NEXT_PUBLIC_APP_URL
+        ? `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/announcements`
+        : 'https://sabudh-ai-attendance-system.vercel.app/dashboard/announcements'
+      await resend.emails.send({
+        from: FROM_EMAIL,
+        to: studentEmail,
+        subject: `${priority === 'urgent' ? '[URGENT] ' : ''}${title}`,
+        html: announcementEmailHtml({ studentName, title, content, priority, dashboardUrl }),
       })
       return NextResponse.json({ success: true })
     }

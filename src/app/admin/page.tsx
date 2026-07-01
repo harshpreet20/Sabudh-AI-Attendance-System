@@ -27,6 +27,7 @@ import {
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import Link from 'next/link'
+import { AdminEngagementSection } from '@/components/charts/admin-engagement-section'
 
 type AttendanceStatusVariant = 'success' | 'destructive' | 'warning' | 'secondary'
 
@@ -327,6 +328,9 @@ export default async function AdminDashboardPage() {
           href="/admin/sessions"
         />
       </div>
+
+      {/* Engagement Charts */}
+      <AdminEngagementSection />
 
       {/* Bottom Sections */}
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">

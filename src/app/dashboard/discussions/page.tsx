@@ -28,8 +28,9 @@ import {
   Trash2,
   ShieldCheck,
   Shield,
+  Hash,
 } from 'lucide-react'
-import type { DiscussionThread, DiscussionReply } from '@/types/database'
+import type { DiscussionThread, DiscussionReply, DiscussionTopic } from '@/types/database'
 
 interface ThreadWithAuthor extends DiscussionThread {
   author_name: string
@@ -71,6 +72,10 @@ export default function StudentDiscussionsPage() {
 
   const [isMod, setIsMod] = useState(false)
   const [deleteDialog, setDeleteDialog] = useState<{ type: 'thread' | 'reply'; id: string } | null>(null)
+
+  const [topics, setTopics] = useState<DiscussionTopic[]>([])
+  const [topicFilter, setTopicFilter] = useState<string>('all')
+  const [newTopicId, setNewTopicId] = useState<string>('')
 
   // New thread dialog
   const [newDialog, setNewDialog] = useState(false)
@@ -160,7 +165,15 @@ export default function StudentDiscussionsPage() {
     setLoading(false)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => { fetchThreads() }, [fetchThreads])
+  const fetchTopics = useCallback(async () => {
+    try {
+      const res = await fetch('/api/discussions/topics')
+      const data = await res.json()
+      if (res.ok) setTopics(data.topics || [])
+    } catch { /* ignore */ }
+  }, [])
+
+  useEffect(() => { fetchThreads(); fetchTopics() }, [fetchThreads, fetchTopics])
 
   // Realtime subscription for new threads
   useEffect(() => {
@@ -238,6 +251,7 @@ export default function StudentDiscussionsPage() {
       author_role: 'student',
       title: newTitle.trim(),
       content: newContent.trim(),
+      topic_id: newTopicId || null,
     })
 
     if (error) {
@@ -247,6 +261,7 @@ export default function StudentDiscussionsPage() {
       setNewDialog(false)
       setNewTitle('')
       setNewContent('')
+      setNewTopicId('')
       fetchThreads()
     }
     setPosting(false)
@@ -387,13 +402,14 @@ export default function StudentDiscussionsPage() {
     fetchReplies(thread.id)
   }
 
-  const filteredThreads = search.trim()
-    ? threads.filter(t =>
-        t.title.toLowerCase().includes(search.toLowerCase()) ||
-        t.content.toLowerCase().includes(search.toLowerCase()) ||
-        t.author_name.toLowerCase().includes(search.toLowerCase())
-      )
-    : threads
+  const filteredThreads = threads.filter(t => {
+    const matchSearch = !search.trim() ||
+      t.title.toLowerCase().includes(search.toLowerCase()) ||
+      t.content.toLowerCase().includes(search.toLowerCase()) ||
+      t.author_name.toLowerCase().includes(search.toLowerCase())
+    const matchTopic = topicFilter === 'all' || t.topic_id === topicFilter || (topicFilter === 'uncategorized' && !t.topic_id)
+    return matchSearch && matchTopic
+  })
 
   // Thread detail view
   if (activeThread) {
@@ -564,14 +580,29 @@ export default function StudentDiscussionsPage() {
         </Button>
       </div>
 
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-        <Input
-          placeholder="Search discussions..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-10"
-        />
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <Input
+            placeholder="Search discussions..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        {topics.length > 0 && (
+          <select
+            value={topicFilter}
+            onChange={e => setTopicFilter(e.target.value)}
+            className="rounded-xl border border-gray-200 bg-white/60 px-3 py-2 text-sm backdrop-blur-sm focus:border-indigo-300 focus:outline-none"
+          >
+            <option value="all">All Topics</option>
+            {topics.map(t => (
+              <option key={t.id} value={t.id}>{t.name}</option>
+            ))}
+            <option value="uncategorized">Uncategorized</option>
+          </select>
+        )}
       </div>
 
       {loading ? (
@@ -615,6 +646,15 @@ export default function StudentDiscussionsPage() {
                       {thread.pinned && <Pin className="h-3.5 w-3.5 text-amber-500" />}
                       <h3 className="font-semibold text-gray-900 truncate">{thread.title}</h3>
                       {thread.locked && <Lock className="h-3 w-3 text-gray-400" />}
+                      {thread.topic_id && topics.find(t => t.id === thread.topic_id) && (
+                        <span
+                          className="inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-medium text-white"
+                          style={{ backgroundColor: topics.find(t => t.id === thread.topic_id)!.color }}
+                        >
+                          <Hash className="h-2.5 w-2.5" />
+                          {topics.find(t => t.id === thread.topic_id)!.name}
+                        </span>
+                      )}
                     </div>
                     <p className="mt-1 text-sm text-gray-500 line-clamp-2">{thread.content}</p>
                     <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-gray-400">
@@ -671,6 +711,21 @@ export default function StudentDiscussionsPage() {
             value={newTitle}
             onChange={(e) => setNewTitle(e.target.value)}
           />
+          {topics.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Topic</label>
+              <select
+                value={newTopicId}
+                onChange={e => setNewTopicId(e.target.value)}
+                className="w-full rounded-xl border border-gray-200 bg-white/60 px-3 py-2 text-sm focus:border-indigo-300 focus:outline-none"
+              >
+                <option value="">No topic</option>
+                {topics.map(t => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
           <Textarea
             label="Content"
             placeholder="Add details, context, or your question..."

@@ -29,8 +29,10 @@ import {
   ShieldCheck,
   Shield,
   ShieldOff,
+  Hash,
+  Tag,
 } from 'lucide-react'
-import type { DiscussionThread, DiscussionReply } from '@/types/database'
+import type { DiscussionThread, DiscussionReply, DiscussionTopic } from '@/types/database'
 
 interface ThreadWithAuthor extends DiscussionThread {
   author_name: string
@@ -83,6 +85,14 @@ export default function TeacherDiscussionsPage() {
 
   const [deleteDialog, setDeleteDialog] = useState<{ type: 'thread' | 'reply'; id: string; name: string } | null>(null)
   const [modIds, setModIds] = useState<Set<string>>(new Set())
+
+  const [topics, setTopics] = useState<DiscussionTopic[]>([])
+  const [topicFilter, setTopicFilter] = useState<string>('all')
+  const [newTopicId, setNewTopicId] = useState<string>('')
+  const [showTopicDialog, setShowTopicDialog] = useState(false)
+  const [newTopicName, setNewTopicName] = useState('')
+  const [newTopicDesc, setNewTopicDesc] = useState('')
+  const [newTopicColor, setNewTopicColor] = useState('#6366f1')
 
   const fetchThreads = useCallback(async () => {
     setLoading(true)
@@ -151,7 +161,15 @@ export default function TeacherDiscussionsPage() {
     setLoading(false)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => { fetchThreads() }, [fetchThreads])
+  const fetchTopics = useCallback(async () => {
+    try {
+      const res = await fetch('/api/discussions/topics')
+      const data = await res.json()
+      if (res.ok) setTopics(data.topics || [])
+    } catch { /* ignore */ }
+  }, [])
+
+  useEffect(() => { fetchThreads(); fetchTopics() }, [fetchThreads, fetchTopics])
 
   useEffect(() => {
     const channel = supabase
@@ -242,6 +260,7 @@ export default function TeacherDiscussionsPage() {
       author_role: 'instructor',
       title: newTitle.trim(),
       content: newContent.trim(),
+      topic_id: newTopicId || null,
     })
 
     if (error) toast.error('Failed to create post')
@@ -250,9 +269,48 @@ export default function TeacherDiscussionsPage() {
       setNewDialog(false)
       setNewTitle('')
       setNewContent('')
+      setNewTopicId('')
       fetchThreads()
     }
     setPosting(false)
+  }
+
+  async function handleCreateTopic() {
+    if (!newTopicName.trim()) return
+    try {
+      const res = await fetch('/api/discussions/topics', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newTopicName.trim(), description: newTopicDesc.trim() || null, color: newTopicColor, batch_id: batchIds[0] || null }),
+      })
+      if (res.ok) {
+        toast.success('Topic created')
+        setShowTopicDialog(false)
+        setNewTopicName('')
+        setNewTopicDesc('')
+        setNewTopicColor('#6366f1')
+        fetchTopics()
+      } else {
+        const data = await res.json()
+        toast.error(data.error || 'Failed to create topic')
+      }
+    } catch { toast.error('Failed to create topic') }
+  }
+
+  async function handleDeleteTopic(id: string) {
+    if (!confirm('Delete this topic? Threads under it will become uncategorized.')) return
+    try {
+      const res = await fetch('/api/discussions/topics', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      })
+      if (res.ok) {
+        toast.success('Topic deleted')
+        fetchTopics()
+        if (topicFilter === id) setTopicFilter('all')
+      }
+    } catch { toast.error('Failed to delete topic') }
   }
 
   async function handleReply() {
@@ -386,13 +444,14 @@ export default function TeacherDiscussionsPage() {
     fetchReplies(thread.id)
   }
 
-  const filteredThreads = search.trim()
-    ? threads.filter(t =>
-        t.title.toLowerCase().includes(search.toLowerCase()) ||
-        t.content.toLowerCase().includes(search.toLowerCase()) ||
-        t.author_name.toLowerCase().includes(search.toLowerCase())
-      )
-    : threads
+  const filteredThreads = threads.filter(t => {
+    const matchSearch = !search.trim() ||
+      t.title.toLowerCase().includes(search.toLowerCase()) ||
+      t.content.toLowerCase().includes(search.toLowerCase()) ||
+      t.author_name.toLowerCase().includes(search.toLowerCase())
+    const matchTopic = topicFilter === 'all' || t.topic_id === topicFilter || (topicFilter === 'uncategorized' && !t.topic_id)
+    return matchSearch && matchTopic
+  })
 
   // Thread detail view
   if (activeThread) {
@@ -589,15 +648,36 @@ export default function TeacherDiscussionsPage() {
           <h1 className="text-2xl font-bold text-gray-900">Discussions</h1>
           <p className="mt-1 text-sm text-gray-500">Engage with students, moderate conversations, and share knowledge</p>
         </div>
-        <Button onClick={() => setNewDialog(true)} size="sm">
-          <Plus className="mr-1 h-4 w-4" />
-          New Post
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => setShowTopicDialog(true)}>
+            <Tag className="mr-1 h-4 w-4" />
+            Manage Topics
+          </Button>
+          <Button onClick={() => setNewDialog(true)} size="sm">
+            <Plus className="mr-1 h-4 w-4" />
+            New Post
+          </Button>
+        </div>
       </div>
 
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-        <Input placeholder="Search discussions..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <Input placeholder="Search discussions..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
+        </div>
+        {topics.length > 0 && (
+          <select
+            value={topicFilter}
+            onChange={e => setTopicFilter(e.target.value)}
+            className="rounded-xl border border-gray-200 bg-white/60 px-3 py-2 text-sm backdrop-blur-sm focus:border-indigo-300 focus:outline-none"
+          >
+            <option value="all">All Topics</option>
+            {topics.map(t => (
+              <option key={t.id} value={t.id}>{t.name}</option>
+            ))}
+            <option value="uncategorized">Uncategorized</option>
+          </select>
+        )}
       </div>
 
       {loading ? (
@@ -639,6 +719,15 @@ export default function TeacherDiscussionsPage() {
                       {thread.pinned && <Pin className="h-3.5 w-3.5 text-amber-500" />}
                       <h3 className="font-semibold text-gray-900 truncate">{thread.title}</h3>
                       {thread.locked && <Lock className="h-3 w-3 text-gray-400" />}
+                      {thread.topic_id && topics.find(t => t.id === thread.topic_id) && (
+                        <span
+                          className="inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-medium text-white"
+                          style={{ backgroundColor: topics.find(t => t.id === thread.topic_id)!.color }}
+                        >
+                          <Hash className="h-2.5 w-2.5" />
+                          {topics.find(t => t.id === thread.topic_id)!.name}
+                        </span>
+                      )}
                     </div>
                     <p className="mt-1 text-sm text-gray-500 line-clamp-2">{thread.content}</p>
                     <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-gray-400">
@@ -679,7 +768,60 @@ export default function TeacherDiscussionsPage() {
       >
         <div className="space-y-4">
           <Input label="Title" placeholder="Discussion topic" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} />
+          {topics.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Topic</label>
+              <select
+                value={newTopicId}
+                onChange={e => setNewTopicId(e.target.value)}
+                className="w-full rounded-xl border border-gray-200 bg-white/60 px-3 py-2 text-sm focus:border-indigo-300 focus:outline-none"
+              >
+                <option value="">No topic</option>
+                {topics.map(t => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
           <Textarea label="Content" placeholder="Write your post..." value={newContent} onChange={(e) => setNewContent(e.target.value)} rows={5} />
+        </div>
+      </Dialog>
+
+      {/* Topic Management Dialog */}
+      <Dialog
+        open={showTopicDialog}
+        onClose={() => setShowTopicDialog(false)}
+        title="Manage Discussion Topics"
+        description="Create categories to organize discussion threads"
+      >
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Input placeholder="Topic name" value={newTopicName} onChange={e => setNewTopicName(e.target.value)} />
+            <Input placeholder="Description (optional)" value={newTopicDesc} onChange={e => setNewTopicDesc(e.target.value)} />
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-gray-600">Color:</label>
+              <input type="color" value={newTopicColor} onChange={e => setNewTopicColor(e.target.value)} className="h-8 w-12 rounded border-0 cursor-pointer" />
+              <Button size="sm" onClick={handleCreateTopic} disabled={!newTopicName.trim()}>
+                <Plus className="mr-1 h-3.5 w-3.5" />Add
+              </Button>
+            </div>
+          </div>
+          {topics.length > 0 && (
+            <div className="border-t border-gray-100 pt-3 space-y-2">
+              {topics.map(t => (
+                <div key={t.id} className="flex items-center justify-between rounded-lg border border-gray-100 px-3 py-2">
+                  <div className="flex items-center gap-2">
+                    <span className="h-3 w-3 rounded-full" style={{ backgroundColor: t.color }} />
+                    <span className="text-sm font-medium text-gray-900">{t.name}</span>
+                    {t.description && <span className="text-xs text-gray-400">{t.description}</span>}
+                  </div>
+                  <button onClick={() => handleDeleteTopic(t.id)} className="rounded p-1 text-gray-400 hover:text-red-500">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </Dialog>
     </div>

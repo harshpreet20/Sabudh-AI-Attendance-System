@@ -23,7 +23,9 @@ import {
   UserPlus,
   Ban,
   UserMinus,
+  MapPin,
 } from 'lucide-react'
+import Link from 'next/link'
 import type { StudentProfile, Batch } from '@/types/database'
 
 const PAGE_SIZE = 12
@@ -359,6 +361,12 @@ export default function TeacherStudentsPage() {
                             ))}
 
                           <div className="flex gap-2 pt-3 border-t border-white/20">
+                            <Link href={`/teacher/students/journey?id=${student.id}`} onClick={e => e.stopPropagation()} className="flex-1">
+                              <Button variant="outline" size="sm" className="w-full">
+                                <MapPin className="mr-1 h-3.5 w-3.5" />
+                                Journey
+                              </Button>
+                            </Link>
                             <Button
                               variant="outline"
                               size="sm"

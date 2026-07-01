@@ -34,6 +34,8 @@ import {
   TrendingUp,
   UserPlus,
   MessageSquare,
+  Bot,
+  MapPin,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -53,6 +55,7 @@ const studentNavItems: NavItem[] = [
   { label: 'Leave', icon: CalendarOff, href: '/dashboard/leave' },
   { label: 'Discussions', icon: MessageSquare, href: '/dashboard/discussions' },
   { label: 'Announcements', icon: Megaphone, href: '/dashboard/announcements' },
+  { label: 'My Journey', icon: MapPin, href: '/dashboard/journey' },
   { label: 'Certificate', icon: Award, href: '/dashboard/certificate' },
   { label: 'Notifications', icon: Bell, href: '/dashboard/notifications' },
   { label: 'Profile', icon: User, href: '/dashboard/profile' },
@@ -83,6 +86,7 @@ const adminNavItems: NavItem[] = [
   { label: 'Analytics', icon: BarChart3, href: '/admin/analytics' },
   { label: 'Certificates', icon: Award, href: '/admin/certificates' },
   { label: 'Import Students', icon: Upload, href: '/admin/import' },
+  { label: 'Knowledge Base', icon: Bot, href: '/admin/knowledge-base' },
   { label: 'Audit Logs', icon: FileText, href: '/admin/audit-logs' },
   { label: 'Settings', icon: Settings, href: '/admin/settings' },
 ]

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Shield, Eye, EyeOff, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { ElectricBorder } from "@/components/ui/electric-border";
 
 function GoogleIcon({ className }: { className?: string }) {
   return (
@@ -118,6 +119,7 @@ function LoginForm() {
       </div>
 
       <form onSubmit={handleSubmit} className="mt-8 space-y-6">
+        <ElectricBorder borderRadius={16} duration={4}>
         <div className="glass rounded-2xl p-8 shadow-spatial">
           {message && (
             <div className="mb-6 rounded-xl bg-emerald-50/70 p-4 text-sm text-emerald-700 border border-emerald-200/50 backdrop-blur-sm">
@@ -220,6 +222,7 @@ function LoginForm() {
             {loading ? "Signing in..." : "Sign in"}
           </button>
         </div>
+        </ElectricBorder>
       </form>
 
       <p className="mt-6 text-center text-sm text-gray-500">

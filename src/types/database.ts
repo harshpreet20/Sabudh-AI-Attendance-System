@@ -448,6 +448,7 @@ export interface DiscussionThread {
   id: string
   batch_id: string | null
   session_id: string | null
+  topic_id: string | null
   author_id: string
   author_role: 'student' | 'instructor' | 'admin'
   title: string
@@ -479,5 +480,57 @@ export interface DiscussionUpvote {
   user_id: string
   thread_id: string | null
   reply_id: string | null
+  created_at: string
+}
+
+export interface DiscussionTopic {
+  id: string
+  batch_id: string | null
+  name: string
+  description: string | null
+  color: string
+  icon: string
+  sort_order: number
+  created_by: string
+  created_at: string
+}
+
+export interface StudentJourneyEvent {
+  id: string
+  student_id: string
+  event_type: string
+  title: string
+  description: string | null
+  metadata: Record<string, unknown>
+  created_at: string
+}
+
+export interface ChatbotKnowledge {
+  id: string
+  organization_id: string
+  title: string
+  content: string
+  source: string
+  source_url: string | null
+  category: string
+  is_active: boolean
+  added_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ChatbotConversation {
+  id: string
+  user_id: string
+  title: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ChatbotMessage {
+  id: string
+  conversation_id: string
+  role: 'user' | 'assistant'
+  content: string
   created_at: string
 }
