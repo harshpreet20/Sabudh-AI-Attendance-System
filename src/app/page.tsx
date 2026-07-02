@@ -25,11 +25,11 @@ export default function HomePage() {
     <div className="min-h-screen spatial-bg-rich">
       <header className="glass-strong sticky top-0 z-30">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-2.5">
-            <Logo size="sm" />
-            <div>
-              <span className="text-xl font-bold text-gray-900">Sabudh AI</span>
-              <span className="ml-1.5 hidden text-xs font-medium text-gray-400 sm:inline">by Sabudh Foundation</span>
+          <div className="flex items-center gap-3">
+            <Logo size="md" />
+            <div className="flex flex-col">
+              <span className="text-xl font-bold text-gray-900 leading-tight">Sabudh AI</span>
+              <span className="text-[10px] font-medium text-gray-400 tracking-wide">Powered by HotBot Studios</span>
             </div>
           </div>
           <nav className="flex items-center gap-3">

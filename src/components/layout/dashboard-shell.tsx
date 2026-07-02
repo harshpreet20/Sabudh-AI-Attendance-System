@@ -97,7 +97,9 @@ export function DashboardShell({
     fetchNotificationCount()
   }, [])
 
-  const pageTitle = pageTitles[currentPath] || 'Dashboard'
+  const pageTitle = pageTitles[currentPath]
+    || (currentPath.startsWith('/teacher/projects/') ? 'Project Details' : null)
+    || 'Dashboard'
 
   return (
     <div className="min-h-screen spatial-bg-rich">

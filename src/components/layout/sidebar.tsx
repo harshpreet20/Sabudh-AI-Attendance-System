@@ -147,9 +147,12 @@ export function Sidebar({
   const sidebarContent = (
     <div className="flex h-full flex-col">
       {/* Logo */}
-      <div className="flex h-16 items-center gap-2.5 px-6">
-        <Logo size="sm" />
-        <span className="text-lg font-bold text-gray-900">Sabudh AI</span>
+      <div className="flex h-16 items-center gap-3 px-4">
+        <Logo size="md" />
+        <div className="flex flex-col min-w-0">
+          <span className="text-lg font-bold text-gray-900 leading-tight">Sabudh AI</span>
+          <span className="text-[9px] font-medium text-gray-400 tracking-wide truncate">Powered by HotBot Studios</span>
+        </div>
       </div>
 
       {/* Navigation */}

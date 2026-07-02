@@ -21,8 +21,9 @@ import {
   Calendar,
   Users,
   Target,
+  X,
 } from 'lucide-react'
-import type { Project, Batch } from '@/types/database'
+import type { Project, Batch, ProjectExpertise } from '@/types/database'
 import Link from 'next/link'
 
 const ORG_ID = 'a0000000-0000-0000-0000-000000000001'
@@ -35,6 +36,42 @@ const STATUS_VARIANTS: Record<string, 'default' | 'success' | 'warning' | 'destr
   archived: 'destructive',
 }
 
+const EXPERTISE_OPTIONS: { value: ProjectExpertise; label: string }[] = [
+  { value: 'general', label: 'General' },
+  { value: 'dsa', label: 'Data Structures & Algorithms' },
+  { value: 'ml', label: 'Machine Learning' },
+  { value: 'gen_ai', label: 'Generative AI' },
+  { value: 'data_science', label: 'Data Science' },
+  { value: 'web_dev', label: 'Web Development' },
+]
+
+const EXPERTISE_LABELS: Record<ProjectExpertise, string> = {
+  general: 'General',
+  dsa: 'DSA',
+  ml: 'ML',
+  gen_ai: 'Gen AI',
+  data_science: 'Data Science',
+  web_dev: 'Web Dev',
+}
+
+const EXPERTISE_COLORS: Record<ProjectExpertise, string> = {
+  dsa: 'bg-amber-100/80 text-amber-700 border border-amber-200/50',
+  ml: 'bg-violet-100/80 text-violet-700 border border-violet-200/50',
+  gen_ai: 'bg-indigo-100/80 text-indigo-700 border border-indigo-200/50',
+  data_science: 'bg-teal-100/80 text-teal-700 border border-teal-200/50',
+  web_dev: 'bg-rose-100/80 text-rose-700 border border-rose-200/50',
+  general: 'bg-gray-100/80 text-gray-700 border border-gray-200/50',
+}
+
+const EXPERTISE_FILE_TYPES: Record<ProjectExpertise, string[]> = {
+  dsa: ['.py', '.java', '.cpp', '.c', '.js', '.ts'],
+  ml: ['.py', '.ipynb', '.csv', '.pkl', '.h5', '.joblib'],
+  gen_ai: ['.py', '.ipynb', '.json', '.yaml', '.txt'],
+  data_science: ['.py', '.ipynb', '.csv', '.xlsx', '.sql', '.r'],
+  web_dev: ['.html', '.css', '.js', '.ts', '.tsx', '.jsx', '.json'],
+  general: [],
+}
+
 export default function TeacherProjectsPage() {
   const supabase = createClient()
   const [projects, setProjects] = useState<(Project & { submission_count?: number })[]>([])
@@ -44,6 +81,8 @@ export default function TeacherProjectsPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [filterBatch, setFilterBatch] = useState('')
+  const [filterExpertise, setFilterExpertise] = useState('')
+  const [fileTypeInput, setFileTypeInput] = useState('')
 
   const [form, setForm] = useState({
     batch_id: '',
@@ -55,11 +94,55 @@ export default function TeacherProjectsPage() {
     due_date: '',
     max_score: '100',
     status: 'draft',
+    expertise: 'general' as ProjectExpertise,
+    allowed_file_types: [] as string[],
   })
 
   const resetForm = () => {
-    setForm({ batch_id: '', title: '', description: '', objectives: '', requirements: '', resources: '', due_date: '', max_score: '100', status: 'draft' })
+    setForm({
+      batch_id: '',
+      title: '',
+      description: '',
+      objectives: '',
+      requirements: '',
+      resources: '',
+      due_date: '',
+      max_score: '100',
+      status: 'draft',
+      expertise: 'general',
+      allowed_file_types: [],
+    })
     setEditingId(null)
+    setFileTypeInput('')
+  }
+
+  function handleExpertiseChange(expertise: ProjectExpertise) {
+    const defaults = EXPERTISE_FILE_TYPES[expertise] ?? []
+    setForm(f => ({ ...f, expertise, allowed_file_types: defaults }))
+  }
+
+  function addFileType(ext: string) {
+    const normalized = ext.startsWith('.') ? ext.toLowerCase().trim() : `.${ext.toLowerCase().trim()}`
+    if (!normalized || normalized === '.') return
+    if (form.allowed_file_types.includes(normalized)) return
+    setForm(f => ({ ...f, allowed_file_types: [...f.allowed_file_types, normalized] }))
+    setFileTypeInput('')
+  }
+
+  function removeFileType(ext: string) {
+    setForm(f => ({ ...f, allowed_file_types: f.allowed_file_types.filter(t => t !== ext) }))
+  }
+
+  function handleFileTypeKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault()
+      if (fileTypeInput.trim()) {
+        addFileType(fileTypeInput.trim())
+      }
+    }
+    if (e.key === 'Backspace' && !fileTypeInput && form.allowed_file_types.length > 0) {
+      removeFileType(form.allowed_file_types[form.allowed_file_types.length - 1])
+    }
   }
 
   const fetchData = useCallback(async () => {
@@ -83,6 +166,7 @@ export default function TeacherProjectsPage() {
       .order('created_at', { ascending: false })
 
     if (filterBatch) query = query.eq('batch_id', filterBatch)
+    if (filterExpertise) query = query.eq('expertise', filterExpertise)
 
     const { data } = await query
     const projectList = (data as Project[]) ?? []
@@ -99,7 +183,7 @@ export default function TeacherProjectsPage() {
 
     setProjects(withCounts)
     setLoading(false)
-  }, [filterBatch]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [filterBatch, filterExpertise]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { fetchData() }, [fetchData])
 
@@ -125,6 +209,8 @@ export default function TeacherProjectsPage() {
       due_date: form.due_date || null,
       max_score: parseInt(form.max_score) || 100,
       status: form.status,
+      expertise: form.expertise,
+      allowed_file_types: form.allowed_file_types,
     }
 
     if (editingId) {
@@ -160,8 +246,11 @@ export default function TeacherProjectsPage() {
       due_date: p.due_date ?? '',
       max_score: String(p.max_score),
       status: p.status,
+      expertise: p.expertise ?? 'general',
+      allowed_file_types: p.allowed_file_types ?? [],
     })
     setEditingId(p.id)
+    setFileTypeInput('')
     setShowDialog(true)
   }
 
@@ -186,6 +275,12 @@ export default function TeacherProjectsPage() {
         <Select value={filterBatch} onChange={(e) => setFilterBatch(e.target.value)}>
           <option value="">All Batches</option>
           {batches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+        </Select>
+        <Select value={filterExpertise} onChange={(e) => setFilterExpertise(e.target.value)}>
+          <option value="">All Expertise</option>
+          {EXPERTISE_OPTIONS.map(opt => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
         </Select>
       </div>
 
@@ -215,6 +310,16 @@ export default function TeacherProjectsPage() {
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="font-semibold text-gray-900 truncate">{p.title}</p>
                       <Badge variant={STATUS_VARIANTS[p.status]}>{p.status}</Badge>
+                      {p.expertise && p.expertise !== 'general' && (
+                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${EXPERTISE_COLORS[p.expertise]}`}>
+                          {EXPERTISE_LABELS[p.expertise]}
+                        </span>
+                      )}
+                      {p.expertise === 'general' && (
+                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${EXPERTISE_COLORS.general}`}>
+                          {EXPERTISE_LABELS.general}
+                        </span>
+                      )}
                     </div>
                     <p className="mt-1 text-sm text-gray-500">{getBatchName(p.batch_id)}</p>
                   </div>
@@ -228,6 +333,21 @@ export default function TeacherProjectsPage() {
                   <div className="mt-3">
                     <p className="text-xs font-medium text-gray-500 mb-1">Objectives</p>
                     <p className="text-sm text-gray-600 line-clamp-2">{p.objectives}</p>
+                  </div>
+                )}
+
+                {p.allowed_file_types && p.allowed_file_types.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-1">
+                    {p.allowed_file_types.slice(0, 5).map(ft => (
+                      <span key={ft} className="inline-flex items-center rounded px-1.5 py-0.5 text-xs bg-gray-100 text-gray-600 font-mono">
+                        {ft}
+                      </span>
+                    ))}
+                    {p.allowed_file_types.length > 5 && (
+                      <span className="inline-flex items-center rounded px-1.5 py-0.5 text-xs bg-gray-100 text-gray-500">
+                        +{p.allowed_file_types.length - 5} more
+                      </span>
+                    )}
                   </div>
                 )}
 
@@ -283,6 +403,57 @@ export default function TeacherProjectsPage() {
           <Textarea label="Objectives" value={form.objectives} onChange={(e) => setForm(f => ({ ...f, objectives: e.target.value }))} placeholder="What students should learn and demonstrate..." rows={3} />
           <Textarea label="Requirements" value={form.requirements} onChange={(e) => setForm(f => ({ ...f, requirements: e.target.value }))} placeholder="Technical requirements, deliverables..." rows={3} />
           <Textarea label="Resources" value={form.resources} onChange={(e) => setForm(f => ({ ...f, resources: e.target.value }))} placeholder="Helpful links, documentation, starter code..." rows={2} />
+
+          <Select
+            label="Expertise Category"
+            value={form.expertise}
+            onChange={(e) => handleExpertiseChange(e.target.value as ProjectExpertise)}
+          >
+            {EXPERTISE_OPTIONS.map(opt => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </Select>
+
+          <div className="w-full">
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">
+              Allowed File Types
+            </label>
+            <p className="mb-2 text-xs text-gray-500">
+              {form.expertise === 'general'
+                ? 'All file types accepted. Add specific types to restrict.'
+                : 'Pre-populated based on expertise. Add or remove as needed.'}
+            </p>
+            <div className="flex flex-wrap items-center gap-1.5 rounded-xl p-2 glass-input min-h-[2.5rem]">
+              {form.allowed_file_types.map(ft => (
+                <span
+                  key={ft}
+                  className="inline-flex items-center gap-1 rounded-lg bg-indigo-100/80 px-2 py-0.5 text-xs font-medium text-indigo-700 border border-indigo-200/50"
+                >
+                  <span className="font-mono">{ft}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeFileType(ft)}
+                    className="ml-0.5 rounded-full p-0.5 hover:bg-indigo-200/60 transition-colors"
+                    aria-label={`Remove ${ft}`}
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              ))}
+              <input
+                type="text"
+                value={fileTypeInput}
+                onChange={(e) => setFileTypeInput(e.target.value)}
+                onKeyDown={handleFileTypeKeyDown}
+                onBlur={() => {
+                  if (fileTypeInput.trim()) addFileType(fileTypeInput.trim())
+                }}
+                placeholder={form.allowed_file_types.length === 0 ? 'Type extension and press Enter (e.g. .py)' : 'Add more...'}
+                className="flex-1 min-w-[120px] bg-transparent text-sm text-gray-900 placeholder:text-gray-400 outline-none border-none p-1"
+              />
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <Input label="Due Date" type="date" value={form.due_date} onChange={(e) => setForm(f => ({ ...f, due_date: e.target.value }))} />
             <Input label="Max Score" type="number" value={form.max_score} onChange={(e) => setForm(f => ({ ...f, max_score: e.target.value }))} />

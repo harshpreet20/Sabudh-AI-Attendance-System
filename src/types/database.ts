@@ -344,6 +344,7 @@ export type AssignmentStatus = 'draft' | 'active' | 'closed' | 'archived'
 export type SubmissionStatus = 'submitted' | 'graded' | 'returned' | 'resubmitted'
 export type ProjectStatus = 'draft' | 'active' | 'in_review' | 'completed' | 'archived'
 export type ProjectSubmissionStatus = 'submitted' | 'in_review' | 'graded' | 'returned' | 'resubmitted'
+export type ProjectExpertise = 'dsa' | 'ml' | 'gen_ai' | 'data_science' | 'web_dev' | 'general'
 
 export interface Assignment {
   id: string
@@ -398,6 +399,8 @@ export interface Project {
   resources: string | null
   due_date: string | null
   max_score: number
+  expertise: ProjectExpertise
+  allowed_file_types: string[]
   status: ProjectStatus
   created_at: string
   updated_at: string
@@ -413,6 +416,9 @@ export interface ProjectSubmission {
   demo_url: string | null
   score: number | null
   feedback: string | null
+  ai_assessment: Record<string, unknown> | null
+  ai_score: number | null
+  ai_tokens_used: number
   status: ProjectSubmissionStatus
   submitted_at: string
   graded_at: string | null
