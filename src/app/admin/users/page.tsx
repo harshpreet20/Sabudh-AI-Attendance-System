@@ -37,16 +37,15 @@ import {
   Trash2,
   UserCheck,
   Ban,
-  FolderInput,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react'
-import type { StudentProfile, TeacherProfile, Batch } from '@/types/database'
+import type { TeacherProfile, Batch } from '@/types/database'
 
 type UserType = 'student' | 'teacher'
 type StatusFilter = 'all' | 'active' | 'pending' | 'suspended'
 
-interface DisplayUser {
+interface DisplayTeacher {
   id: string
   auth_user_id: string
   full_name: string
@@ -54,9 +53,7 @@ interface DisplayUser {
   phone: string | null
   status: string
   profile_image_url: string | null
-  batch_id?: string | null
   created_at: string
-  type: UserType
 }
 
 const PAGE_SIZE = 15
@@ -68,7 +65,7 @@ function getStatusVariant(status: string) {
     case 'pending':
       return 'warning' as const
     case 'suspended':
-    case 'expelled':
+    case 'inactive':
       return 'destructive' as const
     default:
       return 'secondary' as const
@@ -78,6 +75,7 @@ function getStatusVariant(status: string) {
 export default function AdminUsersPage() {
   const supabase = createClient()
 
+  // Add User form state
   const [tab, setTab] = useState<UserType>('student')
   const [batches, setBatches] = useState<Batch[]>([])
   const [loading, setLoading] = useState(false)
@@ -93,9 +91,9 @@ export default function AdminUsersPage() {
 
   const [result, setResult] = useState<{ email: string; password: string; type: string } | null>(null)
 
-  const [users, setUsers] = useState<DisplayUser[]>([])
-  const [usersLoading, setUsersLoading] = useState(true)
-  const [userTab, setUserTab] = useState<UserType>('student')
+  // Teacher list state
+  const [teachers, setTeachers] = useState<DisplayTeacher[]>([])
+  const [teachersLoading, setTeachersLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [page, setPage] = useState(0)
@@ -104,11 +102,9 @@ export default function AdminUsersPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [bulkProcessing, setBulkProcessing] = useState(false)
 
-  const [deleteDialog, setDeleteDialog] = useState<DisplayUser | null>(null)
+  const [deleteDialog, setDeleteDialog] = useState<DisplayTeacher | null>(null)
   const [bulkDeleteDialog, setBulkDeleteDialog] = useState(false)
   const [bulkStatusDialog, setBulkStatusDialog] = useState<'active' | 'suspended' | null>(null)
-  const [batchAssignDialog, setBatchAssignDialog] = useState(false)
-  const [assignBatchId, setAssignBatchId] = useState('')
 
   const fetchBatches = useCallback(async () => {
     const { data } = await supabase
@@ -119,20 +115,19 @@ export default function AdminUsersPage() {
     setBatches((data as Batch[]) ?? [])
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const fetchUsers = useCallback(async () => {
-    setUsersLoading(true)
+  const fetchTeachers = useCallback(async () => {
+    setTeachersLoading(true)
     setSelectedIds(new Set())
 
-    const table = userTab === 'student' ? 'student_profiles' : 'teacher_profiles'
-
     let query = supabase
-      .from(table)
+      .from('teacher_profiles')
       .select('*', { count: 'exact' })
       .order('created_at', { ascending: false })
       .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
 
     if (statusFilter !== 'all') {
-      query = query.eq('status', statusFilter)
+      const dbStatus = statusFilter === 'suspended' ? 'inactive' : statusFilter
+      query = query.eq('status', dbStatus)
     }
 
     if (searchQuery.trim()) {
@@ -141,7 +136,7 @@ export default function AdminUsersPage() {
 
     const { data, count } = await query
 
-    const mapped: DisplayUser[] = ((data ?? []) as (StudentProfile | TeacherProfile)[]).map((u) => ({
+    const mapped: DisplayTeacher[] = ((data ?? []) as TeacherProfile[]).map((u) => ({
       id: u.id,
       auth_user_id: u.auth_user_id,
       full_name: u.full_name,
@@ -149,28 +144,26 @@ export default function AdminUsersPage() {
       phone: u.phone,
       status: u.status,
       profile_image_url: u.profile_image_url,
-      batch_id: 'batch_id' in u ? u.batch_id : null,
       created_at: u.created_at,
-      type: userTab,
     }))
 
-    setUsers(mapped)
+    setTeachers(mapped)
     setTotal(count ?? 0)
-    setUsersLoading(false)
-  }, [userTab, page, statusFilter, searchQuery]) // eslint-disable-line react-hooks/exhaustive-deps
+    setTeachersLoading(false)
+  }, [page, statusFilter, searchQuery]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     fetchBatches()
   }, [fetchBatches])
 
   useEffect(() => {
-    fetchUsers()
-  }, [fetchUsers])
+    fetchTeachers()
+  }, [fetchTeachers])
 
   useEffect(() => {
     setPage(0)
     setSelectedIds(new Set())
-  }, [userTab, searchQuery, statusFilter])
+  }, [searchQuery, statusFilter])
 
   function resetForm() {
     setFullName('')
@@ -220,7 +213,9 @@ export default function AdminUsersPage() {
 
       setResult(data)
       toast.success(`${tab === 'teacher' ? 'Teacher' : 'Student'} added successfully`)
-      fetchUsers()
+      if (tab === 'teacher') {
+        fetchTeachers()
+      }
     } catch {
       toast.error('Failed to add user')
     } finally {
@@ -247,24 +242,23 @@ export default function AdminUsersPage() {
   }
 
   function toggleSelectAll() {
-    if (selectedIds.size === users.length) {
+    if (selectedIds.size === teachers.length) {
       setSelectedIds(new Set())
     } else {
-      setSelectedIds(new Set(users.map((u) => u.id)))
+      setSelectedIds(new Set(teachers.map((u) => u.id)))
     }
   }
 
-  async function handleDeleteUser(user: DisplayUser) {
+  async function handleDeleteTeacher(teacher: DisplayTeacher) {
     setBulkProcessing(true)
-    const table = user.type === 'student' ? 'student_profiles' : 'teacher_profiles'
 
     const { error: profileError } = await supabase
-      .from(table)
+      .from('teacher_profiles')
       .delete()
-      .eq('id', user.id)
+      .eq('id', teacher.id)
 
     if (profileError) {
-      toast.error(`Failed to delete ${user.full_name}`)
+      toast.error(`Failed to delete ${teacher.full_name}`)
       setBulkProcessing(false)
       setDeleteDialog(null)
       return
@@ -273,28 +267,27 @@ export default function AdminUsersPage() {
     await supabase
       .from('user_roles')
       .delete()
-      .eq('user_id', user.auth_user_id)
+      .eq('user_id', teacher.auth_user_id)
 
-    toast.success(`${user.full_name} deleted`)
+    toast.success(`${teacher.full_name} deleted`)
     setDeleteDialog(null)
     setBulkProcessing(false)
-    fetchUsers()
+    fetchTeachers()
   }
 
   async function handleBulkDelete() {
     setBulkProcessing(true)
-    const selected = users.filter((u) => selectedIds.has(u.id))
-    const table = userTab === 'student' ? 'student_profiles' : 'teacher_profiles'
+    const selected = teachers.filter((u) => selectedIds.has(u.id))
     const ids = selected.map((u) => u.id)
     const authIds = selected.map((u) => u.auth_user_id)
 
     const { error: profileError } = await supabase
-      .from(table)
+      .from('teacher_profiles')
       .delete()
       .in('id', ids)
 
     if (profileError) {
-      toast.error('Failed to delete selected users')
+      toast.error('Failed to delete selected teachers')
       setBulkProcessing(false)
       setBulkDeleteDialog(false)
       return
@@ -305,68 +298,37 @@ export default function AdminUsersPage() {
       .delete()
       .in('user_id', authIds)
 
-    toast.success(`${ids.length} user${ids.length > 1 ? 's' : ''} deleted`)
+    toast.success(`${ids.length} teacher${ids.length > 1 ? 's' : ''} deleted`)
     setBulkDeleteDialog(false)
     setBulkProcessing(false)
     setSelectedIds(new Set())
-    fetchUsers()
+    fetchTeachers()
   }
 
   async function handleBulkStatusChange(newStatus: 'active' | 'suspended') {
     setBulkProcessing(true)
     const ids = Array.from(selectedIds)
-    const table = userTab === 'student' ? 'student_profiles' : 'teacher_profiles'
 
-    const statusValue = userTab === 'teacher' && newStatus === 'suspended' ? 'inactive' : newStatus
+    const statusValue = newStatus === 'suspended' ? 'inactive' : newStatus
 
     const { error } = await supabase
-      .from(table)
+      .from('teacher_profiles')
       .update({ status: statusValue })
       .in('id', ids)
 
     if (error) {
-      toast.error(`Failed to update status`)
+      toast.error('Failed to update status')
       setBulkProcessing(false)
       setBulkStatusDialog(null)
       return
     }
 
     const label = newStatus === 'active' ? 'activated' : 'suspended'
-    toast.success(`${ids.length} user${ids.length > 1 ? 's' : ''} ${label}`)
+    toast.success(`${ids.length} teacher${ids.length > 1 ? 's' : ''} ${label}`)
     setBulkStatusDialog(null)
     setBulkProcessing(false)
     setSelectedIds(new Set())
-    fetchUsers()
-  }
-
-  async function handleBulkBatchAssign() {
-    if (!assignBatchId) {
-      toast.error('Please select a batch')
-      return
-    }
-
-    setBulkProcessing(true)
-    const ids = Array.from(selectedIds)
-
-    const { error } = await supabase
-      .from('student_profiles')
-      .update({ batch_id: assignBatchId })
-      .in('id', ids)
-
-    if (error) {
-      toast.error('Failed to assign batch')
-      setBulkProcessing(false)
-      setBatchAssignDialog(false)
-      return
-    }
-
-    const batch = batches.find((b) => b.id === assignBatchId)
-    toast.success(`${ids.length} student${ids.length > 1 ? 's' : ''} assigned to ${batch?.name ?? 'batch'}`)
-    setBatchAssignDialog(false)
-    setAssignBatchId('')
-    setBulkProcessing(false)
-    setSelectedIds(new Set())
-    fetchUsers()
+    fetchTeachers()
   }
 
   const totalPages = Math.ceil(total / PAGE_SIZE)
@@ -375,8 +337,8 @@ export default function AdminUsersPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Manage Users</h1>
-        <p className="mt-1 text-sm text-gray-500">Add new students and teachers, and manage existing accounts</p>
+        <h1 className="text-2xl font-bold text-gray-900">Teachers &amp; User Creation</h1>
+        <p className="mt-1 text-sm text-gray-500">Manage teacher accounts and create new students or teachers</p>
       </div>
 
       <Card>
@@ -549,40 +511,15 @@ export default function AdminUsersPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <div className="rounded-xl bg-violet-100/60 p-1.5 backdrop-blur-sm">
-              <Users className="h-5 w-5 text-violet-600" />
+              <ShieldCheck className="h-5 w-5 text-violet-600" />
             </div>
-            All Users
+            Teachers
           </CardTitle>
           <CardDescription>
-            Browse, search, and manage all user accounts
+            Browse, search, and manage teacher accounts. For student management, visit the <a href="/admin/students" className="text-indigo-600 hover:underline">Students</a> page.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex gap-2">
-            <button
-              onClick={() => setUserTab('student')}
-              className={`rounded-xl px-4 py-2 text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
-                userTab === 'student'
-                  ? 'bg-indigo-500/10 text-indigo-700 shadow-sm'
-                  : 'text-gray-600 hover:bg-white/50'
-              }`}
-            >
-              <GraduationCap className="h-4 w-4" />
-              Students
-            </button>
-            <button
-              onClick={() => setUserTab('teacher')}
-              className={`rounded-xl px-4 py-2 text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
-                userTab === 'teacher'
-                  ? 'bg-violet-500/10 text-violet-700 shadow-sm'
-                  : 'text-gray-600 hover:bg-white/50'
-              }`}
-            >
-              <ShieldCheck className="h-4 w-4" />
-              Teachers
-            </button>
-          </div>
-
           <div className="flex flex-col gap-3 sm:flex-row">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
@@ -605,8 +542,8 @@ export default function AdminUsersPage() {
           </div>
 
           {selectedCount > 0 && (
-            <div className="flex flex-wrap items-center gap-2 rounded-xl bg-indigo-50/60 border border-indigo-200/50 px-4 py-3 backdrop-blur-sm">
-              <span className="text-sm font-medium text-indigo-700">
+            <div className="flex flex-wrap items-center gap-2 rounded-xl bg-violet-50/60 border border-violet-200/50 px-4 py-3 backdrop-blur-sm">
+              <span className="text-sm font-medium text-violet-700">
                 {selectedCount} selected
               </span>
               <div className="ml-auto flex flex-wrap gap-2">
@@ -626,16 +563,6 @@ export default function AdminUsersPage() {
                   <Ban className="mr-1 h-3.5 w-3.5" />
                   Suspend
                 </Button>
-                {userTab === 'student' && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => { setBatchAssignDialog(true); setAssignBatchId('') }}
-                  >
-                    <FolderInput className="mr-1 h-3.5 w-3.5" />
-                    Assign to Batch
-                  </Button>
-                )}
                 <Button
                   variant="destructive"
                   size="sm"
@@ -648,17 +575,17 @@ export default function AdminUsersPage() {
             </div>
           )}
 
-          {usersLoading ? (
+          {teachersLoading ? (
             <div className="space-y-3">
               {Array.from({ length: 5 }).map((_, i) => (
                 <Skeleton key={i} shape="rect" className="h-14" />
               ))}
             </div>
-          ) : users.length === 0 ? (
+          ) : teachers.length === 0 ? (
             <EmptyState
               icon={Users}
-              title="No users found"
-              description="No users match your current search or filter criteria."
+              title="No teachers found"
+              description="No teachers match your current search or filter criteria."
             />
           ) : (
             <>
@@ -668,83 +595,67 @@ export default function AdminUsersPage() {
                     <TableHead className="w-12">
                       <input
                         type="checkbox"
-                        checked={selectedIds.size === users.length && users.length > 0}
+                        checked={selectedIds.size === teachers.length && teachers.length > 0}
                         onChange={toggleSelectAll}
                         className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                       />
                     </TableHead>
-                    <TableHead>User</TableHead>
+                    <TableHead>Teacher</TableHead>
                     <TableHead>Status</TableHead>
-                    {userTab === 'student' && <TableHead>Batch</TableHead>}
                     <TableHead>Joined</TableHead>
                     <TableHead className="w-24">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {users.map((user) => {
-                    const batchName = user.batch_id
-                      ? batches.find((b) => b.id === user.batch_id)?.name ?? 'Unknown'
-                      : null
-
-                    return (
-                      <TableRow key={user.id}>
-                        <TableCell>
-                          <input
-                            type="checkbox"
-                            checked={selectedIds.has(user.id)}
-                            onChange={() => toggleSelect(user.id)}
-                            className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            <Avatar
-                              src={user.profile_image_url}
-                              fallback={user.full_name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)}
-                              size="sm"
-                            />
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-semibold text-gray-900">{user.full_name}</p>
-                              <p className="truncate text-xs text-gray-500">{user.email}</p>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={getStatusVariant(user.status)}>
-                            {user.status.charAt(0).toUpperCase() + user.status.slice(1)}
-                          </Badge>
-                        </TableCell>
-                        {userTab === 'student' && (
-                          <TableCell>
-                            {batchName ? (
-                              <span className="text-sm text-gray-700">{batchName}</span>
-                            ) : (
-                              <span className="text-sm text-gray-400">Unassigned</span>
-                            )}
-                          </TableCell>
-                        )}
-                        <TableCell>
-                          <span className="text-sm text-gray-500">
-                            {new Date(user.created_at).toLocaleDateString('en-IN', {
-                              month: 'short',
-                              day: 'numeric',
-                              year: 'numeric',
-                            })}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            variant="ghost"
+                  {teachers.map((teacher) => (
+                    <TableRow key={teacher.id}>
+                      <TableCell>
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(teacher.id)}
+                          onChange={() => toggleSelect(teacher.id)}
+                          className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <Avatar
+                            src={teacher.profile_image_url}
+                            fallback={teacher.full_name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)}
                             size="sm"
-                            onClick={() => setDeleteDialog(user)}
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50/50"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })}
+                          />
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-gray-900">{teacher.full_name}</p>
+                            <p className="truncate text-xs text-gray-500">{teacher.email}</p>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={getStatusVariant(teacher.status)}>
+                          {teacher.status.charAt(0).toUpperCase() + teacher.status.slice(1)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-sm text-gray-500">
+                          {new Date(teacher.created_at).toLocaleDateString('en-IN', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                          })}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setDeleteDialog(teacher)}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50/50"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
                 </TableBody>
               </Table>
 
@@ -781,14 +692,14 @@ export default function AdminUsersPage() {
       <Dialog
         open={!!deleteDialog}
         onClose={() => setDeleteDialog(null)}
-        title="Delete User"
+        title="Delete Teacher"
         description={deleteDialog ? `Are you sure you want to delete ${deleteDialog.full_name}? This action cannot be undone.` : ''}
         footer={
           <>
             <Button variant="secondary" onClick={() => setDeleteDialog(null)}>Cancel</Button>
             <Button
               variant="destructive"
-              onClick={() => deleteDialog && handleDeleteUser(deleteDialog)}
+              onClick={() => deleteDialog && handleDeleteTeacher(deleteDialog)}
               loading={bulkProcessing}
             >
               <Trash2 className="h-4 w-4" />
@@ -798,15 +709,15 @@ export default function AdminUsersPage() {
         }
       >
         <p className="text-sm text-gray-600">
-          This will permanently remove the user&apos;s profile and role data. Their authentication account will remain but they will lose access to the platform.
+          This will permanently remove the teacher&apos;s profile and role data. Their authentication account will remain but they will lose access to the platform.
         </p>
       </Dialog>
 
       <Dialog
         open={bulkDeleteDialog}
         onClose={() => setBulkDeleteDialog(false)}
-        title="Delete Selected Users"
-        description={`Are you sure you want to delete ${selectedCount} user${selectedCount > 1 ? 's' : ''}? This action cannot be undone.`}
+        title="Delete Selected Teachers"
+        description={`Are you sure you want to delete ${selectedCount} teacher${selectedCount > 1 ? 's' : ''}? This action cannot be undone.`}
         footer={
           <>
             <Button variant="secondary" onClick={() => setBulkDeleteDialog(false)}>Cancel</Button>
@@ -816,21 +727,21 @@ export default function AdminUsersPage() {
               loading={bulkProcessing}
             >
               <Trash2 className="h-4 w-4" />
-              Delete {selectedCount} User{selectedCount > 1 ? 's' : ''}
+              Delete {selectedCount} Teacher{selectedCount > 1 ? 's' : ''}
             </Button>
           </>
         }
       >
         <p className="text-sm text-gray-600">
-          This will permanently remove the profiles and role data for all selected users. Their authentication accounts will remain but they will lose access to the platform.
+          This will permanently remove the profiles and role data for all selected teachers. Their authentication accounts will remain but they will lose access to the platform.
         </p>
       </Dialog>
 
       <Dialog
         open={!!bulkStatusDialog}
         onClose={() => setBulkStatusDialog(null)}
-        title={bulkStatusDialog === 'active' ? 'Activate Selected Users' : 'Suspend Selected Users'}
-        description={`${bulkStatusDialog === 'active' ? 'Activate' : 'Suspend'} ${selectedCount} selected user${selectedCount > 1 ? 's' : ''}?`}
+        title={bulkStatusDialog === 'active' ? 'Activate Selected Teachers' : 'Suspend Selected Teachers'}
+        description={`${bulkStatusDialog === 'active' ? 'Activate' : 'Suspend'} ${selectedCount} selected teacher${selectedCount > 1 ? 's' : ''}?`}
         footer={
           <>
             <Button variant="secondary" onClick={() => setBulkStatusDialog(null)}>Cancel</Button>
@@ -850,40 +761,9 @@ export default function AdminUsersPage() {
       >
         <p className="text-sm text-gray-600">
           {bulkStatusDialog === 'active'
-            ? 'The selected users will be activated and will be able to access the platform.'
-            : 'The selected users will be suspended and will not be able to access the platform until reactivated.'}
+            ? 'The selected teachers will be activated and will be able to access the platform.'
+            : 'The selected teachers will be suspended and will not be able to access the platform until reactivated.'}
         </p>
-      </Dialog>
-
-      <Dialog
-        open={batchAssignDialog}
-        onClose={() => { setBatchAssignDialog(false); setAssignBatchId('') }}
-        title="Assign to Batch"
-        description={`Assign ${selectedCount} selected student${selectedCount > 1 ? 's' : ''} to a batch`}
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => { setBatchAssignDialog(false); setAssignBatchId('') }}>Cancel</Button>
-            <Button
-              onClick={handleBulkBatchAssign}
-              loading={bulkProcessing}
-              disabled={!assignBatchId}
-            >
-              <FolderInput className="h-4 w-4" />
-              Assign
-            </Button>
-          </>
-        }
-      >
-        <Select
-          label="Select Batch"
-          value={assignBatchId}
-          onChange={(e) => setAssignBatchId(e.target.value)}
-        >
-          <option value="">Choose a batch...</option>
-          {batches.map((b) => (
-            <option key={b.id} value={b.id}>{b.name}</option>
-          ))}
-        </Select>
       </Dialog>
     </div>
   )
