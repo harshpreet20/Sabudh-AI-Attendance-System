@@ -67,7 +67,6 @@ export default function TeacherAssignmentsPage() {
     const { data: myBatches } = await supabase
       .from('batches')
       .select('*')
-      .eq('instructor_id', user.id)
       .eq('status', 'active')
       .order('name')
 
@@ -76,7 +75,6 @@ export default function TeacherAssignmentsPage() {
     let query = supabase
       .from('assignments')
       .select('*')
-      .eq('instructor_id', user.id)
       .order('created_at', { ascending: false })
 
     if (filterBatch) query = query.eq('batch_id', filterBatch)

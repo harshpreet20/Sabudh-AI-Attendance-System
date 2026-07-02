@@ -54,7 +54,6 @@ export default function TeacherAnnouncementsPage() {
     const { data: myBatches } = await supabase
       .from('batches')
       .select('*')
-      .eq('instructor_id', user.id)
       .eq('status', 'active')
       .order('name')
 

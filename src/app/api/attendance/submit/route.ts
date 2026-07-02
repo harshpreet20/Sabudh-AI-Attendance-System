@@ -2,6 +2,38 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { isWithinAnyZone } from "@/lib/geofence";
 
+const SUSPICIOUS_ACCURACY_THRESHOLD = 1;
+const MAX_IP_GPS_DISTANCE_KM = 200;
+
+async function getIpGeolocation(ip: string): Promise<{ lat: number; lon: number; city: string } | null> {
+  if (!ip || ip === "unknown" || ip === "127.0.0.1" || ip.startsWith("10.") || ip.startsWith("192.168.")) {
+    return null;
+  }
+  try {
+    const res = await fetch(`http://ip-api.com/json/${ip}?fields=lat,lon,city,status`, {
+      signal: AbortSignal.timeout(3000),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data.status !== "success") return null;
+    return { lat: data.lat, lon: data.lon, city: data.city };
+  } catch {
+    return null;
+  }
+}
+
+function haversineDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
@@ -17,7 +49,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { session_id, latitude, longitude, location_accuracy } = body;
+    const { session_id, latitude, longitude, location_accuracy, attendance_word, device_fingerprint } = body;
 
     if (!session_id) {
       return NextResponse.json(
@@ -41,7 +73,7 @@ export async function POST(request: NextRequest) {
 
     const { data: session } = await supabase
       .from("sessions")
-      .select("id, status, attendance_open, attendance_close, batch_id")
+      .select("id, status, attendance_open, attendance_close, batch_id, attendance_word")
       .eq("id", session_id)
       .single();
 
@@ -75,6 +107,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Verification word check
+    if (session.attendance_word) {
+      if (!attendance_word || attendance_word.toUpperCase() !== session.attendance_word.toUpperCase()) {
+        return NextResponse.json(
+          { success: false, error: { code: "INVALID_WORD", message: "The verification word is incorrect. Please check with your instructor." } },
+          { status: 400 }
+        );
+      }
+    }
+
     if (latitude == null || longitude == null) {
       return NextResponse.json(
         { success: false, error: { code: "LOCATION_REQUIRED", message: "Location access is required to mark attendance" } },
@@ -96,6 +138,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Anti-GPS-spoofing: flag suspiciously perfect accuracy
+    const spoofFlags: string[] = [];
+    if (location_accuracy != null && location_accuracy < SUSPICIOUS_ACCURACY_THRESHOLD) {
+      spoofFlags.push(`suspicious_accuracy:${location_accuracy}m`);
+    }
+
+    // Server-side IP geolocation cross-check
+    const forwarded = request.headers.get("x-forwarded-for");
+    const ip = forwarded?.split(",")[0]?.trim() || "unknown";
+
+    const ipGeo = await getIpGeolocation(ip);
+    if (ipGeo) {
+      const ipGpsDistance = haversineDistanceKm(latitude, longitude, ipGeo.lat, ipGeo.lon);
+      if (ipGpsDistance > MAX_IP_GPS_DISTANCE_KM) {
+        spoofFlags.push(`ip_mismatch:${Math.round(ipGpsDistance)}km_from_ip_${ipGeo.city}`);
+      }
+    }
+
     const { data: existing } = await supabase
       .from("attendance")
       .select("id")
@@ -110,25 +170,44 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Device fingerprint duplicate check
+    if (device_fingerprint) {
+      const { data: fpMatch } = await supabase
+        .from("attendance")
+        .select("id, student_id")
+        .eq("session_id", session_id)
+        .eq("device_fingerprint", device_fingerprint)
+        .neq("student_id", profile.id)
+        .limit(1)
+        .maybeSingle();
+
+      if (fpMatch) {
+        spoofFlags.push("duplicate_device");
+      }
+    }
+
     const userAgent = request.headers.get("user-agent") || "";
-    const forwarded = request.headers.get("x-forwarded-for");
-    const ip = forwarded?.split(",")[0]?.trim() || "unknown";
+
+    const decisionReason = spoofFlags.length > 0 ? spoofFlags.join("; ") : null;
+    const needsReview = spoofFlags.length > 0;
 
     const { data: attendance, error: insertError } = await supabase
       .from("attendance")
       .insert({
         session_id,
         student_id: profile.id,
-        status: "approved",
-        decision: "accepted",
+        status: needsReview ? "manual_review" : "approved",
+        decision: needsReview ? "pending" : "accepted",
+        decision_reason: decisionReason,
         submitted_at: now.toISOString(),
-        verified_at: now.toISOString(),
+        verified_at: needsReview ? null : now.toISOString(),
         browser: userAgent,
         ip_address: ip !== "unknown" ? ip : null,
         latitude,
         longitude,
         location_accuracy: location_accuracy || null,
         location_address: locationCheck.zone?.name || null,
+        device_fingerprint: device_fingerprint || null,
       })
       .select("id, status, decision, submitted_at")
       .single();
@@ -148,7 +227,10 @@ export async function POST(request: NextRequest) {
         status: attendance.status,
         decision: attendance.decision,
         submitted_at: attendance.submitted_at,
-        message: "Attendance recorded successfully",
+        flagged: needsReview,
+        message: needsReview
+          ? "Attendance submitted but flagged for manual review."
+          : "Attendance recorded successfully",
       },
     });
   } catch (error) {

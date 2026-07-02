@@ -50,7 +50,6 @@ export default function TeacherReportsPage() {
     const { data } = await supabase
       .from('batches')
       .select('*')
-      .eq('instructor_id', user.id)
       .eq('status', 'active')
       .order('name')
 

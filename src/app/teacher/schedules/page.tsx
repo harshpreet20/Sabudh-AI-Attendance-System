@@ -89,7 +89,6 @@ export default function TeacherSchedulesPage() {
     const { data: myBatches } = await supabase
       .from('batches')
       .select('*')
-      .eq('instructor_id', user.id)
       .eq('status', 'active')
       .order('name')
 
@@ -98,7 +97,6 @@ export default function TeacherSchedulesPage() {
     let query = supabase
       .from('class_schedules')
       .select('*')
-      .eq('instructor_id', user.id)
       .order('scheduled_date', { ascending: true })
 
     if (filterType) query = query.eq('schedule_type', filterType)

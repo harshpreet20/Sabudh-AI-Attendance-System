@@ -2,9 +2,11 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { generateFingerprint } from '@/lib/device-fingerprint'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
@@ -19,6 +21,9 @@ import {
   Navigation,
   Loader2,
   XCircle,
+  KeyRound,
+  Fingerprint,
+  ShieldAlert,
 } from 'lucide-react'
 import type { Session, StudentProfile, Attendance } from '@/types/database'
 
@@ -29,11 +34,12 @@ type PageState =
   | 'already_submitted'
   | 'window_open'
   | 'submitted_success'
+  | 'submitted_review'
   | 'error'
 
 export default function AttendancePage() {
   const [pageState, setPageState] = useState<PageState>('loading')
-  const [session, setSession] = useState<Session | null>(null)
+  const [session, setSession] = useState<(Session & { attendance_word?: string | null }) | null>(null)
   const [profile, setProfile] = useState<StudentProfile | null>(null)
   const [existingAttendance, setExistingAttendance] = useState<Attendance | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -42,6 +48,9 @@ export default function AttendancePage() {
   const [locationStatus, setLocationStatus] = useState<'idle' | 'requesting' | 'granted' | 'denied' | 'error'>('idle')
   const [coords, setCoords] = useState<{ lat: number; lng: number; accuracy: number } | null>(null)
   const [locationError, setLocationError] = useState('')
+  const [verificationWord, setVerificationWord] = useState('')
+  const [fingerprint, setFingerprint] = useState<string | null>(null)
+  const [hasAttendanceWord, setHasAttendanceWord] = useState(false)
 
   const fetchData = useCallback(async () => {
     try {
@@ -88,8 +97,9 @@ export default function AttendancePage() {
         return
       }
 
-      const activeSession = sessions[0] as Session
+      const activeSession = sessions[0] as Session & { attendance_word?: string | null }
       setSession(activeSession)
+      setHasAttendanceWord(!!activeSession.attendance_word)
 
       const { data: attendance } = await supabase
         .from('attendance')
@@ -118,6 +128,7 @@ export default function AttendancePage() {
   useEffect(() => {
     if (pageState !== 'window_open') return
     requestLocation()
+    generateFingerprint().then(setFingerprint).catch(() => {})
   }, [pageState])
 
   function requestLocation() {
@@ -190,6 +201,11 @@ export default function AttendancePage() {
       return
     }
 
+    if (hasAttendanceWord && !verificationWord.trim()) {
+      toast.error('Please enter the verification word provided by your instructor.')
+      return
+    }
+
     setSubmitting(true)
     try {
       const res = await fetch('/api/attendance/submit', {
@@ -200,6 +216,8 @@ export default function AttendancePage() {
           latitude: coords.lat,
           longitude: coords.lng,
           location_accuracy: coords.accuracy,
+          attendance_word: verificationWord.trim() || null,
+          device_fingerprint: fingerprint,
         }),
       })
 
@@ -219,8 +237,14 @@ export default function AttendancePage() {
         session_id: session.id,
         student_id: profile.id,
       } as Attendance)
-      setPageState('submitted_success')
-      toast.success('Attendance marked successfully!')
+
+      if (data.data.flagged) {
+        setPageState('submitted_review')
+        toast.warning('Attendance submitted but flagged for review.')
+      } else {
+        setPageState('submitted_success')
+        toast.success('Attendance marked successfully!')
+      }
     } catch {
       toast.error('An unexpected error occurred.')
     } finally {
@@ -330,13 +354,42 @@ export default function AttendancePage() {
               <VerificationStep
                 label="Location Verified"
                 completed={existingAttendance.status === 'approved'}
-                active={existingAttendance.status === 'draft'}
+                active={existingAttendance.status === 'manual_review'}
+              />
+              <VerificationStep
+                label="Device Verified"
+                completed={existingAttendance.status === 'approved'}
+                active={existingAttendance.status === 'manual_review'}
               />
               <VerificationStep
                 label="Final Approval"
                 completed={existingAttendance.status === 'approved'}
               />
             </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  if (pageState === 'submitted_review') {
+    return (
+      <div className="mx-auto max-w-2xl space-y-6">
+        <Card>
+          <CardContent className="flex flex-col items-center py-12 text-center">
+            <div className="mb-4 rounded-full bg-amber-100/70 p-4 backdrop-blur-sm">
+              <ShieldAlert className="h-12 w-12 text-amber-600" />
+            </div>
+            <h2 className="text-xl font-semibold text-gray-900">
+              Attendance Under Review
+            </h2>
+            <p className="mt-2 text-gray-500">
+              Your attendance has been submitted but flagged for manual review. Your teacher will verify it shortly.
+            </p>
+            <Badge variant="warning" className="mt-4">
+              <Clock className="mr-1 h-3 w-3" />
+              Pending Review
+            </Badge>
           </CardContent>
         </Card>
       </div>
@@ -355,7 +408,7 @@ export default function AttendancePage() {
               Attendance Marked Successfully!
             </h2>
             <p className="mt-2 text-gray-500">
-              Your attendance has been recorded and location verified.
+              Your attendance has been recorded and verified.
             </p>
             {existingAttendance?.submitted_at && (
               <p className="mt-2 text-sm text-gray-400">
@@ -376,7 +429,7 @@ export default function AttendancePage() {
     )
   }
 
-  const canSubmit = locationStatus === 'granted' && coords !== null
+  const canSubmit = locationStatus === 'granted' && coords !== null && (!hasAttendanceWord || verificationWord.trim().length > 0)
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -473,6 +526,42 @@ export default function AttendancePage() {
         </CardContent>
       </Card>
 
+      {/* Device fingerprint status */}
+      <Card className={fingerprint ? '!bg-emerald-50/60 !border-emerald-200/50' : '!bg-gray-50/60 !border-gray-200/50'}>
+        <CardContent className="flex items-center gap-3 p-4">
+          <Fingerprint className={`h-5 w-5 ${fingerprint ? 'text-emerald-600' : 'text-gray-400'}`} />
+          <div>
+            <p className={`text-sm font-medium ${fingerprint ? 'text-emerald-800' : 'text-gray-600'}`}>
+              {fingerprint ? 'Device Identified' : 'Generating device fingerprint...'}
+            </p>
+            <p className="text-xs text-gray-500">
+              Unique device verification for security
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Verification word input */}
+      {hasAttendanceWord && (
+        <Card className="!bg-violet-50/60 !border-violet-200/50">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <KeyRound className="h-5 w-5 text-violet-600" />
+              <p className="text-sm font-medium text-violet-800">Verification Word Required</p>
+            </div>
+            <p className="text-xs text-violet-600 mb-3">
+              Enter the word displayed by your instructor to confirm you are physically present.
+            </p>
+            <Input
+              placeholder="Enter verification word..."
+              value={verificationWord}
+              onChange={(e) => setVerificationWord(e.target.value)}
+              className="uppercase tracking-widest font-mono"
+            />
+          </CardContent>
+        </Card>
+      )}
+
       {/* Submit button */}
       <Button
         onClick={handleMarkAttendance}
@@ -482,12 +571,16 @@ export default function AttendancePage() {
         className="w-full"
       >
         <CheckCircle className="h-5 w-5" />
-        {canSubmit ? 'Mark Attendance' : 'Enable Location to Continue'}
+        {!coords
+          ? 'Enable Location to Continue'
+          : hasAttendanceWord && !verificationWord.trim()
+            ? 'Enter Verification Word'
+            : 'Mark Attendance'}
       </Button>
 
       {!canSubmit && locationStatus !== 'requesting' && locationStatus !== 'idle' && (
         <p className="text-center text-xs text-gray-500">
-          You must be within 500m of the class location to mark attendance.
+          You must be within 500m of the class location and provide the verification word to mark attendance.
         </p>
       )}
     </div>

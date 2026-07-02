@@ -81,7 +81,6 @@ export default function TeacherStudentsPage() {
     const { data: myBatches } = await supabase
       .from('batches')
       .select('*')
-      .eq('instructor_id', user.id)
       .eq('status', 'active')
       .order('name')
 

@@ -20,6 +20,7 @@ import {
   Users,
   Trash2,
   Ban,
+  Mail,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -342,6 +343,32 @@ export default function AdminStudentsPage() {
       toast.error(
         error instanceof Error ? error.message : 'Action failed'
       )
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  async function handleResendEmail(student: StudentWithBatch) {
+    setActionLoading(student.id)
+    try {
+      const res = await fetch('/api/admin/resend-welcome', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          auth_user_id: student.auth_user_id,
+          email: student.email,
+          full_name: student.full_name,
+          type: 'student',
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        toast.error(data.error || 'Failed to resend email')
+        return
+      }
+      toast.success(`Welcome email resent to ${student.email}`)
+    } catch {
+      toast.error('Failed to resend email')
     } finally {
       setActionLoading(null)
     }
@@ -713,6 +740,12 @@ export default function AdminStudentsPage() {
                             >
                               <Edit className="h-4 w-4" />
                               Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleResendEmail(student)}
+                            >
+                              <Mail className="h-4 w-4" />
+                              Resend Welcome Email
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             {student.status === 'active' && (

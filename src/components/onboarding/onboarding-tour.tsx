@@ -53,7 +53,7 @@ const STEPS: OnboardingStep[] = [
     title: 'Attendance',
     description:
       'When your teacher opens a session, head to "Attendance" to mark your presence. You\'ll enter a verification word provided by your instructor.',
-    tip: 'Maintain at least 75% attendance to earn your certificate.',
+    tip: 'Maintain at least 80% attendance — it\'s required for your certificate.',
   },
   {
     icon: BookOpen,
@@ -95,6 +95,15 @@ const STEPS: OnboardingStep[] = [
     icon: Award,
     iconColor: 'text-amber-600',
     iconBg: 'bg-amber-100',
+    title: 'Earning Your Certificate',
+    description:
+      'To earn your certificate, you need to meet two requirements: maintain at least 80% attendance throughout the course AND score a minimum of 60% in your combined assignments and projects.',
+    tip: 'Track your progress on the Certificate page — it shows exactly where you stand on both requirements.',
+  },
+  {
+    icon: Sparkles,
+    iconColor: 'text-emerald-600',
+    iconBg: 'bg-emerald-100',
     title: 'You\'re All Set!',
     description:
       'You\'re ready to start your learning journey. Explore the sidebar to discover all features including schedules, leave applications, projects, and more.',

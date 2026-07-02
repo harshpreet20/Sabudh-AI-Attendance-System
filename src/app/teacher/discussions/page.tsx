@@ -385,7 +385,6 @@ export default function TeacherDiscussionsPage() {
     const { data: myBatches } = await supabase
       .from('batches')
       .select('id')
-      .eq('instructor_id', user.id)
       .eq('status', 'active')
 
     const ids = myBatches?.map(b => b.id) ?? []

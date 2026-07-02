@@ -6,9 +6,9 @@ interface LogoProps {
 }
 
 const sizes = {
-  sm: { container: 'h-[200px] w-[200px]', img: 200 },
-  md: { container: 'h-[240px] w-[240px]', img: 240 },
-  lg: { container: 'h-[280px] w-[280px]', img: 280 },
+  sm: { container: 'h-[100px] w-[100px]', img: 100 },
+  md: { container: 'h-[120px] w-[120px]', img: 120 },
+  lg: { container: 'h-[140px] w-[140px]', img: 140 },
 }
 
 export function Logo({ size = 'md', className = '' }: LogoProps) {

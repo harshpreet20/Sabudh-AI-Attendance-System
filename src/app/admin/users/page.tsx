@@ -39,6 +39,7 @@ import {
   Ban,
   ChevronLeft,
   ChevronRight,
+  Mail,
 } from 'lucide-react'
 import type { TeacherProfile, Batch } from '@/types/database'
 
@@ -331,6 +332,29 @@ export default function AdminUsersPage() {
     fetchTeachers()
   }
 
+  async function handleResendEmail(teacher: DisplayTeacher) {
+    try {
+      const res = await fetch('/api/admin/resend-welcome', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          auth_user_id: teacher.auth_user_id,
+          email: teacher.email,
+          full_name: teacher.full_name,
+          type: 'teacher',
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        toast.error(data.error || 'Failed to resend email')
+        return
+      }
+      toast.success(`Welcome email resent to ${teacher.email}`)
+    } catch {
+      toast.error('Failed to resend email')
+    }
+  }
+
   const totalPages = Math.ceil(total / PAGE_SIZE)
   const selectedCount = selectedIds.size
 
@@ -489,7 +513,7 @@ export default function AdminUsersPage() {
               )}
 
               <div className="rounded-xl bg-amber-50/60 border border-amber-200/50 p-3 text-xs text-amber-700 backdrop-blur-sm">
-                A password will be auto-generated and a welcome email with login credentials will be sent to the user.
+                A password will be auto-generated and a welcome email with login credentials will be sent to the user. You can resend the email anytime from the user list.
                 {tab === 'student' ? ' The student will be added with active status (pre-approved).' : ' The teacher will be added with active status.'}
               </div>
 
@@ -645,14 +669,24 @@ export default function AdminUsersPage() {
                         </span>
                       </TableCell>
                       <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setDeleteDialog(teacher)}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50/50"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleResendEmail(teacher)}
+                            title="Resend welcome email"
+                          >
+                            <Mail className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setDeleteDialog(teacher)}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50/50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}

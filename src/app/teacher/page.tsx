@@ -74,7 +74,6 @@ export default function TeacherDashboardPage() {
     const { data: batches } = await supabase
       .from('batches')
       .select('id, name')
-      .eq('instructor_id', user.id)
       .eq('status', 'active')
 
     const batchIds = batches?.map(b => b.id) ?? []
@@ -89,7 +88,7 @@ export default function TeacherDashboardPage() {
     const { count: todaySessionCount } = await supabase
       .from('sessions')
       .select('*', { count: 'exact', head: true })
-      .eq('instructor_id', user.id)
+      .in('batch_id', batchIds.length > 0 ? batchIds : ['00000000-0000-0000-0000-000000000000'])
       .eq('session_date', today)
 
     const { count: announcementCount } = await supabase
@@ -100,7 +99,7 @@ export default function TeacherDashboardPage() {
     const { count: scheduleCount } = await supabase
       .from('class_schedules')
       .select('*', { count: 'exact', head: true })
-      .eq('instructor_id', user.id)
+      .in('batch_id', batchIds.length > 0 ? batchIds : ['00000000-0000-0000-0000-000000000000'])
       .gte('scheduled_date', today)
       .eq('status', 'scheduled')
 
@@ -128,7 +127,7 @@ export default function TeacherDashboardPage() {
     const { data: recentSessions } = await supabase
       .from('sessions')
       .select('id, session_date')
-      .eq('instructor_id', user.id)
+      .in('batch_id', batchIds.length > 0 ? batchIds : ['00000000-0000-0000-0000-000000000000'])
       .gte('session_date', sevenDaysAgo.toISOString().split('T')[0])
       .order('session_date', { ascending: true })
 
@@ -177,13 +176,13 @@ export default function TeacherDashboardPage() {
     const { count: assignmentCount } = await supabase
       .from('assignments')
       .select('*', { count: 'exact', head: true })
-      .eq('instructor_id', user.id)
+      .in('batch_id', batchIds.length > 0 ? batchIds : ['00000000-0000-0000-0000-000000000000'])
       .eq('status', 'active')
 
     const { count: submissionCount } = await supabase
       .from('assignment_submissions')
-      .select('*, assignments!inner(instructor_id)', { count: 'exact', head: true })
-      .eq('assignments.instructor_id', user.id)
+      .select('*, assignments!inner(batch_id)', { count: 'exact', head: true })
+      .in('assignments.batch_id', batchIds.length > 0 ? batchIds : ['00000000-0000-0000-0000-000000000000'])
 
     const assignmentRate = assignmentCount && assignmentCount > 0 && (studentCount ?? 0) > 0
       ? Math.min(100, Math.round(((submissionCount ?? 0) / (assignmentCount * (studentCount ?? 1))) * 100))
@@ -203,13 +202,13 @@ export default function TeacherDashboardPage() {
 
     const { count: projectSubCount } = await supabase
       .from('project_submissions')
-      .select('*, projects!inner(instructor_id)', { count: 'exact', head: true })
-      .eq('projects.instructor_id', user.id)
+      .select('*, projects!inner(batch_id)', { count: 'exact', head: true })
+      .in('projects.batch_id', batchIds.length > 0 ? batchIds : ['00000000-0000-0000-0000-000000000000'])
 
     const { count: projectCount } = await supabase
       .from('projects')
       .select('*', { count: 'exact', head: true })
-      .eq('instructor_id', user.id)
+      .in('batch_id', batchIds.length > 0 ? batchIds : ['00000000-0000-0000-0000-000000000000'])
 
     const projectRate = projectCount && projectCount > 0 && (studentCount ?? 0) > 0
       ? Math.min(100, Math.round(((projectSubCount ?? 0) / (projectCount * (studentCount ?? 1))) * 100))

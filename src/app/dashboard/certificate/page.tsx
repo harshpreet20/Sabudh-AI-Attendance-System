@@ -37,17 +37,44 @@ export default async function CertificatePage() {
   const attendancePercentage = profile.attendance_percentage ?? 0
   const totalClasses = profile.total_sessions ?? 0
   const classesAttended = profile.present_count ?? 0
-  const requiredPercentage = 75
-  const isEligible = attendancePercentage >= requiredPercentage
+  const requiredAttendance = 80
+  const requiredMarks = 60
+  const attendanceOk = attendancePercentage >= requiredAttendance
 
-  // Calculate how many more classes needed
+  // Calculate combined assignment + project marks percentage
+  const { data: assignSubs } = await supabase
+    .from('assignment_submissions')
+    .select('score, grace_marks, assignments!inner(max_score)')
+    .eq('student_id', profile.id)
+    .not('score', 'is', null)
+
+  const { data: projectSubs } = await supabase
+    .from('project_submissions')
+    .select('score, grace_marks, projects!inner(max_score)')
+    .eq('student_id', profile.id)
+    .not('score', 'is', null)
+
+  let totalScored = 0
+  let totalMaxScore = 0
+  for (const s of assignSubs ?? []) {
+    const a = s as unknown as { score: number; grace_marks: number; assignments: { max_score: number } }
+    totalScored += (a.score ?? 0) + (a.grace_marks ?? 0)
+    totalMaxScore += a.assignments?.max_score ?? 0
+  }
+  for (const s of projectSubs ?? []) {
+    const p = s as unknown as { score: number; grace_marks: number; projects: { max_score: number } }
+    totalScored += (p.score ?? 0) + (p.grace_marks ?? 0)
+    totalMaxScore += p.projects?.max_score ?? 0
+  }
+
+  const marksPercentage = totalMaxScore > 0 ? (totalScored / totalMaxScore) * 100 : 0
+  const marksOk = marksPercentage >= requiredMarks
+  const isEligible = attendanceOk && marksOk
+
   let classesNeeded = 0
-  if (!isEligible && totalClasses > 0) {
-    // Classes needed to reach requiredPercentage, assuming future classes are attended
-    // (attended + X) / (total + X) >= required/100
-    // Solve for X: X >= (required * total - 100 * attended) / (100 - required)
-    const numerator = requiredPercentage * totalClasses - 100 * classesAttended
-    const denominator = 100 - requiredPercentage
+  if (!attendanceOk && totalClasses > 0) {
+    const numerator = requiredAttendance * totalClasses - 100 * classesAttended
+    const denominator = 100 - requiredAttendance
     classesNeeded = denominator > 0 ? Math.max(0, Math.ceil(numerator / denominator)) : 0
   }
 
@@ -116,41 +143,56 @@ export default async function CertificatePage() {
             </div>
           </div>
 
-          {/* Progress bar */}
+          {/* Attendance Progress */}
           <div>
             <div className="mb-2 flex items-center justify-between text-sm">
-              <span className="text-gray-600">Progress toward certificate</span>
+              <span className="text-gray-600">Attendance</span>
               <span className="font-medium text-gray-900">
-                {Math.min(100, (attendancePercentage / requiredPercentage) * 100).toFixed(0)}%
+                {attendancePercentage.toFixed(1)}% / {requiredAttendance}% required
               </span>
             </div>
             <Progress
-              value={Math.min(100, (attendancePercentage / requiredPercentage) * 100)}
-              variant={isEligible ? 'success' : attendancePercentage >= 60 ? 'warning' : 'danger'}
+              value={Math.min(100, (attendancePercentage / requiredAttendance) * 100)}
+              variant={attendanceOk ? 'success' : attendancePercentage >= 60 ? 'warning' : 'danger'}
               size="lg"
             />
-            <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
-              <span>0%</span>
-              <span className="font-medium">Required: {requiredPercentage}%</span>
-              <span>100%</span>
+          </div>
+
+          {/* Marks Progress */}
+          <div>
+            <div className="mb-2 flex items-center justify-between text-sm">
+              <span className="text-gray-600">Assignments + Projects</span>
+              <span className="font-medium text-gray-900">
+                {marksPercentage.toFixed(1)}% / {requiredMarks}% required
+              </span>
             </div>
+            <Progress
+              value={totalMaxScore > 0 ? Math.min(100, (marksPercentage / requiredMarks) * 100) : 0}
+              variant={marksOk ? 'success' : marksPercentage >= 40 ? 'warning' : 'danger'}
+              size="lg"
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              {totalScored} / {totalMaxScore} marks scored (combined)
+            </p>
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-3 gap-4 rounded-lg bg-gray-50 p-4">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 rounded-lg bg-gray-50 p-4">
             <div className="text-center">
               <p className="text-2xl font-bold text-gray-900">{classesAttended}</p>
-              <p className="text-xs text-gray-500">Classes Attended</p>
+              <p className="text-xs text-gray-500">Attended</p>
             </div>
             <div className="text-center">
               <p className="text-2xl font-bold text-gray-900">{totalClasses}</p>
               <p className="text-xs text-gray-500">Total Classes</p>
             </div>
             <div className="text-center">
-              <p className="text-2xl font-bold text-gray-900">
-                {totalClasses - classesAttended}
-              </p>
-              <p className="text-xs text-gray-500">Classes Missed</p>
+              <p className="text-2xl font-bold text-gray-900">{totalScored}</p>
+              <p className="text-xs text-gray-500">Marks Scored</p>
+            </div>
+            <div className="text-center">
+              <p className="text-2xl font-bold text-gray-900">{totalMaxScore}</p>
+              <p className="text-xs text-gray-500">Max Possible</p>
             </div>
           </div>
         </CardContent>
@@ -169,8 +211,8 @@ export default async function CertificatePage() {
                   You are eligible for a certificate!
                 </h3>
                 <p className="mt-1 text-sm text-green-700">
-                  Congratulations! You have met the minimum attendance requirement of{' '}
-                  {requiredPercentage}%.
+                  Congratulations! You have met both requirements: {requiredAttendance}% attendance
+                  and {requiredMarks}% combined marks.
                 </p>
 
                 {certificate ? (
@@ -240,21 +282,21 @@ export default async function CertificatePage() {
                 <h3 className="text-lg font-semibold text-amber-900">
                   Not Yet Eligible
                 </h3>
-                <p className="mt-1 text-sm text-amber-700">
-                  You need{' '}
-                  <span className="font-semibold">
-                    {(requiredPercentage - attendancePercentage).toFixed(1)}%
-                  </span>{' '}
-                  more attendance to become eligible for a certificate.
-                </p>
-                {classesNeeded > 0 && (
+                <div className="mt-1 space-y-1 text-sm text-amber-700">
+                  {!attendanceOk && (
+                    <p>Attendance: {attendancePercentage.toFixed(1)}% — need {requiredAttendance}% minimum</p>
+                  )}
+                  {!marksOk && (
+                    <p>Marks: {marksPercentage.toFixed(1)}% — need {requiredMarks}% minimum in assignments + projects</p>
+                  )}
+                </div>
+                {!attendanceOk && classesNeeded > 0 && (
                   <div className="mt-3 flex items-center gap-2 rounded-lg bg-white p-3">
                     <TrendingUp className="h-5 w-5 text-amber-600" />
                     <p className="text-sm text-amber-800">
                       Attend the next{' '}
                       <span className="font-bold">{classesNeeded}</span>{' '}
-                      consecutive {classesNeeded === 1 ? 'class' : 'classes'} to reach the required
-                      attendance.
+                      consecutive {classesNeeded === 1 ? 'class' : 'classes'} to reach required attendance.
                     </p>
                   </div>
                 )}
