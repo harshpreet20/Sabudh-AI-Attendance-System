@@ -57,6 +57,7 @@ const pageTitles: Record<string, string> = {
   '/admin/audit-logs': 'Audit Logs',
   '/admin/settings': 'Settings',
   '/admin/knowledge-base': 'Knowledge Base',
+  '/admin/discussions': 'Discussions',
 }
 
 export function DashboardShell({

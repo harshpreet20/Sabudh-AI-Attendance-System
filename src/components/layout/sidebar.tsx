@@ -83,6 +83,7 @@ const adminNavItems: NavItem[] = [
   { label: 'Approvals', icon: ShieldCheck, href: '/admin/approvals' },
   { label: 'Manage Users', icon: UserPlus, href: '/admin/users' },
   { label: 'Students', icon: Users, href: '/admin/students' },
+  { label: 'Discussions', icon: MessageSquare, href: '/admin/discussions' },
   { label: 'Sessions', icon: Calendar, href: '/admin/sessions' },
   { label: 'Classrooms', icon: Building2, href: '/admin/classrooms' },
   { label: 'Analytics', icon: BarChart3, href: '/admin/analytics' },

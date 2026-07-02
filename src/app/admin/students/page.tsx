@@ -18,6 +18,8 @@ import {
   ChevronRight,
   ArrowUpDown,
   Users,
+  Trash2,
+  Ban,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -40,6 +42,7 @@ import {
 import { Avatar } from '@/components/ui/avatar'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/ui/empty-state'
+import { Dialog } from '@/components/ui/dialog'
 import { suspendStudent, restoreStudent, archiveStudent } from './actions'
 
 // ---------------------------------------------------------------------------
@@ -154,6 +157,12 @@ export default function AdminStudentsPage() {
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
 
+  // Bulk selection state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkProcessing, setBulkProcessing] = useState(false)
+  const [bulkDeleteDialog, setBulkDeleteDialog] = useState(false)
+  const [bulkStatusDialog, setBulkStatusDialog] = useState<'active' | 'suspended' | null>(null)
+
   // Filter state
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -173,13 +182,15 @@ export default function AdminStudentsPage() {
     const timer = setTimeout(() => {
       setDebouncedSearch(search)
       setPage(0)
+      setSelectedIds(new Set())
     }, 300)
     return () => clearTimeout(timer)
   }, [search])
 
-  // Reset page on filter change
+  // Reset page and selection on filter change
   useEffect(() => {
     setPage(0)
+    setSelectedIds(new Set())
   }, [statusFilter, batchFilter, attendanceFilter])
 
   // Fetch batches on mount
@@ -336,6 +347,83 @@ export default function AdminStudentsPage() {
     }
   }
 
+  // Bulk selection helpers
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+  }
+
+  function toggleSelectAll() {
+    if (selectedIds.size === students.length) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(students.map((s) => s.id)))
+    }
+  }
+
+  // Bulk action handlers
+  async function handleBulkDelete() {
+    setBulkProcessing(true)
+    const selected = students.filter((s) => selectedIds.has(s.id))
+    const ids = selected.map((s) => s.id)
+    const authIds = selected.map((s) => s.auth_user_id)
+
+    const { error: profileError } = await supabase
+      .from('student_profiles')
+      .delete()
+      .in('id', ids)
+
+    if (profileError) {
+      toast.error('Failed to delete selected students')
+      setBulkProcessing(false)
+      setBulkDeleteDialog(false)
+      return
+    }
+
+    await supabase
+      .from('user_roles')
+      .delete()
+      .in('user_id', authIds)
+
+    toast.success(`${ids.length} student${ids.length > 1 ? 's' : ''} deleted`)
+    setBulkDeleteDialog(false)
+    setBulkProcessing(false)
+    setSelectedIds(new Set())
+    fetchStudents()
+  }
+
+  async function handleBulkStatusChange(newStatus: 'active' | 'suspended') {
+    setBulkProcessing(true)
+    const ids = Array.from(selectedIds)
+
+    const { error } = await supabase
+      .from('student_profiles')
+      .update({ status: newStatus })
+      .in('id', ids)
+
+    if (error) {
+      toast.error('Failed to update status')
+      setBulkProcessing(false)
+      setBulkStatusDialog(null)
+      return
+    }
+
+    const label = newStatus === 'active' ? 'activated' : 'suspended'
+    toast.success(`${ids.length} student${ids.length > 1 ? 's' : ''} ${label}`)
+    setBulkStatusDialog(null)
+    setBulkProcessing(false)
+    setSelectedIds(new Set())
+    fetchStudents()
+  }
+
+  const selectedCount = selectedIds.size
   const totalPages = Math.ceil(totalCount / PAGE_SIZE)
 
   function formatDate(dateStr: string | null): string {
@@ -430,6 +518,41 @@ export default function AdminStudentsPage() {
         </CardContent>
       </Card>
 
+      {/* Bulk actions bar */}
+      {selectedCount > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl bg-indigo-50/60 border border-indigo-200/50 px-4 py-3 backdrop-blur-sm">
+          <span className="text-sm font-medium text-indigo-700">
+            {selectedCount} selected
+          </span>
+          <div className="ml-auto flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setBulkStatusDialog('active')}
+            >
+              <UserCheck className="mr-1 h-3.5 w-3.5" />
+              Activate
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setBulkStatusDialog('suspended')}
+            >
+              <Ban className="mr-1 h-3.5 w-3.5" />
+              Suspend
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => setBulkDeleteDialog(true)}
+            >
+              <Trash2 className="mr-1 h-3.5 w-3.5" />
+              Delete
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Table */}
       <Card>
         <CardContent className="p-0">
@@ -451,6 +574,14 @@ export default function AdminStudentsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-12">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.size === students.length && students.length > 0}
+                        onChange={toggleSelectAll}
+                        className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                      />
+                    </TableHead>
                     <TableHead className="w-12" />
                     <TableHead>
                       <button
@@ -494,6 +625,16 @@ export default function AdminStudentsPage() {
                         router.push(`/admin/students/${student.id}`)
                       }
                     >
+                      <TableCell>
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.has(student.id)}
+                            onChange={() => toggleSelect(student.id)}
+                            className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                          />
+                        </div>
+                      </TableCell>
                       <TableCell>
                         <Avatar
                           src={student.profile_image_url}
@@ -662,6 +803,61 @@ export default function AdminStudentsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Bulk delete confirmation dialog */}
+      <Dialog
+        open={bulkDeleteDialog}
+        onClose={() => setBulkDeleteDialog(false)}
+        title="Delete Selected Students"
+        description={`Are you sure you want to delete ${selectedCount} student${selectedCount > 1 ? 's' : ''}? This action cannot be undone.`}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setBulkDeleteDialog(false)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              onClick={handleBulkDelete}
+              loading={bulkProcessing}
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete {selectedCount} Student{selectedCount > 1 ? 's' : ''}
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-gray-600">
+          This will permanently remove the profiles and role data for all selected students. Their authentication accounts will remain but they will lose access to the platform.
+        </p>
+      </Dialog>
+
+      {/* Bulk status change confirmation dialog */}
+      <Dialog
+        open={!!bulkStatusDialog}
+        onClose={() => setBulkStatusDialog(null)}
+        title={bulkStatusDialog === 'active' ? 'Activate Selected Students' : 'Suspend Selected Students'}
+        description={`${bulkStatusDialog === 'active' ? 'Activate' : 'Suspend'} ${selectedCount} selected student${selectedCount > 1 ? 's' : ''}?`}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setBulkStatusDialog(null)}>Cancel</Button>
+            <Button
+              variant={bulkStatusDialog === 'active' ? 'default' : 'destructive'}
+              onClick={() => bulkStatusDialog && handleBulkStatusChange(bulkStatusDialog)}
+              loading={bulkProcessing}
+            >
+              {bulkStatusDialog === 'active' ? (
+                <><UserCheck className="h-4 w-4" /> Activate</>
+              ) : (
+                <><Ban className="h-4 w-4" /> Suspend</>
+              )}
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-gray-600">
+          {bulkStatusDialog === 'active'
+            ? 'The selected students will be activated and will be able to access the platform.'
+            : 'The selected students will be suspended and will not be able to access the platform until reactivated.'}
+        </p>
+      </Dialog>
     </div>
   )
 }
