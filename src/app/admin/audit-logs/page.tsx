@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
-import { FileText, Filter, ChevronLeft, ChevronRight } from 'lucide-react'
+import { FileText, Filter, ChevronLeft, ChevronRight, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
@@ -21,6 +22,7 @@ import {
 import type { AuditLog } from '@/types/database'
 
 const PAGE_SIZE = 20
+const EXPORT_CAP = 5000
 
 const ACTION_LABELS: Record<string, string> = {
   student_suspended: 'Student Suspended',
@@ -42,6 +44,64 @@ function getActionBadgeVariant(action: string): 'default' | 'success' | 'warning
   return 'secondary'
 }
 
+type NameMap = Record<string, string>
+
+async function resolveNames(
+  supabase: ReturnType<typeof createClient>,
+  ids: string[]
+): Promise<NameMap> {
+  if (ids.length === 0) return {}
+  const map: NameMap = {}
+
+  const { data: students } = await supabase
+    .from('student_profiles')
+    .select('id, auth_user_id, full_name')
+    .in('auth_user_id', ids)
+
+  if (students) {
+    for (const s of students) {
+      if (s.auth_user_id && s.full_name) map[s.auth_user_id] = s.full_name
+    }
+  }
+
+  const remaining = ids.filter((id) => !map[id])
+  if (remaining.length > 0) {
+    const { data: teachers } = await supabase
+      .from('teacher_profiles')
+      .select('id, auth_user_id, full_name')
+      .in('auth_user_id', remaining)
+
+    if (teachers) {
+      for (const t of teachers) {
+        if (t.auth_user_id && t.full_name) map[t.auth_user_id] = t.full_name
+      }
+    }
+  }
+
+  const targetOnlyIds = ids.filter((id) => !map[id])
+  if (targetOnlyIds.length > 0) {
+    const { data: studentsById } = await supabase
+      .from('student_profiles')
+      .select('id, full_name')
+      .in('id', targetOnlyIds)
+
+    if (studentsById) {
+      for (const s of studentsById) {
+        if (s.id && s.full_name) map[s.id] = s.full_name
+      }
+    }
+  }
+
+  return map
+}
+
+function escapeCsvField(value: string): string {
+  if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+    return `"${value.replace(/"/g, '""')}"`
+  }
+  return value
+}
+
 export default function AuditLogsPage() {
   const supabase = createClient()
 
@@ -49,18 +109,54 @@ export default function AuditLogsPage() {
   const [totalCount, setTotalCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(0)
+  const [nameMap, setNameMap] = useState<NameMap>({})
+  const [exporting, setExporting] = useState(false)
 
   const [showFilters, setShowFilters] = useState(false)
   const [filterAction, setFilterAction] = useState('')
   const [filterTable, setFilterTable] = useState('')
   const [filterDateFrom, setFilterDateFrom] = useState('')
   const [filterDateTo, setFilterDateTo] = useState('')
+  const [filterStudentName, setFilterStudentName] = useState('')
+
+  const studentNameDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [debouncedStudentName, setDebouncedStudentName] = useState('')
+
+  useEffect(() => {
+    if (studentNameDebounceRef.current) clearTimeout(studentNameDebounceRef.current)
+    studentNameDebounceRef.current = setTimeout(() => {
+      setDebouncedStudentName(filterStudentName.trim())
+      setPage(0)
+    }, 400)
+    return () => {
+      if (studentNameDebounceRef.current) clearTimeout(studentNameDebounceRef.current)
+    }
+  }, [filterStudentName])
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
 
   const fetchLogs = useCallback(async () => {
     setLoading(true)
     try {
+      let matchingTargetIds: string[] | undefined
+      if (debouncedStudentName) {
+        const { data: matchedStudents } = await supabase
+          .from('student_profiles')
+          .select('id, auth_user_id')
+          .ilike('full_name', `%${debouncedStudentName}%`)
+
+        if (!matchedStudents || matchedStudents.length === 0) {
+          setLogs([])
+          setTotalCount(0)
+          setNameMap({})
+          setLoading(false)
+          return
+        }
+        matchingTargetIds = matchedStudents.flatMap((s) =>
+          [s.id, s.auth_user_id].filter(Boolean) as string[]
+        )
+      }
+
       let query = supabase
         .from('audit_logs')
         .select('*', { count: 'exact' })
@@ -71,22 +167,117 @@ export default function AuditLogsPage() {
       if (filterTable) query = query.eq('target_table', filterTable)
       if (filterDateFrom) query = query.gte('created_at', filterDateFrom)
       if (filterDateTo) query = query.lte('created_at', `${filterDateTo}T23:59:59`)
+      if (matchingTargetIds) query = query.in('target_id', matchingTargetIds)
 
       const { data, count, error } = await query
       if (error) throw error
 
-      setLogs((data as AuditLog[]) ?? [])
+      const fetched = (data as AuditLog[]) ?? []
+      setLogs(fetched)
       setTotalCount(count ?? 0)
+
+      const allIds = new Set<string>()
+      for (const log of fetched) {
+        if (log.actor_id) allIds.add(log.actor_id)
+        if (log.target_id) allIds.add(log.target_id)
+      }
+      const resolved = await resolveNames(supabase, Array.from(allIds))
+      setNameMap(resolved)
     } catch {
       toast.error('Failed to load audit logs')
     } finally {
       setLoading(false)
     }
-  }, [page, filterAction, filterTable, filterDateFrom, filterDateTo]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [page, filterAction, filterTable, filterDateFrom, filterDateTo, debouncedStudentName]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     fetchLogs()
   }, [fetchLogs])
+
+  async function handleExportCsv() {
+    setExporting(true)
+    try {
+      let matchingTargetIds: string[] | undefined
+      if (debouncedStudentName) {
+        const { data: matchedStudents } = await supabase
+          .from('student_profiles')
+          .select('id, auth_user_id')
+          .ilike('full_name', `%${debouncedStudentName}%`)
+
+        if (!matchedStudents || matchedStudents.length === 0) {
+          toast.error('No logs match the current filters')
+          setExporting(false)
+          return
+        }
+        matchingTargetIds = matchedStudents.flatMap((s) =>
+          [s.id, s.auth_user_id].filter(Boolean) as string[]
+        )
+      }
+
+      let query = supabase
+        .from('audit_logs')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(EXPORT_CAP)
+
+      if (filterAction) query = query.eq('action', filterAction)
+      if (filterTable) query = query.eq('target_table', filterTable)
+      if (filterDateFrom) query = query.gte('created_at', filterDateFrom)
+      if (filterDateTo) query = query.lte('created_at', `${filterDateTo}T23:59:59`)
+      if (matchingTargetIds) query = query.in('target_id', matchingTargetIds)
+
+      const { data, error } = await query
+      if (error) throw error
+
+      const allLogs = (data as AuditLog[]) ?? []
+      if (allLogs.length === 0) {
+        toast.error('No logs match the current filters')
+        setExporting(false)
+        return
+      }
+
+      const exportIds = new Set<string>()
+      for (const log of allLogs) {
+        if (log.actor_id) exportIds.add(log.actor_id)
+        if (log.target_id) exportIds.add(log.target_id)
+      }
+      const exportNameMap = await resolveNames(supabase, Array.from(exportIds))
+
+      const headers = ['Timestamp', 'Action', 'Target Table', 'Target ID', 'Target Name', 'Reason', 'Actor ID', 'Actor Name']
+      const rows = allLogs.map((log) => [
+        log.created_at,
+        ACTION_LABELS[log.action] || log.action,
+        log.target_table || '',
+        log.target_id || '',
+        (log.target_id && exportNameMap[log.target_id]) || '',
+        log.reason || '',
+        log.actor_id || '',
+        (log.actor_id && exportNameMap[log.actor_id]) || '',
+      ])
+
+      const csvContent = [
+        headers.map(escapeCsvField).join(','),
+        ...rows.map((row) => row.map(escapeCsvField).join(',')),
+      ].join('\n')
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      const today = new Date().toISOString().split('T')[0]
+      link.href = url
+      link.download = `audit-logs-${today}.csv`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+
+      toast.success(`Exported ${allLogs.length} log entries`)
+    } catch {
+      toast.error('Failed to export audit logs')
+    } finally {
+      setExporting(false)
+    }
+  }
 
   function formatDate(dateStr: string) {
     return new Date(dateStr).toLocaleString('en-IN', {
@@ -98,6 +289,66 @@ export default function AuditLogsPage() {
     })
   }
 
+  function renderTargetCell(log: AuditLog) {
+    if (!log.target_table) return null
+
+    const resolvedName = log.target_id ? nameMap[log.target_id] : undefined
+    const isStudentLink = log.target_table === 'student_profiles' && log.target_id
+
+    const content = (
+      <span>
+        {log.target_table}
+        {resolvedName ? (
+          <span className="ml-1 text-gray-900 font-medium">
+            {resolvedName}
+            {log.target_id && (
+              <span className="ml-1 font-mono text-xs text-gray-400" title={log.target_id}>
+                ({log.target_id.slice(0, 8)})
+              </span>
+            )}
+          </span>
+        ) : log.target_id ? (
+          <span className="ml-1 font-mono text-xs text-gray-400" title={log.target_id}>
+            {log.target_id.slice(0, 8)}
+          </span>
+        ) : null}
+      </span>
+    )
+
+    if (isStudentLink) {
+      return (
+        <Link
+          href={`/admin/students/${log.target_id}`}
+          className="text-indigo-600 hover:text-indigo-800 hover:underline"
+        >
+          {content}
+        </Link>
+      )
+    }
+
+    return content
+  }
+
+  function renderActorCell(log: AuditLog) {
+    if (!log.actor_id) return '--'
+    const resolvedName = nameMap[log.actor_id]
+    if (resolvedName) {
+      return (
+        <span title={log.actor_id}>
+          <span className="text-sm text-gray-700">{resolvedName}</span>
+          <span className="ml-1 font-mono text-xs text-gray-400">
+            ({log.actor_id.slice(0, 8)})
+          </span>
+        </span>
+      )
+    }
+    return (
+      <span className="font-mono text-xs text-gray-400" title={log.actor_id}>
+        {log.actor_id.slice(0, 8)}
+      </span>
+    )
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -107,19 +358,30 @@ export default function AuditLogsPage() {
             Track all administrative actions and changes
           </p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setShowFilters((v) => !v)}
-        >
-          <Filter className="h-4 w-4" />
-          Filters
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            loading={exporting}
+            onClick={handleExportCsv}
+          >
+            <Download className="h-4 w-4" />
+            Export CSV
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowFilters((v) => !v)}
+          >
+            <Filter className="h-4 w-4" />
+            Filters
+          </Button>
+        </div>
       </div>
 
       {showFilters && (
         <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
             <Select
               label="Action"
               value={filterAction}
@@ -150,6 +412,13 @@ export default function AuditLogsPage() {
               <option value="certificates">Certificates</option>
             </Select>
             <Input
+              label="Student Name"
+              type="text"
+              placeholder="Search by name..."
+              value={filterStudentName}
+              onChange={(e) => setFilterStudentName(e.target.value)}
+            />
+            <Input
               label="Date from"
               type="date"
               value={filterDateFrom}
@@ -177,6 +446,7 @@ export default function AuditLogsPage() {
                 setFilterTable('')
                 setFilterDateFrom('')
                 setFilterDateTo('')
+                setFilterStudentName('')
                 setPage(0)
               }}
             >
@@ -208,7 +478,7 @@ export default function AuditLogsPage() {
                   <TableHead>Action</TableHead>
                   <TableHead>Target</TableHead>
                   <TableHead>Reason</TableHead>
-                  <TableHead>Actor ID</TableHead>
+                  <TableHead>Actor</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -223,22 +493,13 @@ export default function AuditLogsPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-sm text-gray-600">
-                      {log.target_table && (
-                        <span>
-                          {log.target_table}
-                          {log.target_id && (
-                            <span className="ml-1 font-mono text-xs text-gray-400">
-                              {log.target_id.slice(0, 8)}
-                            </span>
-                          )}
-                        </span>
-                      )}
+                      {renderTargetCell(log)}
                     </TableCell>
                     <TableCell className="max-w-[200px] truncate text-sm text-gray-500">
                       {log.reason || '--'}
                     </TableCell>
-                    <TableCell className="font-mono text-xs text-gray-400">
-                      {log.actor_id?.slice(0, 8) || '--'}
+                    <TableCell>
+                      {renderActorCell(log)}
                     </TableCell>
                   </TableRow>
                 ))}

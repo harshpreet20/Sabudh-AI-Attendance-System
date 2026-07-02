@@ -13,6 +13,8 @@ import {
   CheckCircle,
   XCircle,
   Filter,
+  Edit,
+  Trash2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -112,6 +114,22 @@ export default function SessionsPage() {
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
   const [cancelSessionId, setCancelSessionId] = useState<string | null>(null)
   const [cancelLoading, setCancelLoading] = useState(false)
+
+  // Edit state
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [editSession, setEditSession] = useState<SessionWithRelations | null>(null)
+  const [editFormData, setEditFormData] = useState({
+    batch_id: '',
+    classroom_id: '',
+    session_date: '',
+    notes: '',
+  })
+  const [editLoading, setEditLoading] = useState(false)
+
+  // Delete state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [deleteSessionId, setDeleteSessionId] = useState<string | null>(null)
+  const [deleteLoading, setDeleteLoading] = useState(false)
 
   // ---------------------------------------------------------------------------
   // Fetch helpers
@@ -256,6 +274,77 @@ export default function SessionsPage() {
       toast.error('Failed to create session')
     } finally {
       setFormLoading(false)
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Edit session
+  // ---------------------------------------------------------------------------
+
+  function openEditDialog(session: SessionWithRelations) {
+    setEditSession(session)
+    setEditFormData({
+      batch_id: session.batch_id,
+      classroom_id: session.classroom_id || '',
+      session_date: session.session_date,
+      notes: session.notes || '',
+    })
+    setEditDialogOpen(true)
+    setOpenDropdown(null)
+  }
+
+  async function handleEditSession(e: React.FormEvent) {
+    e.preventDefault()
+    if (!editSession) return
+    setEditLoading(true)
+    try {
+      const { error } = await supabase
+        .from('sessions')
+        .update({
+          batch_id: editFormData.batch_id,
+          classroom_id: editFormData.classroom_id || null,
+          session_date: editFormData.session_date,
+          notes: editFormData.notes || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', editSession.id)
+
+      if (error) throw error
+
+      toast.success('Session updated successfully')
+      setEditDialogOpen(false)
+      setEditSession(null)
+      fetchSessions()
+    } catch {
+      toast.error('Failed to update session')
+    } finally {
+      setEditLoading(false)
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Delete session
+  // ---------------------------------------------------------------------------
+
+  async function handleDeleteSession() {
+    if (!deleteSessionId) return
+    setDeleteLoading(true)
+    try {
+      const { error } = await supabase
+        .from('sessions')
+        .delete()
+        .eq('id', deleteSessionId)
+
+      if (error) throw error
+
+      toast.success('Session deleted successfully')
+      fetchSessions()
+    } catch {
+      toast.error('Failed to delete session. It may have attendance records linked to it.')
+    } finally {
+      setDeleteLoading(false)
+      setDeleteDialogOpen(false)
+      setDeleteSessionId(null)
     }
   }
 
@@ -446,13 +535,10 @@ export default function SessionsPage() {
                           <div className="absolute right-0 z-10 mt-1 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
                             <button
                               className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                              onClick={() => {
-                                setOpenDropdown(null)
-                                toast.info('View details coming soon')
-                              }}
+                              onClick={() => openEditDialog(session)}
                             >
-                              <Calendar className="h-4 w-4" />
-                              View Details
+                              <Edit className="h-4 w-4" />
+                              Edit Session
                             </button>
 
                             {session.status === 'scheduled' && (
@@ -505,6 +591,19 @@ export default function SessionsPage() {
                                   Cancel Session
                                 </button>
                               )}
+
+                            <div className="my-1 border-t border-gray-100" />
+                            <button
+                              className="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-700 hover:bg-red-50"
+                              onClick={() => {
+                                setDeleteSessionId(session.id)
+                                setDeleteDialogOpen(true)
+                                setOpenDropdown(null)
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                              Delete Session
+                            </button>
                           </div>
                         )}
                       </div>
@@ -658,6 +757,127 @@ export default function SessionsPage() {
         <p className="text-sm text-gray-500">
           Cancelling a session will prevent students from marking attendance.
           This session will be marked as cancelled in all reports.
+        </p>
+      </Dialog>
+
+      {/* Edit Session Dialog */}
+      <Dialog
+        open={editDialogOpen}
+        onClose={() => {
+          setEditDialogOpen(false)
+          setEditSession(null)
+        }}
+        title="Edit Session"
+        description="Update the session details below."
+        footer={
+          <>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setEditDialogOpen(false)
+                setEditSession(null)
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              form="edit-session-form"
+              loading={editLoading}
+            >
+              Save Changes
+            </Button>
+          </>
+        }
+      >
+        <form
+          id="edit-session-form"
+          onSubmit={handleEditSession}
+          className="space-y-4"
+        >
+          <Select
+            label="Batch"
+            placeholder="Select a batch"
+            required
+            value={editFormData.batch_id}
+            onChange={(e) =>
+              setEditFormData((f) => ({ ...f, batch_id: e.target.value }))
+            }
+          >
+            {batches.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name}
+              </option>
+            ))}
+          </Select>
+          <Select
+            label="Classroom"
+            placeholder="Select a classroom (optional)"
+            value={editFormData.classroom_id}
+            onChange={(e) =>
+              setEditFormData((f) => ({ ...f, classroom_id: e.target.value }))
+            }
+          >
+            <option value="">No classroom</option>
+            {classrooms.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </Select>
+          <Input
+            label="Date"
+            type="date"
+            required
+            value={editFormData.session_date}
+            onChange={(e) =>
+              setEditFormData((f) => ({ ...f, session_date: e.target.value }))
+            }
+          />
+          <Input
+            label="Notes"
+            placeholder="e.g. Machine Learning - Lecture 5"
+            value={editFormData.notes}
+            onChange={(e) =>
+              setEditFormData((f) => ({ ...f, notes: e.target.value }))
+            }
+          />
+        </form>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={() => {
+          setDeleteDialogOpen(false)
+          setDeleteSessionId(null)
+        }}
+        title="Delete Session"
+        description="Are you sure you want to permanently delete this session? This cannot be undone."
+        footer={
+          <>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeleteDialogOpen(false)
+                setDeleteSessionId(null)
+              }}
+            >
+              Keep Session
+            </Button>
+            <Button
+              variant="destructive"
+              loading={deleteLoading}
+              onClick={handleDeleteSession}
+            >
+              Delete Session
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-gray-500">
+          Deleting a session will permanently remove it and any associated attendance records.
+          If you just want to mark it as inactive, consider cancelling it instead.
         </p>
       </Dialog>
     </div>

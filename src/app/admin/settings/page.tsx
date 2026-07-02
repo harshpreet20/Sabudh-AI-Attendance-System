@@ -7,9 +7,8 @@ import {
   CardTitle,
   CardDescription,
 } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Settings, Building2, BookOpen, Globe } from 'lucide-react'
-import type { SystemSetting, Organization, Course } from '@/types/database'
+import { Settings, Building2, Globe } from 'lucide-react'
+import type { SystemSetting, Organization } from '@/types/database'
 
 export default async function AdminSettingsPage() {
   await requireAdmin()
@@ -25,11 +24,6 @@ export default async function AdminSettingsPage() {
     .select('*')
     .limit(1)
     .single()
-
-  const { data: courses } = await supabase
-    .from('courses')
-    .select('*')
-    .order('title')
 
   const systemSettings = (settings as SystemSetting[]) ?? []
   const org = organization as Organization | null
@@ -91,47 +85,6 @@ export default async function AdminSettingsPage() {
                   })}
                 </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {courses && courses.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BookOpen className="h-5 w-5 text-purple-500" />
-              Courses
-            </CardTitle>
-            <CardDescription>Active courses in the system</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {(courses as Course[]).map((course) => (
-                <div
-                  key={course.id}
-                  className="flex items-center justify-between rounded-lg border border-gray-100 p-3"
-                >
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">
-                      {course.title}
-                    </p>
-                    {course.description && (
-                      <p className="mt-0.5 text-xs text-gray-500">
-                        {course.description}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant={course.status === 'active' ? 'success' : 'secondary'}>
-                      {course.status}
-                    </Badge>
-                    <span className="text-xs text-gray-400">
-                      {course.attendance_requirement}% required
-                    </span>
-                  </div>
-                </div>
-              ))}
             </div>
           </CardContent>
         </Card>

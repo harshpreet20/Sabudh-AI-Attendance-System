@@ -50,6 +50,7 @@ const pageTitles: Record<string, string> = {
   '/admin/students': 'Students',
   '/admin/sessions': 'Sessions',
   '/admin/classrooms': 'Classrooms',
+  '/admin/courses': 'Courses & Batches',
   '/admin/analytics': 'Analytics',
   '/admin/certificates': 'Certificates',
   '/admin/users': 'Manage Users',

@@ -12,6 +12,7 @@ import {
   Power,
   Search,
   MapPin,
+  Trash2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -67,6 +68,11 @@ export default function ClassroomsPage() {
 
   // Toggle loading state per-id
   const [togglingIds, setTogglingIds] = useState<Set<string>>(new Set())
+
+  // Delete state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [deletingClassroom, setDeletingClassroom] = useState<Classroom | null>(null)
+  const [deleteLoading, setDeleteLoading] = useState(false)
 
   // ---------------------------------------------------------------------------
   // Fetch helpers
@@ -226,6 +232,33 @@ export default function ClassroomsPage() {
   }
 
   // ---------------------------------------------------------------------------
+  // Delete
+  // ---------------------------------------------------------------------------
+
+  async function handleDelete() {
+    if (!deletingClassroom) return
+    setDeleteLoading(true)
+
+    try {
+      const { error } = await supabase
+        .from('classrooms')
+        .delete()
+        .eq('id', deletingClassroom.id)
+
+      if (error) throw error
+
+      toast.success(`"${deletingClassroom.name}" deleted successfully`)
+      fetchClassrooms()
+    } catch {
+      toast.error('Failed to delete classroom. It may be referenced by existing sessions.')
+    } finally {
+      setDeleteLoading(false)
+      setDeleteDialogOpen(false)
+      setDeletingClassroom(null)
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
 
@@ -349,11 +382,58 @@ export default function ClassroomsPage() {
                   <Power className="h-3.5 w-3.5" />
                   {classroom.status === 'active' ? 'Deactivate' : 'Activate'}
                 </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => {
+                    setDeletingClassroom(classroom)
+                    setDeleteDialogOpen(true)
+                  }}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Delete
+                </Button>
               </CardFooter>
             </Card>
           ))}
         </div>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={() => {
+          setDeleteDialogOpen(false)
+          setDeletingClassroom(null)
+        }}
+        title="Delete Classroom"
+        description={`Are you sure you want to delete "${deletingClassroom?.name}"? This action cannot be undone.`}
+        footer={
+          <>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeleteDialogOpen(false)
+                setDeletingClassroom(null)
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              loading={deleteLoading}
+              onClick={handleDelete}
+            >
+              Delete Classroom
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-gray-500">
+          If this classroom is referenced by existing sessions, the deletion will fail.
+          Consider deactivating it instead.
+        </p>
+      </Dialog>
 
       {/* Create / Edit Dialog */}
       <Dialog

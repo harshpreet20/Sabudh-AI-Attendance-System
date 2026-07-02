@@ -36,6 +36,7 @@ import {
   MessageSquare,
   Bot,
   MapPin,
+  BookOpen,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -88,6 +89,7 @@ const adminNavItems: NavItem[] = [
   { label: 'Leave Requests', icon: CalendarOff, href: '/admin/leave' },
   { label: 'Sessions', icon: Calendar, href: '/admin/sessions' },
   { label: 'Classrooms', icon: Building2, href: '/admin/classrooms' },
+  { label: 'Courses', icon: BookOpen, href: '/admin/courses' },
   { label: 'Analytics', icon: BarChart3, href: '/admin/analytics' },
   { label: 'Certificates', icon: Award, href: '/admin/certificates' },
   { label: 'Import Students', icon: Upload, href: '/admin/import' },
