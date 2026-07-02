@@ -115,12 +115,13 @@ export default function ProfilePage() {
       emergency_contact: emergencyContact || null,
     }
 
-    const { error } = await supabase
+    const { data: updatedRows, error } = await supabase
       .from('student_profiles')
       .update(updates)
       .eq('id', profile.id)
+      .select()
 
-    if (error) {
+    if (error || !updatedRows || updatedRows.length === 0) {
       toast.error('Failed to save profile. Please try again.')
     } else {
       toast.success('Profile updated successfully.')

@@ -58,7 +58,6 @@ const studentNavItems: NavItem[] = [
   { label: 'Announcements', icon: Megaphone, href: '/dashboard/announcements' },
   { label: 'My Journey', icon: MapPin, href: '/dashboard/journey' },
   { label: 'Certificate', icon: Award, href: '/dashboard/certificate' },
-  { label: 'Notifications', icon: Bell, href: '/dashboard/notifications' },
   { label: 'Profile', icon: User, href: '/dashboard/profile' },
   { label: 'Settings', icon: Settings, href: '/dashboard/settings' },
 ]
@@ -84,6 +83,9 @@ const adminNavItems: NavItem[] = [
   { label: 'Manage Users', icon: UserPlus, href: '/admin/users' },
   { label: 'Students', icon: Users, href: '/admin/students' },
   { label: 'Discussions', icon: MessageSquare, href: '/admin/discussions' },
+  { label: 'Messages', icon: MessageSquare, href: '/admin/messages' },
+  { label: 'Announcements', icon: Megaphone, href: '/admin/announcements' },
+  { label: 'Leave Requests', icon: CalendarOff, href: '/admin/leave' },
   { label: 'Sessions', icon: Calendar, href: '/admin/sessions' },
   { label: 'Classrooms', icon: Building2, href: '/admin/classrooms' },
   { label: 'Analytics', icon: BarChart3, href: '/admin/analytics' },
