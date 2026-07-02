@@ -49,6 +49,7 @@ interface NavItem {
 const studentNavItems: NavItem[] = [
   { label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
   { label: 'Attendance', icon: CheckSquare, href: '/dashboard/attendance' },
+  { label: 'Curriculum', icon: BookOpen, href: '/dashboard/curriculum' },
   { label: 'Assignments', icon: ClipboardList, href: '/dashboard/assignments' },
   { label: 'Projects', icon: FolderKanban, href: '/dashboard/projects' },
   { label: 'History', icon: History, href: '/dashboard/history' },
@@ -67,6 +68,7 @@ const teacherNavItems: NavItem[] = [
   { label: 'Dashboard', icon: LayoutDashboard, href: '/teacher' },
   { label: 'Students', icon: GraduationCap, href: '/teacher/students' },
   { label: 'Attendance', icon: CheckSquare, href: '/teacher/attendance' },
+  { label: 'Curriculum', icon: BookOpen, href: '/teacher/curriculum' },
   { label: 'Assignments', icon: ClipboardList, href: '/teacher/assignments' },
   { label: 'Projects', icon: FolderKanban, href: '/teacher/projects' },
   { label: 'Progress', icon: TrendingUp, href: '/teacher/progress' },

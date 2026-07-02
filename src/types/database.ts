@@ -141,6 +141,7 @@ export interface StudentProfile {
   total_sessions: number;
   ai_persona: string | null;
   risk_score: number;
+  onboarding_completed: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -564,4 +565,33 @@ export interface ChatbotMessage {
   role: 'user' | 'assistant'
   content: string
   created_at: string
+}
+
+export type MaterialProgressStatus = 'not_started' | 'in_progress' | 'completed'
+
+export interface CourseMaterial {
+  id: string
+  batch_id: string
+  title: string
+  description: string | null
+  file_url: string
+  storage_path: string
+  file_name: string
+  file_type: string
+  file_size: number
+  sort_order: number
+  uploaded_by: string
+  created_at: string
+  updated_at: string
+}
+
+export interface MaterialProgress {
+  id: string
+  material_id: string
+  student_id: string
+  status: MaterialProgressStatus
+  last_viewed_at: string | null
+  completed_at: string | null
+  created_at: string
+  updated_at: string
 }

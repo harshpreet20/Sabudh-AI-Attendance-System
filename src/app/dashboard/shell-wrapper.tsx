@@ -3,6 +3,7 @@
 import { useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { DashboardShell } from '@/components/layout/dashboard-shell'
+import { OnboardingTour } from '@/components/onboarding/onboarding-tour'
 
 interface StudentShellWrapperProps {
   children: React.ReactNode
@@ -10,10 +11,10 @@ interface StudentShellWrapperProps {
   userEmail: string
   avatarUrl: string | null
   profileComplete: boolean
+  onboardingCompleted: boolean
+  studentProfileId: string | null
 }
 
-// Paths that must remain reachable even when the profile photo is missing,
-// otherwise the user could never complete (or view) their profile.
 const PROFILE_GATE_ALLOWED_PATHS = ['/dashboard/complete-profile', '/dashboard/profile']
 
 export function StudentShellWrapper({
@@ -22,6 +23,8 @@ export function StudentShellWrapper({
   userEmail,
   avatarUrl,
   profileComplete,
+  onboardingCompleted,
+  studentProfileId,
 }: StudentShellWrapperProps) {
   const pathname = usePathname()
   const router = useRouter()
@@ -36,6 +39,8 @@ export function StudentShellWrapper({
     }
   }, [profileComplete, isAllowedPath, router])
 
+  const showOnboarding = profileComplete && !onboardingCompleted && studentProfileId
+
   return (
     <DashboardShell
       role="student"
@@ -45,6 +50,9 @@ export function StudentShellWrapper({
       avatarUrl={avatarUrl}
     >
       {children}
+      {showOnboarding && (
+        <OnboardingTour studentProfileId={studentProfileId} />
+      )}
     </DashboardShell>
   )
 }
