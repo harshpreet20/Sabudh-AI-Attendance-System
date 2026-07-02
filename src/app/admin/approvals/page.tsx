@@ -12,6 +12,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { Dialog } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
+import { Textarea } from '@/components/ui/textarea'
 import {
   UserCheck,
   UserX,
@@ -19,8 +20,12 @@ import {
   GraduationCap,
   Users,
   ShieldCheck,
+  Camera,
+  Check,
+  X,
+  Image,
 } from 'lucide-react'
-import type { Batch } from '@/types/database'
+import type { Batch, ProfilePhotoRequest } from '@/types/database'
 
 interface PendingUser {
   id: string
@@ -37,20 +42,32 @@ interface PendingUser {
   bio?: string | null
 }
 
+interface PhotoRequestWithStudent extends ProfilePhotoRequest {
+  student_profiles: {
+    full_name: string
+    email: string
+  }
+}
+
 export default function AdminApprovalsPage() {
   const supabase = useMemo(() => createClient(), [])
   const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([])
   const [batches, setBatches] = useState<Batch[]>([])
   const [loading, setLoading] = useState(true)
   const [processing, setProcessing] = useState<string | null>(null)
-  const [tab, setTab] = useState<'all' | 'students' | 'teachers'>('all')
+  const [tab, setTab] = useState<'all' | 'students' | 'teachers' | 'photos'>('all')
+
+  const [photoRequests, setPhotoRequests] = useState<PhotoRequestWithStudent[]>([])
+  const [photoProcessing, setPhotoProcessing] = useState<string | null>(null)
+  const [photoReviewDialog, setPhotoReviewDialog] = useState<PhotoRequestWithStudent | null>(null)
+  const [reviewerNote, setReviewerNote] = useState('')
 
   // Assign batch dialog
   const [assignDialog, setAssignDialog] = useState<PendingUser | null>(null)
   const [selectedBatch, setSelectedBatch] = useState('')
 
   const fetchPending = useCallback(async () => {
-    const [{ data: students }, { data: teachers }, { data: batchData }] = await Promise.all([
+    const [{ data: students }, { data: teachers }, { data: batchData }, { data: photoData }] = await Promise.all([
       supabase
         .from('student_profiles')
         .select('id, auth_user_id, full_name, email, phone, profession, qualification, city, created_at')
@@ -66,6 +83,11 @@ export default function AdminApprovalsPage() {
         .select('*')
         .eq('status', 'active')
         .order('name'),
+      supabase
+        .from('profile_photo_requests')
+        .select('*, student_profiles(full_name, email)')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false }),
     ])
 
     const pending: PendingUser[] = [
@@ -75,6 +97,7 @@ export default function AdminApprovalsPage() {
 
     setPendingUsers(pending)
     setBatches((batchData as Batch[]) ?? [])
+    setPhotoRequests((photoData as PhotoRequestWithStudent[]) ?? [])
     setLoading(false)
   }, [supabase])
 
@@ -185,6 +208,72 @@ export default function AdminApprovalsPage() {
     setProcessing(null)
   }
 
+  async function approvePhotoRequest(request: PhotoRequestWithStudent) {
+    setPhotoProcessing(request.id)
+
+    const { data: { user } } = await supabase.auth.getUser()
+
+    const { error: updateError } = await supabase
+      .from('profile_photo_requests')
+      .update({
+        status: 'approved',
+        reviewed_by: user?.id,
+        reviewed_at: new Date().toISOString(),
+        reviewer_note: reviewerNote || null,
+      })
+      .eq('id', request.id)
+
+    if (updateError) {
+      toast.error('Failed to approve photo request')
+      setPhotoProcessing(null)
+      return
+    }
+
+    const { error: profileError } = await supabase
+      .from('student_profiles')
+      .update({ profile_image_url: request.new_photo_url })
+      .eq('id', request.student_profile_id)
+
+    if (profileError) {
+      toast.error('Photo approved but failed to update profile')
+    } else {
+      toast.success(`Photo approved for ${request.student_profiles.full_name}`)
+    }
+
+    setPhotoRequests(prev => prev.filter(r => r.id !== request.id))
+    setPhotoProcessing(null)
+    setPhotoReviewDialog(null)
+    setReviewerNote('')
+  }
+
+  async function rejectPhotoRequest(request: PhotoRequestWithStudent) {
+    setPhotoProcessing(request.id)
+
+    const { data: { user } } = await supabase.auth.getUser()
+
+    const { error } = await supabase
+      .from('profile_photo_requests')
+      .update({
+        status: 'rejected',
+        reviewed_by: user?.id,
+        reviewed_at: new Date().toISOString(),
+        reviewer_note: reviewerNote || null,
+      })
+      .eq('id', request.id)
+
+    if (error) {
+      toast.error('Failed to reject photo request')
+    } else {
+      toast.success(`Photo rejected for ${request.student_profiles.full_name}`)
+      await supabase.storage.from('avatars').remove([request.new_photo_storage_path])
+    }
+
+    setPhotoRequests(prev => prev.filter(r => r.id !== request.id))
+    setPhotoProcessing(null)
+    setPhotoReviewDialog(null)
+    setReviewerNote('')
+  }
+
   const filtered = tab === 'all'
     ? pendingUsers
     : pendingUsers.filter(u => u.type === (tab === 'students' ? 'student' : 'teacher'))
@@ -214,7 +303,7 @@ export default function AdminApprovalsPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardContent className="flex items-center gap-4 p-5">
             <div className="rounded-xl bg-amber-100/60 p-3">
@@ -248,88 +337,209 @@ export default function AdminApprovalsPage() {
             </div>
           </CardContent>
         </Card>
+        <Card>
+          <CardContent className="flex items-center gap-4 p-5">
+            <div className="rounded-xl bg-cyan-100/60 p-3">
+              <Camera className="h-5 w-5 text-cyan-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-gray-900">{photoRequests.length}</p>
+              <p className="text-sm text-gray-500">Photo Requests</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Tabs */}
       <div className="flex gap-2">
-        {(['all', 'students', 'teachers'] as const).map(t => (
+        {(['all', 'students', 'teachers', 'photos'] as const).map(t => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`rounded-xl px-4 py-2 text-sm font-medium transition-all duration-200 ${
+            className={`rounded-xl px-4 py-2 text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
               tab === t
                 ? 'bg-indigo-500/10 text-indigo-700 shadow-sm'
                 : 'text-gray-600 hover:bg-white/50'
             }`}
           >
-            {t === 'all' ? 'All' : t === 'students' ? `Students (${studentCount})` : `Teachers (${teacherCount})`}
+            {t === 'all' ? 'All' : t === 'students' ? `Students (${studentCount})` : t === 'teachers' ? `Teachers (${teacherCount})` : (
+              <>
+                <Camera className="h-4 w-4" />
+                Photos ({photoRequests.length})
+              </>
+            )}
           </button>
         ))}
       </div>
 
-      {/* Pending Users List */}
-      {filtered.length === 0 ? (
-        <EmptyState
-          icon={UserCheck}
-          title="No pending approvals"
-          description="All accounts have been reviewed. New sign-ups will appear here."
-        />
-      ) : (
-        <div className="space-y-3">
-          {filtered.map((user) => (
-            <Card key={user.id}>
-              <CardContent className="p-5">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex items-center gap-4">
-                    <Avatar
-                      fallback={user.full_name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
-                      size="md"
-                    />
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-semibold text-gray-900">{user.full_name}</p>
-                        <Badge variant={user.type === 'teacher' ? 'default' : 'secondary'}>
-                          {user.type === 'teacher' ? 'Teacher' : 'Student'}
-                        </Badge>
+      {tab !== 'photos' && (
+        <>
+          {filtered.length === 0 ? (
+            <EmptyState
+              icon={UserCheck}
+              title="No pending approvals"
+              description="All accounts have been reviewed. New sign-ups will appear here."
+            />
+          ) : (
+            <div className="space-y-3">
+              {filtered.map((user) => (
+                <Card key={user.id}>
+                  <CardContent className="p-5">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex items-center gap-4">
+                        <Avatar
+                          fallback={user.full_name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                          size="md"
+                        />
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-semibold text-gray-900">{user.full_name}</p>
+                            <Badge variant={user.type === 'teacher' ? 'default' : 'secondary'}>
+                              {user.type === 'teacher' ? 'Teacher' : 'Student'}
+                            </Badge>
+                          </div>
+                          <p className="text-sm text-gray-500">{user.email}</p>
+                          <div className="mt-1 flex flex-wrap gap-3 text-xs text-gray-400">
+                            {user.phone && <span>Phone: {user.phone}</span>}
+                            {user.type === 'student' && user.profession && <span>Profession: {user.profession}</span>}
+                            {user.type === 'student' && user.city && <span>City: {user.city}</span>}
+                            {user.type === 'teacher' && user.subject_expertise && <span>Expertise: {user.subject_expertise}</span>}
+                            {user.qualification && <span>Qualification: {user.qualification}</span>}
+                            <span>Applied: {new Date(user.created_at).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                          </div>
+                        </div>
                       </div>
-                      <p className="text-sm text-gray-500">{user.email}</p>
-                      <div className="mt-1 flex flex-wrap gap-3 text-xs text-gray-400">
-                        {user.phone && <span>Phone: {user.phone}</span>}
-                        {user.type === 'student' && user.profession && <span>Profession: {user.profession}</span>}
-                        {user.type === 'student' && user.city && <span>City: {user.city}</span>}
-                        {user.type === 'teacher' && user.subject_expertise && <span>Expertise: {user.subject_expertise}</span>}
-                        {user.qualification && <span>Qualification: {user.qualification}</span>}
-                        <span>Applied: {new Date(user.created_at).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => rejectUser(user)}
+                          loading={processing === user.id}
+                          disabled={!!processing}
+                        >
+                          <UserX className="h-4 w-4" />
+                          Reject
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => user.type === 'teacher' ? approveTeacher(user) : approveStudent(user)}
+                          loading={processing === user.id}
+                          disabled={!!processing}
+                        >
+                          <UserCheck className="h-4 w-4" />
+                          Approve
+                        </Button>
                       </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => rejectUser(user)}
-                      loading={processing === user.id}
-                      disabled={!!processing}
-                    >
-                      <UserX className="h-4 w-4" />
-                      Reject
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={() => user.type === 'teacher' ? approveTeacher(user) : approveStudent(user)}
-                      loading={processing === user.id}
-                      disabled={!!processing}
-                    >
-                      <UserCheck className="h-4 w-4" />
-                      Approve
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </>
       )}
+
+      {tab === 'photos' && (
+        <>
+          {photoRequests.length === 0 ? (
+            <EmptyState
+              icon={Image}
+              title="No pending photo requests"
+              description="All photo change requests have been reviewed."
+            />
+          ) : (
+            <div className="space-y-3">
+              {photoRequests.map((request) => (
+                <Card key={request.id}>
+                  <CardContent className="p-5">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-3">
+                          <div className="text-center">
+                            <p className="mb-1 text-xs text-gray-400">Current</p>
+                            <Avatar
+                              src={request.old_photo_url}
+                              fallback={request.student_profiles.full_name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                              size="lg"
+                            />
+                          </div>
+                          <span className="text-gray-300">&#8594;</span>
+                          <div className="text-center">
+                            <p className="mb-1 text-xs text-gray-400">New</p>
+                            <Avatar
+                              src={request.new_photo_url}
+                              fallback="?"
+                              size="lg"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-gray-900">
+                            {request.student_profiles.full_name}
+                          </p>
+                          <p className="text-sm text-gray-500">{request.student_profiles.email}</p>
+                          <p className="mt-1 text-xs text-gray-400">
+                            Requested: {new Date(request.created_at).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => { setPhotoReviewDialog(request); setReviewerNote('') }}
+                          disabled={!!photoProcessing}
+                        >
+                          <X className="h-4 w-4" />
+                          Reject
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => approvePhotoRequest(request)}
+                          loading={photoProcessing === request.id}
+                          disabled={!!photoProcessing}
+                        >
+                          <Check className="h-4 w-4" />
+                          Approve
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Photo Reject Dialog */}
+      <Dialog
+        open={!!photoReviewDialog}
+        onClose={() => { setPhotoReviewDialog(null); setReviewerNote('') }}
+        title="Reject Photo Change"
+        description={photoReviewDialog ? `Reject photo change for ${photoReviewDialog.student_profiles.full_name}?` : ''}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => { setPhotoReviewDialog(null); setReviewerNote('') }}>Cancel</Button>
+            <Button
+              variant="destructive"
+              onClick={() => photoReviewDialog && rejectPhotoRequest(photoReviewDialog)}
+              loading={!!photoProcessing}
+            >
+              <X className="h-4 w-4" />
+              Reject
+            </Button>
+          </>
+        }
+      >
+        <Textarea
+          label="Reason for rejection (optional)"
+          value={reviewerNote}
+          onChange={(e) => setReviewerNote(e.target.value)}
+          placeholder="e.g. Photo is blurry, not a proper headshot"
+          rows={3}
+        />
+      </Dialog>
 
       {/* Assign Batch Dialog (for students) */}
       <Dialog

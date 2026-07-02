@@ -17,6 +17,7 @@ import {
   Clock,
   CheckCircle,
   XCircle,
+  Trash2,
 } from 'lucide-react'
 import type { LeaveRequest } from '@/types/database'
 
@@ -96,6 +97,16 @@ export default function LeavePage() {
     }
 
     setSubmitting(false)
+  }
+
+  async function handleWithdraw(id: string) {
+    const { error } = await supabase.from('leave_requests').delete().eq('id', id)
+    if (error) {
+      toast.error('Failed to withdraw request')
+    } else {
+      toast.success('Leave request withdrawn')
+      setRequests((prev) => prev.filter((r) => r.id !== id))
+    }
   }
 
   function statusIcon(status: string) {
@@ -215,9 +226,21 @@ export default function LeavePage() {
                     </p>
                   </div>
                 </div>
-                <Badge variant={statusVariant(req.status)}>
-                  {req.status.charAt(0).toUpperCase() + req.status.slice(1)}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  {req.status === 'pending' && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs text-red-500 hover:text-red-700"
+                      onClick={() => handleWithdraw(req.id)}
+                    >
+                      <Trash2 className="mr-1 h-3 w-3" />Withdraw
+                    </Button>
+                  )}
+                  <Badge variant={statusVariant(req.status)}>
+                    {req.status.charAt(0).toUpperCase() + req.status.slice(1)}
+                  </Badge>
+                </div>
               </CardContent>
             </Card>
           ))}

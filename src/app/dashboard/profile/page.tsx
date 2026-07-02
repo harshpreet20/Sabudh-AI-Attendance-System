@@ -24,8 +24,9 @@ import {
   GraduationCap,
   Building2,
   Heart,
+  Clock,
 } from 'lucide-react'
-import type { StudentProfile } from '@/types/database'
+import type { StudentProfile, ProfilePhotoRequest } from '@/types/database'
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState<StudentProfile | null>(null)
@@ -43,6 +44,7 @@ export default function ProfilePage() {
   const [dateOfBirth, setDateOfBirth] = useState('')
   const [emergencyContact, setEmergencyContact] = useState('')
   const [uploading, setUploading] = useState(false)
+  const [pendingPhotoRequest, setPendingPhotoRequest] = useState<ProfilePhotoRequest | null>(null)
 
   const fetchProfile = useCallback(async () => {
     const supabase = createClient()
@@ -75,6 +77,17 @@ export default function ProfilePage() {
       setGender(profileData.gender || '')
       setDateOfBirth(profileData.date_of_birth || '')
       setEmergencyContact(profileData.emergency_contact || '')
+
+      const { data: pendingReq } = await supabase
+        .from('profile_photo_requests')
+        .select('*')
+        .eq('student_profile_id', profileData.id)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      setPendingPhotoRequest((pendingReq as ProfilePhotoRequest) ?? null)
     }
 
     setLoading(false)
@@ -170,7 +183,8 @@ export default function ProfilePage() {
     setUploading(true)
     const supabase = createClient()
     const ext = file.name.split('.').pop()
-    const path = `student-profiles/${profile.auth_user_id}/avatar.${ext}`
+    const timestamp = Date.now()
+    const path = `student-profiles/${profile.auth_user_id}/pending-${timestamp}.${ext}`
 
     const { error: uploadError } = await supabase.storage
       .from('avatars')
@@ -184,13 +198,27 @@ export default function ProfilePage() {
 
     const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path)
 
-    await supabase
-      .from('student_profiles')
-      .update({ profile_image_url: publicUrl })
-      .eq('id', profile.id)
+    const { data: request, error: insertError } = await supabase
+      .from('profile_photo_requests')
+      .insert({
+        student_profile_id: profile.id,
+        auth_user_id: profile.auth_user_id,
+        old_photo_url: profile.profile_image_url,
+        new_photo_url: publicUrl,
+        new_photo_storage_path: path,
+        status: 'pending',
+      })
+      .select()
+      .single()
 
-    setProfile(prev => prev ? { ...prev, profile_image_url: publicUrl } : prev)
-    toast.success('Profile picture updated')
+    if (insertError) {
+      toast.error('Failed to submit photo change request.')
+      setUploading(false)
+      return
+    }
+
+    setPendingPhotoRequest(request as ProfilePhotoRequest)
+    toast.success('Photo change submitted for approval.')
     setUploading(false)
   }
 
@@ -229,6 +257,11 @@ export default function ProfilePage() {
                   <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
                 </div>
               )}
+              {pendingPhotoRequest && (
+                <div className="absolute -bottom-1 -right-1 rounded-full bg-amber-500 p-1">
+                  <Clock className="h-3 w-3 text-white" />
+                </div>
+              )}
             </div>
             <div className="flex-1 text-center sm:text-left">
               <h2 className="text-xl font-bold text-gray-900">
@@ -239,6 +272,12 @@ export default function ProfilePage() {
                 <Badge variant={statusVariant}>
                   {profile.status.charAt(0).toUpperCase() + profile.status.slice(1)}
                 </Badge>
+                {pendingPhotoRequest && (
+                  <Badge variant="warning">
+                    <Clock className="mr-1 h-3 w-3" />
+                    Photo Change Pending Approval
+                  </Badge>
+                )}
               </div>
             </div>
           </div>

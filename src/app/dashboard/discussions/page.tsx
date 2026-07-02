@@ -782,6 +782,12 @@ export default function StudentDiscussionsPage() {
                       <Button variant="ghost" size="sm" onClick={() => toggleLock(activeThread)} className="h-7 text-xs">
                         {activeThread.locked ? <><Unlock className="mr-1 h-3 w-3" />Unlock</> : <><Lock className="mr-1 h-3 w-3" />Lock</>}
                       </Button>
+                    </>
+                  )}
+
+                  {(isMod || activeThread.author_id === userId) && (
+                    <>
+                      {!isMod && <span className="mx-1 text-gray-300">|</span>}
                       <Button variant="ghost" size="sm" className="h-7 text-xs text-red-500 hover:text-red-700" onClick={() => setDeleteDialog({ type: 'thread', id: activeThread.id })}>
                         <Trash2 className="mr-1 h-3 w-3" />Delete
                       </Button>
@@ -869,14 +875,14 @@ export default function StudentDiscussionsPage() {
                           {reply.upvote_count}
                         </button>
                         {isMod && (
-                          <>
-                            <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => toggleAnswer(reply)}>
-                              <CheckCircle2 className="mr-1 h-3 w-3" />{reply.is_answer ? 'Unmark' : 'Answer'}
-                            </Button>
-                            <Button variant="ghost" size="sm" className="h-6 text-xs text-red-500 hover:text-red-700" onClick={() => setDeleteDialog({ type: 'reply', id: reply.id })}>
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </>
+                          <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => toggleAnswer(reply)}>
+                            <CheckCircle2 className="mr-1 h-3 w-3" />{reply.is_answer ? 'Unmark' : 'Answer'}
+                          </Button>
+                        )}
+                        {(isMod || reply.author_id === userId) && (
+                          <Button variant="ghost" size="sm" className="h-6 text-xs text-red-500 hover:text-red-700" onClick={() => setDeleteDialog({ type: 'reply', id: reply.id })}>
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
                         )}
                       </div>
                     </div>

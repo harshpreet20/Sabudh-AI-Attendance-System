@@ -84,10 +84,30 @@ export default function CompleteProfilePage() {
         .select('profile_image_url')
 
       if (updateError || !updatedRows || updatedRows.length === 0) {
-        setError('Could not save your profile photo. Please try again.')
-        toast.error('Could not save your profile photo. Please try again.')
-        setUploading(false)
-        return
+        const { error: insertError } = await supabase
+          .from('student_profiles')
+          .insert({
+            auth_user_id: user.id,
+            organization_id: 'a0000000-0000-0000-0000-000000000001',
+            full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'New User',
+            email: user.email || '',
+            profile_image_url: publicUrl,
+            status: 'pending',
+            preferred_language: 'en',
+            attendance_percentage: 0,
+            present_count: 0,
+            absent_count: 0,
+            late_count: 0,
+            total_sessions: 0,
+            risk_score: 0,
+          })
+
+        if (insertError) {
+          setError('Could not save your profile photo. Please try again.')
+          toast.error('Could not save your profile photo. Please try again.')
+          setUploading(false)
+          return
+        }
       }
 
       const { data: verifyRow } = await supabase

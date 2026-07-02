@@ -509,6 +509,23 @@ export interface DiscussionTopic {
   created_at: string
 }
 
+export type PhotoRequestStatus = 'pending' | 'approved' | 'rejected'
+
+export interface ProfilePhotoRequest {
+  id: string
+  student_profile_id: string
+  auth_user_id: string
+  old_photo_url: string | null
+  new_photo_url: string
+  new_photo_storage_path: string
+  status: PhotoRequestStatus
+  reviewed_by: string | null
+  reviewed_at: string | null
+  reviewer_note: string | null
+  created_at: string
+  updated_at: string
+}
+
 export interface StudentJourneyEvent {
   id: string
   student_id: string

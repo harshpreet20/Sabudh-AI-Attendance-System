@@ -18,6 +18,7 @@ import {
   Search,
   Plus,
   Users,
+  Trash2,
 } from 'lucide-react'
 
 interface Channel {
@@ -289,6 +290,16 @@ export default function StudentMessagesPage() {
     setSending(false)
   }
 
+  async function handleDeleteMessage(msgId: string) {
+    const { error } = await supabase.from('direct_messages').delete().eq('id', msgId)
+    if (error) {
+      toast.error('Failed to delete message')
+    } else {
+      setMessages((prev) => prev.filter((m) => m.id !== msgId))
+      toast.success('Message deleted')
+    }
+  }
+
   async function searchContacts(query: string) {
     setContactSearch(query)
     if (!query.trim() || !batchId) {
@@ -455,7 +466,15 @@ export default function StudentMessagesPage() {
               messages.map((msg) => {
                 const isMine = msg.sender_id === userId
                 return (
-                  <div key={msg.id} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
+                  <div key={msg.id} className={`group flex ${isMine ? 'justify-end' : 'justify-start'}`}>
+                    {isMine && (
+                      <button
+                        onClick={() => handleDeleteMessage(msg.id)}
+                        className="mr-1 self-center rounded p-1 text-gray-300 opacity-0 transition-opacity hover:bg-red-50 hover:text-red-500 group-hover:opacity-100"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                     <div
                       className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm ${
                         isMine

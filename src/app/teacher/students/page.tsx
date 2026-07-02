@@ -11,6 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
+import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
 import {
   Search,
@@ -24,9 +25,21 @@ import {
   Ban,
   UserMinus,
   MapPin,
+  Camera,
+  Check,
+  X,
+  Image,
 } from 'lucide-react'
 import Link from 'next/link'
-import type { StudentProfile, Batch } from '@/types/database'
+import type { StudentProfile, Batch, ProfilePhotoRequest } from '@/types/database'
+
+interface PhotoRequestWithStudent extends ProfilePhotoRequest {
+  student_profiles: {
+    full_name: string
+    email: string
+    batch_id: string | null
+  }
+}
 
 const PAGE_SIZE = 12
 
@@ -41,8 +54,12 @@ export default function TeacherStudentsPage() {
   const [page, setPage] = useState(0)
   const [total, setTotal] = useState(0)
   const [selectedStudent, setSelectedStudent] = useState<StudentProfile | null>(null)
-  const [tab, setTab] = useState<'active' | 'pending'>('active')
+  const [tab, setTab] = useState<'active' | 'pending' | 'photos'>('active')
   const [processing, setProcessing] = useState<string | null>(null)
+  const [photoRequests, setPhotoRequests] = useState<PhotoRequestWithStudent[]>([])
+  const [photoProcessing, setPhotoProcessing] = useState<string | null>(null)
+  const [photoRejectDialog, setPhotoRejectDialog] = useState<PhotoRequestWithStudent | null>(null)
+  const [reviewerNote, setReviewerNote] = useState('')
 
   const [approveDialog, setApproveDialog] = useState<StudentProfile | null>(null)
   const [assignBatch, setAssignBatch] = useState('')
@@ -78,6 +95,20 @@ export default function TeacherStudentsPage() {
       .order('created_at', { ascending: false })
 
     setPendingStudents((pending as StudentProfile[]) ?? [])
+
+    if (batchIds.length > 0) {
+      const { data: photoData } = await supabase
+        .from('profile_photo_requests')
+        .select('*, student_profiles(full_name, email, batch_id)')
+        .eq('status', 'pending')
+        .in('student_profiles.batch_id', batchIds)
+        .order('created_at', { ascending: false })
+
+      const validPhotoRequests = (photoData ?? []).filter(
+        (r: Record<string, unknown>) => r.student_profiles !== null
+      )
+      setPhotoRequests(validPhotoRequests as PhotoRequestWithStudent[])
+    }
 
     if (batchIds.length === 0) {
       setStudents([])
@@ -237,6 +268,70 @@ export default function TeacherStudentsPage() {
     }
   }
 
+  async function approvePhotoRequest(request: PhotoRequestWithStudent) {
+    setPhotoProcessing(request.id)
+
+    const { data: { user } } = await supabase.auth.getUser()
+
+    const { error: updateError } = await supabase
+      .from('profile_photo_requests')
+      .update({
+        status: 'approved',
+        reviewed_by: user?.id,
+        reviewed_at: new Date().toISOString(),
+        reviewer_note: null,
+      })
+      .eq('id', request.id)
+
+    if (updateError) {
+      toast.error('Failed to approve photo request')
+      setPhotoProcessing(null)
+      return
+    }
+
+    const { error: profileError } = await supabase
+      .from('student_profiles')
+      .update({ profile_image_url: request.new_photo_url })
+      .eq('id', request.student_profile_id)
+
+    if (profileError) {
+      toast.error('Photo approved but failed to update profile')
+    } else {
+      toast.success(`Photo approved for ${request.student_profiles.full_name}`)
+    }
+
+    setPhotoRequests(prev => prev.filter(r => r.id !== request.id))
+    setPhotoProcessing(null)
+  }
+
+  async function rejectPhotoRequest(request: PhotoRequestWithStudent) {
+    setPhotoProcessing(request.id)
+
+    const { data: { user } } = await supabase.auth.getUser()
+
+    const { error } = await supabase
+      .from('profile_photo_requests')
+      .update({
+        status: 'rejected',
+        reviewed_by: user?.id,
+        reviewed_at: new Date().toISOString(),
+        reviewer_note: reviewerNote || null,
+      })
+      .eq('id', request.id)
+
+    if (error) {
+      toast.error('Failed to reject photo request')
+    } else {
+      toast.success(`Photo rejected for ${request.student_profiles.full_name}`)
+      await supabase.storage.from('avatars').remove([request.new_photo_storage_path])
+    }
+
+    setPhotoRequests(prev => prev.filter(r => r.id !== request.id))
+    setPhotoProcessing(null)
+    setPhotoRejectDialog(null)
+    setReviewerNote('')
+  }
+
   const totalPages = Math.ceil(total / PAGE_SIZE)
 
   return (
@@ -277,6 +372,22 @@ export default function TeacherStudentsPage() {
           {pendingStudents.length > 0 && (
             <span className="rounded-full bg-amber-500 px-2 py-0.5 text-xs font-bold text-white">
               {pendingStudents.length}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => setTab('photos')}
+          className={`rounded-xl px-4 py-2 text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
+            tab === 'photos'
+              ? 'bg-cyan-500/10 text-cyan-700 shadow-sm'
+              : 'text-gray-600 hover:bg-white/50'
+          }`}
+        >
+          <Camera className="h-4 w-4" />
+          Photo Requests
+          {photoRequests.length > 0 && (
+            <span className="rounded-full bg-cyan-500 px-2 py-0.5 text-xs font-bold text-white">
+              {photoRequests.length}
             </span>
           )}
         </button>
@@ -471,6 +582,108 @@ export default function TeacherStudentsPage() {
           )}
         </>
       )}
+
+      {tab === 'photos' && (
+        <>
+          {photoRequests.length === 0 ? (
+            <EmptyState
+              icon={Image}
+              title="No pending photo requests"
+              description="No students in your batches have pending photo change requests."
+            />
+          ) : (
+            <div className="space-y-3">
+              {photoRequests.map((request) => (
+                <Card key={request.id}>
+                  <CardContent className="p-5">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-3">
+                          <div className="text-center">
+                            <p className="mb-1 text-xs text-gray-400">Current</p>
+                            <Avatar
+                              src={request.old_photo_url}
+                              fallback={request.student_profiles.full_name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                              size="lg"
+                            />
+                          </div>
+                          <span className="text-gray-300">&#8594;</span>
+                          <div className="text-center">
+                            <p className="mb-1 text-xs text-gray-400">New</p>
+                            <Avatar
+                              src={request.new_photo_url}
+                              fallback="?"
+                              size="lg"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-gray-900">
+                            {request.student_profiles.full_name}
+                          </p>
+                          <p className="text-sm text-gray-500">{request.student_profiles.email}</p>
+                          <p className="mt-1 text-xs text-gray-400">
+                            Requested: {new Date(request.created_at).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => { setPhotoRejectDialog(request); setReviewerNote('') }}
+                          disabled={!!photoProcessing}
+                        >
+                          <X className="h-4 w-4" />
+                          Reject
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => approvePhotoRequest(request)}
+                          loading={photoProcessing === request.id}
+                          disabled={!!photoProcessing}
+                        >
+                          <Check className="h-4 w-4" />
+                          Approve
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Photo Reject Dialog */}
+      <Dialog
+        open={!!photoRejectDialog}
+        onClose={() => { setPhotoRejectDialog(null); setReviewerNote('') }}
+        title="Reject Photo Change"
+        description={photoRejectDialog ? `Reject photo change for ${photoRejectDialog.student_profiles.full_name}?` : ''}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => { setPhotoRejectDialog(null); setReviewerNote('') }}>Cancel</Button>
+            <Button
+              variant="destructive"
+              onClick={() => photoRejectDialog && rejectPhotoRequest(photoRejectDialog)}
+              loading={!!photoProcessing}
+            >
+              <X className="h-4 w-4" />
+              Reject
+            </Button>
+          </>
+        }
+      >
+        <Textarea
+          label="Reason for rejection (optional)"
+          value={reviewerNote}
+          onChange={(e) => setReviewerNote(e.target.value)}
+          placeholder="e.g. Photo is blurry, not a proper headshot"
+          rows={3}
+        />
+      </Dialog>
 
       {/* Approve + Assign Batch Dialog */}
       <Dialog
