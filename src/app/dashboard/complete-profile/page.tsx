@@ -77,14 +77,28 @@ export default function CompleteProfilePage() {
         data: { publicUrl },
       } = supabase.storage.from('avatars').getPublicUrl(path)
 
-      const { error: updateError } = await supabase
+      const { data: updatedRows, error: updateError } = await supabase
         .from('student_profiles')
         .update({ profile_image_url: publicUrl })
         .eq('auth_user_id', user.id)
+        .select('profile_image_url')
 
-      if (updateError) {
+      if (updateError || !updatedRows || updatedRows.length === 0) {
         setError('Could not save your profile photo. Please try again.')
         toast.error('Could not save your profile photo. Please try again.')
+        setUploading(false)
+        return
+      }
+
+      const { data: verifyRow } = await supabase
+        .from('student_profiles')
+        .select('profile_image_url')
+        .eq('auth_user_id', user.id)
+        .single()
+
+      if (!verifyRow?.profile_image_url) {
+        setError('Photo uploaded but profile was not updated. Please try again or contact support.')
+        toast.error('Profile update failed. Please try again.')
         setUploading(false)
         return
       }
