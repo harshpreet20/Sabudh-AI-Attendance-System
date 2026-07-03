@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { generateFingerprint } from '@/lib/device-fingerprint'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -46,12 +46,14 @@ export default function AttendancePage() {
   const [submitting, setSubmitting] = useState(false)
   const [timeRemaining, setTimeRemaining] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
-  const [locationStatus, setLocationStatus] = useState<'idle' | 'requesting' | 'granted' | 'denied' | 'error'>('idle')
+  const [locationStatus, setLocationStatus] = useState<'idle' | 'requesting' | 'tracking' | 'denied' | 'error'>('idle')
   const [coords, setCoords] = useState<{ lat: number; lng: number; accuracy: number } | null>(null)
   const [locationError, setLocationError] = useState('')
   const [verificationWord, setVerificationWord] = useState('')
   const [fingerprint, setFingerprint] = useState<string | null>(null)
   const [hasAttendanceWord, setHasAttendanceWord] = useState(false)
+  const watchIdRef = useRef<number | null>(null)
+  const [lastLocationUpdate, setLastLocationUpdate] = useState<Date | null>(null)
 
   const fetchData = useCallback(async () => {
     try {
@@ -127,29 +129,32 @@ export default function AttendancePage() {
   }, [fetchData])
 
   useEffect(() => {
-    if (pageState !== 'window_open') return
-    requestLocation()
     generateFingerprint().then(setFingerprint).catch(() => {})
-  }, [pageState])
+    startLocationWatch()
+    return () => stopLocationWatch()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  function requestLocation() {
+  function startLocationWatch() {
     if (!navigator.geolocation) {
       setLocationStatus('error')
       setLocationError('Geolocation is not supported by your browser.')
       return
     }
 
+    if (watchIdRef.current !== null) return
+
     setLocationStatus('requesting')
     setLocationError('')
 
-    navigator.geolocation.getCurrentPosition(
+    watchIdRef.current = navigator.geolocation.watchPosition(
       (position) => {
         setCoords({
           lat: position.coords.latitude,
           lng: position.coords.longitude,
           accuracy: position.coords.accuracy,
         })
-        setLocationStatus('granted')
+        setLocationStatus('tracking')
+        setLastLocationUpdate(new Date())
       },
       (err) => {
         if (err.code === err.PERMISSION_DENIED) {
@@ -163,8 +168,20 @@ export default function AttendancePage() {
           setLocationError('Location request timed out. Please try again.')
         }
       },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 }
     )
+  }
+
+  function stopLocationWatch() {
+    if (watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current)
+      watchIdRef.current = null
+    }
+  }
+
+  function retryLocation() {
+    stopLocationWatch()
+    startLocationWatch()
   }
 
   useEffect(() => {
@@ -239,6 +256,8 @@ export default function AttendancePage() {
         student_id: profile.id,
       } as Attendance)
 
+      stopLocationWatch()
+
       if (data.data.flagged) {
         setPageState('submitted_review')
         toast.warning('Attendance submitted but flagged for review.')
@@ -293,11 +312,18 @@ export default function AttendancePage() {
 
   if (pageState === 'no_session') {
     return (
-      <div className="mx-auto max-w-2xl py-12">
+      <div className="mx-auto max-w-2xl space-y-6 py-12">
         <EmptyState
           icon={CalendarOff}
           title="No active attendance window"
           description="There is no class with an open attendance window right now. Check back when your next session begins."
+        />
+        <LocationPermissionBanner
+          locationStatus={locationStatus}
+          coords={coords}
+          lastLocationUpdate={lastLocationUpdate}
+          onRetry={retryLocation}
+          locationError={locationError}
         />
       </div>
     )
@@ -430,7 +456,7 @@ export default function AttendancePage() {
     )
   }
 
-  const canSubmit = locationStatus === 'granted' && coords !== null && (!hasAttendanceWord || verificationWord.trim().length > 0)
+  const canSubmit = locationStatus === 'tracking' && coords !== null && (!hasAttendanceWord || verificationWord.trim().length > 0)
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -509,7 +535,7 @@ export default function AttendancePage() {
 
       {/* Location verification card */}
       <Card className={
-        locationStatus === 'granted'
+        locationStatus === 'tracking'
           ? '!bg-emerald-50/60 !border-emerald-200/50'
           : locationStatus === 'denied' || locationStatus === 'error'
             ? '!bg-red-50/60 !border-red-200/50'
@@ -526,16 +552,22 @@ export default function AttendancePage() {
                 </p>
               </div>
             </>
-          ) : locationStatus === 'granted' ? (
+          ) : locationStatus === 'tracking' ? (
             <>
-              <MapPin className="h-5 w-5 text-emerald-600" />
+              <div className="relative">
+                <MapPin className="h-5 w-5 text-emerald-600" />
+                <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+              </div>
               <div className="flex-1">
-                <p className="text-sm font-medium text-emerald-800">Location Verified</p>
+                <p className="text-sm font-medium text-emerald-800">Live Location Tracking</p>
                 <p className="text-xs text-emerald-600">
                   Accuracy: {coords ? `${Math.round(coords.accuracy)}m` : 'N/A'}
+                  {lastLocationUpdate && (
+                    <> &middot; Updated {lastLocationUpdate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</>
+                  )}
                 </p>
               </div>
-              <Navigation className="h-4 w-4 text-emerald-500" />
+              <Navigation className="h-4 w-4 text-emerald-500 animate-pulse" />
             </>
           ) : (
             <>
@@ -549,7 +581,7 @@ export default function AttendancePage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={requestLocation}
+                onClick={retryLocation}
                 className="shrink-0"
               >
                 Retry
@@ -617,6 +649,80 @@ export default function AttendancePage() {
         </p>
       )}
     </div>
+  )
+}
+
+function LocationPermissionBanner({
+  locationStatus,
+  coords,
+  lastLocationUpdate,
+  onRetry,
+  locationError,
+}: {
+  locationStatus: 'idle' | 'requesting' | 'tracking' | 'denied' | 'error'
+  coords: { lat: number; lng: number; accuracy: number } | null
+  lastLocationUpdate: Date | null
+  onRetry: () => void
+  locationError: string
+}) {
+  if (locationStatus === 'tracking' && coords) {
+    return (
+      <Card className="!bg-emerald-50/60 !border-emerald-200/50">
+        <CardContent className="flex items-center gap-3 p-4">
+          <div className="relative">
+            <MapPin className="h-5 w-5 text-emerald-600" />
+            <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-medium text-emerald-800">Location Ready</p>
+            <p className="text-xs text-emerald-600">
+              Your location is being tracked. Accuracy: {Math.round(coords.accuracy)}m
+              {lastLocationUpdate && (
+                <> &middot; {lastLocationUpdate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</>
+              )}
+            </p>
+          </div>
+          <CheckCircle className="h-4 w-4 text-emerald-500" />
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (locationStatus === 'requesting' || locationStatus === 'idle') {
+    return (
+      <Card className="!bg-indigo-50/60 !border-indigo-200/50">
+        <CardContent className="flex items-center gap-3 p-4">
+          <Loader2 className="h-5 w-5 animate-spin text-indigo-600" />
+          <div>
+            <p className="text-sm font-medium text-indigo-800">Allow Location Access</p>
+            <p className="text-xs text-indigo-600">
+              Grant permission now so attendance marking is instant when your session starts.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <Card className="!bg-amber-50/60 !border-amber-200/50">
+      <CardContent className="flex items-center gap-3 p-4">
+        <AlertCircle className="h-5 w-5 text-amber-600" />
+        <div className="flex-1">
+          <p className="text-sm font-medium text-amber-800">
+            {locationStatus === 'denied' ? 'Location Permission Needed' : 'Location Error'}
+          </p>
+          <p className="text-xs text-amber-600">
+            {locationStatus === 'denied'
+              ? 'Enable location in your browser settings to mark attendance when class starts.'
+              : locationError}
+          </p>
+        </div>
+        <Button variant="outline" size="sm" onClick={onRetry} className="shrink-0">
+          Retry
+        </Button>
+      </CardContent>
+    </Card>
   )
 }
 

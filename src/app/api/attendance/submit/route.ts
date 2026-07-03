@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { isWithinAnyZone } from "@/lib/geofence";
+import { isWithinZones, isWithinAnyZone, type GeofenceZone } from "@/lib/geofence";
 
 const SUSPICIOUS_ACCURACY_THRESHOLD = 1;
 const MAX_IP_GPS_DISTANCE_KM = 200;
@@ -124,14 +124,35 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const locationCheck = isWithinAnyZone(latitude, longitude);
+    // Fetch active campuses with coordinates for dynamic geofencing
+    const { data: campusData } = await supabase
+      .from("campuses")
+      .select("name, latitude, longitude, geofence_radius_meters")
+      .eq("status", "active")
+      .not("latitude", "is", null)
+      .not("longitude", "is", null);
+
+    let zones: GeofenceZone[] = [];
+    if (campusData && campusData.length > 0) {
+      zones = campusData.map(c => ({
+        name: c.name,
+        latitude: c.latitude!,
+        longitude: c.longitude!,
+        radiusMeters: c.geofence_radius_meters ?? 500,
+      }));
+    }
+
+    const locationCheck = zones.length > 0
+      ? isWithinZones(latitude, longitude, zones)
+      : isWithinAnyZone(latitude, longitude);
+
     if (!locationCheck.allowed) {
       return NextResponse.json(
         {
           success: false,
           error: {
             code: "OUTSIDE_GEOFENCE",
-            message: `You are ${Math.round(locationCheck.distance)}m away from the nearest allowed zone (${locationCheck.zone?.name}). You must be within 500m to mark attendance.`,
+            message: `You are ${Math.round(locationCheck.distance)}m away from the nearest allowed zone (${locationCheck.zone?.name}). You must be within ${locationCheck.zone?.radiusMeters ?? 500}m to mark attendance.`,
           },
         },
         { status: 403 }

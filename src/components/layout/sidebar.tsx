@@ -91,6 +91,7 @@ const adminNavItems: NavItem[] = [
   { label: 'Leave Requests', icon: CalendarOff, href: '/admin/leave' },
   { label: 'Sessions', icon: Calendar, href: '/admin/sessions' },
   { label: 'Classrooms', icon: Building2, href: '/admin/classrooms' },
+  { label: 'Campuses', icon: MapPin, href: '/admin/campuses' },
   { label: 'Courses', icon: BookOpen, href: '/admin/courses' },
   { label: 'Analytics', icon: BarChart3, href: '/admin/analytics' },
   { label: 'Certificates', icon: Award, href: '/admin/certificates' },

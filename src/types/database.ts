@@ -58,6 +58,9 @@ export interface Campus {
   name: string;
   address: string | null;
   city: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  geofence_radius_meters: number;
   status: "active" | "inactive";
   created_at: string;
   updated_at: string;
