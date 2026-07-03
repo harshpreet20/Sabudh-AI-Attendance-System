@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
@@ -15,10 +15,16 @@ import {
   Filter,
   Edit,
   Trash2,
+  Upload,
+  FileText,
+  Loader2,
+  X,
+  AlertCircle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
+import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Dialog } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -131,6 +137,18 @@ export default function SessionsPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [deleteSessionId, setDeleteSessionId] = useState<string | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
+
+  // Bulk import state
+  const importFileRef = useRef<HTMLInputElement>(null)
+  const [importDialogOpen, setImportDialogOpen] = useState(false)
+  const [importParsing, setImportParsing] = useState(false)
+  const [importBatchId, setImportBatchId] = useState('')
+  const [importTextMode, setImportTextMode] = useState(false)
+  const [importRawText, setImportRawText] = useState('')
+  const [parsedSessions, setParsedSessions] = useState<
+    Array<{ date: string; notes: string; valid: boolean }>
+  >([])
+  const [importLoading, setImportLoading] = useState(false)
 
   // ---------------------------------------------------------------------------
   // Fetch helpers
@@ -350,6 +368,182 @@ export default function SessionsPage() {
   }
 
   // ---------------------------------------------------------------------------
+  // Bulk import
+  // ---------------------------------------------------------------------------
+
+  function parseSessionLines(text: string): Array<{ date: string; notes: string; valid: boolean }> {
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
+    const results: Array<{ date: string; notes: string; valid: boolean }> = []
+
+    const datePatterns = [
+      /(\d{4}[-/]\d{1,2}[-/]\d{1,2})/,
+      /(\d{1,2}[-/]\d{1,2}[-/]\d{4})/,
+      /(\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+\d{4})/i,
+      /(?:(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\w*,?\s+)?(\w+\s+\d{1,2},?\s+\d{4})/i,
+    ]
+
+    for (const line of lines) {
+      if (/^[-#=|*]+$/.test(line) || /^\|?\s*date/i.test(line)) continue
+
+      let dateStr = ''
+      let notes = line
+
+      for (const pat of datePatterns) {
+        const m = line.match(pat)
+        if (m) {
+          dateStr = m[1]
+          notes = line.replace(m[0], '').replace(/^[\s,|:-]+|[\s,|:-]+$/g, '').trim()
+          break
+        }
+      }
+
+      if (!dateStr) continue
+
+      const parsed = new Date(dateStr)
+      let isoDate = ''
+      let valid = false
+
+      if (!isNaN(parsed.getTime())) {
+        isoDate = parsed.toISOString().split('T')[0]
+        valid = true
+      } else {
+        const parts = dateStr.split(/[-/]/)
+        if (parts.length === 3) {
+          const [a, b, c] = parts
+          if (a.length === 4) {
+            isoDate = `${a}-${b.padStart(2, '0')}-${c.padStart(2, '0')}`
+          } else {
+            isoDate = `${c}-${a.padStart(2, '0')}-${b.padStart(2, '0')}`
+          }
+          const check = new Date(isoDate)
+          valid = !isNaN(check.getTime())
+        }
+      }
+
+      results.push({ date: isoDate || dateStr, notes: notes || '', valid })
+    }
+
+    return results
+  }
+
+  async function extractTextFromPdf(file: File): Promise<string> {
+    const pdfjsLib = await import('pdfjs-dist')
+    pdfjsLib.GlobalWorkerOptions.workerSrc = ''
+
+    const arrayBuffer = await file.arrayBuffer()
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer, useWorkerFetch: false, useSystemFonts: true }).promise
+    const pages: string[] = []
+
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i)
+      const content = await page.getTextContent()
+      const text = content.items
+        .map((item: Record<string, unknown>) => (item as { str: string }).str)
+        .join(' ')
+      pages.push(text)
+    }
+
+    return pages.join('\n')
+  }
+
+  async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setImportParsing(true)
+    setImportTextMode(false)
+
+    try {
+      let text: string
+
+      if (file.name.toLowerCase().endsWith('.pdf')) {
+        text = await extractTextFromPdf(file)
+      } else {
+        text = await file.text()
+      }
+
+      setImportRawText(text)
+      const parsed = parseSessionLines(text)
+
+      if (parsed.length === 0) {
+        toast.error('No session dates found in the file. Try pasting content manually.')
+        setImportTextMode(true)
+      } else {
+        setParsedSessions(parsed)
+        toast.success(`Found ${parsed.length} session(s) in the file`)
+      }
+    } catch (err) {
+      toast.error(`Failed to parse file: ${err instanceof Error ? err.message : 'Unknown error'}`)
+      setImportTextMode(true)
+    } finally {
+      setImportParsing(false)
+      if (importFileRef.current) importFileRef.current.value = ''
+    }
+  }
+
+  function handleParseText() {
+    const parsed = parseSessionLines(importRawText)
+    if (parsed.length === 0) {
+      toast.error('No session dates found. Each line should contain a date (YYYY-MM-DD) and optional notes.')
+    } else {
+      setParsedSessions(parsed)
+      toast.success(`Found ${parsed.length} session(s)`)
+    }
+  }
+
+  function removeFromParsed(index: number) {
+    setParsedSessions(prev => prev.filter((_, i) => i !== index))
+  }
+
+  async function handleBulkImport() {
+    if (!importBatchId) {
+      toast.error('Please select a batch')
+      return
+    }
+
+    const validSessions = parsedSessions.filter(s => s.valid)
+    if (validSessions.length === 0) {
+      toast.error('No valid sessions to import')
+      return
+    }
+
+    setImportLoading(true)
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        toast.error('You must be logged in')
+        return
+      }
+
+      const rows = validSessions.map(s => ({
+        batch_id: importBatchId,
+        instructor_id: user.id,
+        session_date: s.date,
+        attendance_word: Math.random().toString(36).substring(2, 8).toUpperCase(),
+        status: 'scheduled' as const,
+        notes: s.notes || null,
+      }))
+
+      const { error } = await supabase.from('sessions').insert(rows)
+
+      if (error) throw error
+
+      toast.success(`${validSessions.length} session(s) imported successfully`)
+      setImportDialogOpen(false)
+      setParsedSessions([])
+      setImportRawText('')
+      setImportBatchId('')
+      setImportTextMode(false)
+      fetchSessions()
+    } catch {
+      toast.error('Failed to import sessions')
+    } finally {
+      setImportLoading(false)
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // Close dropdown on outside click
   // ---------------------------------------------------------------------------
 
@@ -386,6 +580,18 @@ export default function SessionsPage() {
           >
             <Filter className="h-4 w-4" />
             Filters
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setImportDialogOpen(true)
+              setParsedSessions([])
+              setImportRawText('')
+              setImportTextMode(false)
+            }}
+          >
+            <Upload className="h-4 w-4" />
+            Import Sessions
           </Button>
           <Button onClick={() => setDialogOpen(true)}>
             <Plus className="h-4 w-4" />
@@ -888,6 +1094,166 @@ export default function SessionsPage() {
           Deleting a session will permanently remove it and any associated attendance records.
           If you just want to mark it as inactive, consider cancelling it instead.
         </p>
+      </Dialog>
+
+      {/* Bulk Import Dialog */}
+      <Dialog
+        open={importDialogOpen}
+        onClose={() => {
+          setImportDialogOpen(false)
+          setParsedSessions([])
+          setImportRawText('')
+          setImportTextMode(false)
+        }}
+        title="Import Sessions"
+        description="Import multiple sessions from a file (PDF, TXT, MD, CSV) or paste text with dates."
+      >
+        <div className="space-y-4">
+          <Select
+            label="Batch *"
+            value={importBatchId}
+            onChange={(e) => setImportBatchId(e.target.value)}
+          >
+            <option value="">Select a batch</option>
+            {batches.map((b) => (
+              <option key={b.id} value={b.id}>{b.name}</option>
+            ))}
+          </Select>
+
+          {parsedSessions.length === 0 && (
+            <>
+              <div className="flex items-center gap-3">
+                <input
+                  ref={importFileRef}
+                  type="file"
+                  accept=".pdf,.txt,.md,.csv,.markdown"
+                  onChange={handleImportFile}
+                  className="hidden"
+                />
+                <Button
+                  variant="outline"
+                  onClick={() => importFileRef.current?.click()}
+                  disabled={importParsing}
+                  className="flex-1"
+                >
+                  {importParsing ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <FileText className="mr-2 h-4 w-4" />
+                  )}
+                  {importParsing ? 'Parsing...' : 'Choose File'}
+                </Button>
+                <span className="text-sm text-gray-400">or</span>
+                <Button
+                  variant="outline"
+                  onClick={() => setImportTextMode(!importTextMode)}
+                  className="flex-1"
+                >
+                  Paste Text
+                </Button>
+              </div>
+
+              {importTextMode && (
+                <div className="space-y-2">
+                  <Textarea
+                    label="Session dates (one per line)"
+                    value={importRawText}
+                    onChange={(e) => setImportRawText(e.target.value)}
+                    rows={8}
+                    placeholder={`2026-07-05 Introduction to ML\n2026-07-07 Linear Regression\n2026-07-10 Neural Networks Basics\n\nAccepted formats:\n- YYYY-MM-DD Optional notes\n- MM/DD/YYYY Optional notes\n- July 5, 2026 Optional notes`}
+                  />
+                  <Button onClick={handleParseText} disabled={!importRawText.trim()}>
+                    Parse Dates
+                  </Button>
+                </div>
+              )}
+
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                <div className="flex gap-2 text-sm text-amber-800">
+                  <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="font-medium">Supported formats</p>
+                    <p className="mt-1 text-amber-700">
+                      Each line should contain a date. Supported: YYYY-MM-DD, MM/DD/YYYY,
+                      &quot;July 5, 2026&quot;, &quot;5 Jul 2026&quot;. Text after the date becomes the session notes.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+
+          {parsedSessions.length > 0 && (
+            <>
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-gray-700">
+                  {parsedSessions.filter(s => s.valid).length} valid session(s) found
+                </p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => { setParsedSessions([]); setImportTextMode(false) }}
+                >
+                  Start Over
+                </Button>
+              </div>
+
+              <div className="max-h-64 overflow-y-auto rounded-lg border border-gray-200">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Notes</TableHead>
+                      <TableHead className="w-8"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {parsedSessions.map((s, i) => (
+                      <TableRow key={i} className={s.valid ? '' : 'bg-red-50'}>
+                        <TableCell className="whitespace-nowrap">
+                          <div className="flex items-center gap-2">
+                            {!s.valid && <AlertCircle className="h-3.5 w-3.5 text-red-500" />}
+                            <span className={s.valid ? 'text-gray-900' : 'text-red-600'}>
+                              {s.date}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-sm text-gray-500 line-clamp-1">
+                            {s.notes || '--'}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <button
+                            onClick={() => removeFromParsed(i)}
+                            className="text-gray-400 hover:text-red-500"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {parsedSessions.some(s => !s.valid) && (
+                <p className="text-xs text-red-600">
+                  Invalid dates will be skipped during import.
+                </p>
+              )}
+
+              <Button
+                onClick={handleBulkImport}
+                loading={importLoading}
+                disabled={!importBatchId || parsedSessions.filter(s => s.valid).length === 0}
+                className="w-full"
+              >
+                Import {parsedSessions.filter(s => s.valid).length} Session(s)
+              </Button>
+            </>
+          )}
+        </div>
       </Dialog>
     </div>
   )
