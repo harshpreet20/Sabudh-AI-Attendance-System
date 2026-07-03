@@ -21,6 +21,10 @@ import {
   Calendar,
   Users,
   CheckCircle2,
+  Timer,
+  Award,
+  BarChart3,
+  AlertTriangle,
 } from 'lucide-react'
 import type { Assignment, Batch } from '@/types/database'
 import Link from 'next/link'
@@ -161,8 +165,25 @@ export default function TeacherAssignmentsPage() {
 
   const isOverdue = (d: string) => new Date(d) < new Date()
 
+  function dueCountdown(d: string): { text: string; urgent: boolean; color: string } {
+    const now = new Date()
+    const due = new Date(d)
+    const diffMs = due.getTime() - now.getTime()
+    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
+    if (diffDays < 0) return { text: `${Math.abs(diffDays)}d overdue`, urgent: true, color: 'text-red-600' }
+    if (diffDays === 0) return { text: 'Due today', urgent: true, color: 'text-amber-600' }
+    if (diffDays === 1) return { text: 'Due tomorrow', urgent: true, color: 'text-amber-500' }
+    if (diffDays <= 3) return { text: `${diffDays}d left`, urgent: true, color: 'text-amber-500' }
+    if (diffDays <= 7) return { text: `${diffDays}d left`, urgent: false, color: 'text-blue-500' }
+    return { text: `${diffDays}d left`, urgent: false, color: 'text-gray-500' }
+  }
+
+  const totalSubmissions = assignments.reduce((s, a) => s + (a.submission_count ?? 0), 0)
+  const activeCount = assignments.filter(a => a.status === 'active').length
+  const overdueCount = assignments.filter(a => a.status === 'active' && isOverdue(a.due_date)).length
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Assignments</h1>
@@ -173,6 +194,40 @@ export default function TeacherAssignmentsPage() {
           New Assignment
         </Button>
       </div>
+
+      {/* Stats summary */}
+      {!loading && assignments.length > 0 && (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="rounded-xl bg-white/60 backdrop-blur-sm border border-gray-100 p-4">
+            <div className="flex items-center gap-2 text-gray-500 mb-1">
+              <ClipboardList className="h-4 w-4" />
+              <span className="text-xs font-medium uppercase tracking-wider">Total</span>
+            </div>
+            <p className="text-2xl font-bold text-gray-900">{assignments.length}</p>
+          </div>
+          <div className="rounded-xl bg-white/60 backdrop-blur-sm border border-gray-100 p-4">
+            <div className="flex items-center gap-2 text-emerald-600 mb-1">
+              <BarChart3 className="h-4 w-4" />
+              <span className="text-xs font-medium uppercase tracking-wider">Active</span>
+            </div>
+            <p className="text-2xl font-bold text-gray-900">{activeCount}</p>
+          </div>
+          <div className="rounded-xl bg-white/60 backdrop-blur-sm border border-gray-100 p-4">
+            <div className="flex items-center gap-2 text-indigo-600 mb-1">
+              <CheckCircle2 className="h-4 w-4" />
+              <span className="text-xs font-medium uppercase tracking-wider">Submissions</span>
+            </div>
+            <p className="text-2xl font-bold text-gray-900">{totalSubmissions}</p>
+          </div>
+          <div className="rounded-xl bg-white/60 backdrop-blur-sm border border-gray-100 p-4">
+            <div className="flex items-center gap-2 text-red-500 mb-1">
+              <AlertTriangle className="h-4 w-4" />
+              <span className="text-xs font-medium uppercase tracking-wider">Overdue</span>
+            </div>
+            <p className="text-2xl font-bold text-gray-900">{overdueCount}</p>
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-col gap-3 sm:flex-row">
         <Select value={filterBatch} onChange={(e) => setFilterBatch(e.target.value)}>
@@ -190,7 +245,7 @@ export default function TeacherAssignmentsPage() {
 
       {loading ? (
         <div className="space-y-4">
-          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-28" />)}
+          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-36" />)}
         </div>
       ) : assignments.length === 0 ? (
         <EmptyState
@@ -205,52 +260,72 @@ export default function TeacherAssignmentsPage() {
           }
         />
       ) : (
-        <div className="space-y-3">
-          {assignments.map((a) => (
-            <Card key={a.id}>
-              <CardContent className="p-4 sm:p-5">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-semibold text-gray-900 truncate">{a.title}</p>
-                      <Badge variant={STATUS_VARIANTS[a.status]}>{a.status}</Badge>
-                      {a.status === 'active' && isOverdue(a.due_date) && (
-                        <Badge variant="destructive">Overdue</Badge>
+        <div className="space-y-4">
+          {assignments.map((a) => {
+            const countdown = dueCountdown(a.due_date)
+            return (
+              <Card key={a.id} className={`rounded-xl ${a.status === 'active' && isOverdue(a.due_date) ? 'border border-red-200/60' : ''}`}>
+                <CardContent className="p-5 sm:p-6">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2 mb-3">
+                        <h3 className="text-lg font-semibold text-gray-900">{a.title}</h3>
+                        <Badge variant={STATUS_VARIANTS[a.status]} className="capitalize">{a.status}</Badge>
+                        {a.status === 'active' && isOverdue(a.due_date) && (
+                          <Badge variant="destructive">
+                            <AlertTriangle className="mr-1 h-3 w-3" />Overdue
+                          </Badge>
+                        )}
+                      </div>
+
+                      {a.description && (
+                        <p className="mb-3 text-sm text-gray-500 line-clamp-2">{a.description}</p>
                       )}
+
+                      <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+                        <span className="flex items-center gap-1.5 text-sm text-gray-600">
+                          <Users className="h-4 w-4 text-gray-400" />
+                          {getBatchName(a.batch_id)}
+                        </span>
+                        <span className="flex items-center gap-1.5 text-sm text-gray-600">
+                          <Calendar className="h-4 w-4 text-gray-400" />
+                          {new Date(a.due_date).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </span>
+                        <span className={`flex items-center gap-1.5 text-sm font-medium ${countdown.color}`}>
+                          <Timer className="h-4 w-4" />
+                          {countdown.text}
+                        </span>
+                        <span className="flex items-center gap-1.5 text-sm text-gray-600">
+                          <Award className="h-4 w-4 text-gray-400" />
+                          {a.max_score} pts max
+                        </span>
+                      </div>
+
+                      <div className="mt-3 flex items-center gap-3">
+                        <div className="flex items-center gap-1.5 rounded-lg bg-indigo-50/70 px-3 py-1.5">
+                          <CheckCircle2 className="h-4 w-4 text-indigo-500" />
+                          <span className="text-sm font-semibold text-indigo-700">{a.submission_count}</span>
+                          <span className="text-xs text-indigo-500">submissions</span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500">
-                      <span className="flex items-center gap-1">
-                        <Users className="h-3.5 w-3.5" />
-                        {getBatchName(a.batch_id)}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Calendar className="h-3.5 w-3.5" />
-                        Due {new Date(a.due_date).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                        {a.submission_count} submissions
-                      </span>
+
+                    <div className="flex items-center gap-1 self-end sm:self-start shrink-0">
+                      <Link href={`/teacher/assignments/${a.id}`}>
+                        <Button variant="ghost" size="sm"><Eye className="h-4 w-4" /></Button>
+                      </Link>
+                      <Button variant="ghost" size="sm" onClick={() => handleEdit(a)}>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => handleDelete(a.id)}>
+                        <Trash2 className="h-4 w-4 text-red-500" />
+                      </Button>
                     </div>
-                    {a.description && (
-                      <p className="mt-1 text-sm text-gray-400 line-clamp-1">{a.description}</p>
-                    )}
                   </div>
-                  <div className="flex items-center gap-1 self-end sm:self-center">
-                    <Link href={`/teacher/assignments/${a.id}`}>
-                      <Button variant="ghost" size="sm"><Eye className="h-4 w-4" /></Button>
-                    </Link>
-                    <Button variant="ghost" size="sm" onClick={() => handleEdit(a)}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={() => handleDelete(a.id)}>
-                      <Trash2 className="h-4 w-4 text-red-500" />
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            )
+          })}
         </div>
       )}
 

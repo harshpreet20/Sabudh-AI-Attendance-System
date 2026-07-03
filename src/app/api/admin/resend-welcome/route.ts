@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { requireAdmin } from '@/lib/auth/helpers'
-import { resend, generatePassword, welcomeEmailHtml } from '@/lib/resend'
+import { resend, generatePassword, welcomeEmailHtml, teacherWelcomeEmailHtml } from '@/lib/resend'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -51,15 +51,26 @@ export async function POST(request: NextRequest) {
     await resend.emails.send({
       from: process.env.RESEND_FROM_EMAIL || 'Sabudh Foundation <noreply@sabudh.org>',
       to: email,
-      subject: `Your Updated Credentials - ${COURSE_NAME}`,
-      html: welcomeEmailHtml({
-        studentName: full_name,
-        email,
-        password: newPassword,
-        courseName: COURSE_NAME,
-        location: LOCATION,
-        loginUrl,
-      }),
+      subject: type === 'teacher'
+        ? `Your Updated Credentials - ${COURSE_NAME} (Instructor)`
+        : `Your Updated Credentials - ${COURSE_NAME}`,
+      html: type === 'teacher'
+        ? teacherWelcomeEmailHtml({
+            teacherName: full_name,
+            email,
+            password: newPassword,
+            courseName: COURSE_NAME,
+            location: LOCATION,
+            loginUrl,
+          })
+        : welcomeEmailHtml({
+            studentName: full_name,
+            email,
+            password: newPassword,
+            courseName: COURSE_NAME,
+            location: LOCATION,
+            loginUrl,
+          }),
     })
 
     return NextResponse.json({

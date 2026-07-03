@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Avatar } from '@/components/ui/avatar'
+import { ProfilePopover } from '@/components/ui/profile-popover'
 import { Dialog } from '@/components/ui/dialog'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -729,11 +730,21 @@ export default function StudentDiscussionsPage() {
         <Card>
           <CardContent className="p-5 sm:p-6">
             <div className="flex items-start gap-3">
-              <Avatar
-                src={activeThread.author_avatar}
-                fallback={activeThread.author_name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
-                size="md"
-              />
+              {activeThread.author_id !== userId ? (
+                <ProfilePopover profileId={activeThread.author_id} profileType={activeThread.author_role === 'student' ? 'student' : 'teacher'} lookupBy="auth_user_id">
+                  <Avatar
+                    src={activeThread.author_avatar}
+                    fallback={activeThread.author_name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                    size="md"
+                  />
+                </ProfilePopover>
+              ) : (
+                <Avatar
+                  src={activeThread.author_avatar}
+                  fallback={activeThread.author_name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                  size="md"
+                />
+              )}
               <div className="flex-1 min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-semibold text-gray-900">{activeThread.author_name}</span>
@@ -850,11 +861,21 @@ export default function StudentDiscussionsPage() {
               <Card key={reply.id} className={reply.is_answer ? 'border border-emerald-200/50' : ''}>
                 <CardContent className="p-4">
                   <div className="flex items-start gap-3">
-                    <Avatar
-                      src={reply.author_avatar}
-                      fallback={reply.author_name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
-                      size="sm"
-                    />
+                    {reply.author_id !== userId ? (
+                      <ProfilePopover profileId={reply.author_id} profileType={reply.author_role === 'student' ? 'student' : 'teacher'} lookupBy="auth_user_id">
+                        <Avatar
+                          src={reply.author_avatar}
+                          fallback={reply.author_name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                          size="sm"
+                        />
+                      </ProfilePopover>
+                    ) : (
+                      <Avatar
+                        src={reply.author_avatar}
+                        fallback={reply.author_name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                        size="sm"
+                      />
+                    )}
                     <div className="flex-1 min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="text-sm font-semibold text-gray-900">{reply.author_name}</span>
@@ -996,11 +1017,13 @@ export default function StudentDiscussionsPage() {
                     <p className="mt-1 text-sm text-gray-500 line-clamp-2">{thread.content}</p>
                     <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-gray-400">
                       <span className="flex items-center gap-1">
-                        <Avatar
-                          src={thread.author_avatar}
-                          fallback={thread.author_name[0]}
-                          size="sm"
-                        />
+                        <ProfilePopover profileId={thread.author_id} profileType={thread.author_role === 'student' ? 'student' : 'teacher'} lookupBy="auth_user_id">
+                          <Avatar
+                            src={thread.author_avatar}
+                            fallback={thread.author_name[0]}
+                            size="sm"
+                          />
+                        </ProfilePopover>
                         {thread.author_name}
                         {thread.author_role !== 'student' && (
                           <span className="text-indigo-500 font-medium">

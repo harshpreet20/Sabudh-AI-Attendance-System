@@ -78,9 +78,9 @@ export default async function CertificatePage() {
     classesNeeded = denominator > 0 ? Math.max(0, Math.ceil(numerator / denominator)) : 0
   }
 
-  // Fetch certificate if eligible
+  // Fetch certificate — always check, since teacher may have uploaded one manually
   let certificate: Certificate | null = null
-  if (isEligible) {
+  {
     const { data } = await supabase
       .from('certificates')
       .select('*')
@@ -198,8 +198,8 @@ export default async function CertificatePage() {
         </CardContent>
       </Card>
 
-      {/* Eligibility Status */}
-      {isEligible ? (
+      {/* Certificate available — show download regardless of eligibility */}
+      {certificate && (certificate.certificate_file_url || certificate.qr_code_url) && (
         <Card className="border-green-200 bg-green-50">
           <CardContent className="p-6">
             <div className="flex items-start gap-4">
@@ -208,69 +208,89 @@ export default async function CertificatePage() {
               </div>
               <div className="flex-1">
                 <h3 className="text-lg font-semibold text-green-900">
-                  You are eligible for a certificate!
+                  Your Certificate is Ready
                 </h3>
                 <p className="mt-1 text-sm text-green-700">
-                  Congratulations! You have met both requirements: {requiredAttendance}% attendance
-                  and {requiredMarks}% combined marks.
+                  Your certificate has been issued. You can download it below.
                 </p>
 
-                {certificate ? (
-                  <div className="mt-4 space-y-3">
-                    <div className="rounded-lg bg-white p-4">
-                      <div className="grid gap-2 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-gray-500">Certificate No.</span>
-                          <span className="font-mono font-medium text-gray-900">
-                            {certificate.verification_token}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-500">Issued Date</span>
-                          <span className="text-gray-900">
-                            {new Date(certificate.issued_at).toLocaleDateString('en-IN', {
-                              year: 'numeric',
-                              month: 'long',
-                              day: 'numeric',
-                            })}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-500">Attendance</span>
-                          <span className="text-gray-900">
-                            {certificate.attendance_percentage.toFixed(1)}%
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-500">Status</span>
-                          <Badge variant={certificate.status === 'active' ? 'success' : 'destructive'}>
-                            {certificate.status === 'active' ? 'Valid' : 'Revoked'}
-                          </Badge>
-                        </div>
+                <div className="mt-4 space-y-3">
+                  <div className="rounded-lg bg-white p-4">
+                    <div className="grid gap-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Certificate No.</span>
+                        <span className="font-mono font-medium text-gray-900">
+                          {certificate.verification_token}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Issued Date</span>
+                        <span className="text-gray-900">
+                          {new Date(certificate.issued_at).toLocaleDateString('en-IN', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                          })}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Attendance</span>
+                        <span className="text-gray-900">
+                          {certificate.attendance_percentage.toFixed(1)}%
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Status</span>
+                        <Badge variant={certificate.status === 'active' ? 'success' : 'destructive'}>
+                          {certificate.status === 'active' ? 'Valid' : 'Revoked'}
+                        </Badge>
                       </div>
                     </div>
-
-                    {certificate.qr_code_url && (
-                      <a
-                        href={certificate.qr_code_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-green-700 transition-colors"
-                      >
-                        <Download className="h-4 w-4" />
-                        Download Certificate
-                      </a>
-                    )}
                   </div>
-                ) : (
-                  <p className="mt-3 text-sm text-green-600">
-                    Your certificate is being generated. Please check back later.
-                  </p>
-                )}
+
+                  <a
+                    href={certificate.certificate_file_url ?? certificate.qr_code_url!}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-green-700 transition-colors"
+                  >
+                    <Download className="h-4 w-4" />
+                    Download Certificate
+                  </a>
+                </div>
               </div>
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Eligibility Status */}
+      {isEligible ? (
+        <>
+          {!certificate && (
+            <Card className="border-green-200 bg-green-50">
+              <CardContent className="p-6">
+                <div className="flex items-start gap-4">
+                  <div className="rounded-full bg-green-100 p-3">
+                    <CheckCircle className="h-8 w-8 text-green-600" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-green-900">
+                      You are eligible for a certificate!
+                    </h3>
+                    <p className="mt-1 text-sm text-green-700">
+                      Congratulations! You have met both requirements: {requiredAttendance}% attendance
+                      and {requiredMarks}% combined marks.
+                    </p>
+                    <p className="mt-3 text-sm text-green-600">
+                      Your certificate is being prepared. Please check back later.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </>
       ) : (
         <Card className="border-amber-200 bg-amber-50">
           <CardContent className="p-6">
@@ -280,7 +300,7 @@ export default async function CertificatePage() {
               </div>
               <div className="flex-1">
                 <h3 className="text-lg font-semibold text-amber-900">
-                  Not Yet Eligible
+                  {certificate ? 'Keep Improving' : 'Not Yet Eligible'}
                 </h3>
                 <div className="mt-1 space-y-1 text-sm text-amber-700">
                   {!attendanceOk && (

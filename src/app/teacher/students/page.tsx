@@ -29,6 +29,10 @@ import {
   Check,
   X,
   Image,
+  BarChart3,
+  Award,
+  Upload,
+  FileText,
 } from 'lucide-react'
 import Link from 'next/link'
 import type { StudentProfile, Batch, ProfilePhotoRequest } from '@/types/database'
@@ -72,6 +76,10 @@ export default function TeacherStudentsPage() {
   const [addEmail, setAddEmail] = useState('')
   const [addPhone, setAddPhone] = useState('')
   const [addLoading, setAddLoading] = useState(false)
+
+  const [certDialog, setCertDialog] = useState<StudentProfile | null>(null)
+  const [certUploading, setCertUploading] = useState(false)
+  const certInputRef = useRef<HTMLInputElement>(null)
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -264,6 +272,118 @@ export default function TeacherStudentsPage() {
       toast.error('Failed to add student')
     } finally {
       setAddLoading(false)
+    }
+  }
+
+  async function handleCertificateUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !certDialog) return
+
+    const maxSize = 20 * 1024 * 1024
+    if (file.size > maxSize) {
+      toast.error('File size exceeds 20MB limit')
+      if (certInputRef.current) certInputRef.current.value = ''
+      return
+    }
+
+    setCertUploading(true)
+
+    try {
+      const timestamp = Date.now()
+      const storagePath = `certificates/${certDialog.id}/${timestamp}-${file.name}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('uploads')
+        .upload(storagePath, file)
+
+      if (uploadError) {
+        toast.error(`Upload failed: ${uploadError.message}`)
+        return
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('uploads')
+        .getPublicUrl(storagePath)
+
+      // Look up the course_id from the student's batch
+      let courseId: string | null = null
+      if (certDialog.batch_id) {
+        const { data: batchData } = await supabase
+          .from('batches')
+          .select('course_id')
+          .eq('id', certDialog.batch_id)
+          .limit(1)
+
+        if (batchData && batchData.length > 0) {
+          courseId = batchData[0].course_id
+        }
+      }
+
+      if (!courseId) {
+        // Fallback: get first course
+        const { data: courseData } = await supabase
+          .from('courses')
+          .select('id')
+          .limit(1)
+
+        courseId = courseData?.[0]?.id ?? null
+      }
+
+      if (!courseId) {
+        toast.error('No course found to associate certificate with')
+        await supabase.storage.from('uploads').remove([storagePath])
+        return
+      }
+
+      // Check if student already has a certificate
+      const { data: existing } = await supabase
+        .from('certificates')
+        .select('id')
+        .eq('student_id', certDialog.id)
+        .eq('status', 'active')
+        .limit(1)
+
+      if (existing && existing.length > 0) {
+        // Update existing certificate with uploaded file
+        const { error: updateError } = await supabase
+          .from('certificates')
+          .update({
+            certificate_file_url: publicUrl,
+            certificate_storage_path: storagePath,
+          })
+          .eq('id', existing[0].id)
+
+        if (updateError) {
+          toast.error(`Failed to update certificate: ${updateError.message}`)
+          await supabase.storage.from('uploads').remove([storagePath])
+          return
+        }
+      } else {
+        // Create new certificate record
+        const { error: insertError } = await supabase
+          .from('certificates')
+          .insert({
+            student_id: certDialog.id,
+            course_id: courseId,
+            attendance_percentage: certDialog.attendance_percentage ?? 0,
+            certificate_file_url: publicUrl,
+            certificate_storage_path: storagePath,
+          })
+
+        if (insertError) {
+          toast.error(`Failed to save certificate: ${insertError.message}`)
+          await supabase.storage.from('uploads').remove([storagePath])
+          return
+        }
+      }
+
+      toast.success(`Certificate uploaded for ${certDialog.full_name}`)
+      setCertDialog(null)
+    } catch {
+      toast.error('Failed to upload certificate')
+    } finally {
+      setCertUploading(false)
+      if (certInputRef.current) certInputRef.current.value = ''
     }
   }
 
@@ -470,13 +590,28 @@ export default function TeacherStudentsPage() {
                               </div>
                             ))}
 
-                          <div className="flex gap-2 pt-3 border-t border-white/20">
+                          <div className="flex flex-wrap gap-2 pt-3 border-t border-white/20">
+                            <Link href={`/teacher/students/${student.id}`} onClick={e => e.stopPropagation()} className="flex-1">
+                              <Button variant="outline" size="sm" className="w-full">
+                                <BarChart3 className="mr-1 h-3.5 w-3.5" />
+                                Performance
+                              </Button>
+                            </Link>
                             <Link href={`/teacher/students/journey?id=${student.id}`} onClick={e => e.stopPropagation()} className="flex-1">
                               <Button variant="outline" size="sm" className="w-full">
                                 <MapPin className="mr-1 h-3.5 w-3.5" />
                                 Journey
                               </Button>
                             </Link>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="flex-1"
+                              onClick={(e) => { e.stopPropagation(); setCertDialog(student) }}
+                            >
+                              <Award className="mr-1 h-3.5 w-3.5" />
+                              Certificate
+                            </Button>
                             <Button
                               variant="outline"
                               size="sm"
@@ -539,6 +674,7 @@ export default function TeacherStudentsPage() {
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                       <div className="flex items-center gap-4">
                         <Avatar
+                          src={student.profile_image_url}
                           fallback={student.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
                           size="md"
                         />
@@ -795,6 +931,47 @@ export default function TeacherStudentsPage() {
           />
           <p className="text-xs text-gray-500">
             A password will be auto-generated and sent via email. The student will be in pending status until approved.
+          </p>
+        </div>
+      </Dialog>
+
+      {/* Certificate Upload Dialog */}
+      <Dialog
+        open={!!certDialog}
+        onClose={() => { setCertDialog(null); if (certInputRef.current) certInputRef.current.value = '' }}
+        title="Upload Certificate"
+        description={certDialog ? `Upload a certificate file for ${certDialog.full_name}` : ''}
+      >
+        <div className="space-y-4">
+          <div className="rounded-lg border-2 border-dashed border-gray-200 p-6 text-center">
+            <Award className="mx-auto h-10 w-10 text-gray-400" />
+            <p className="mt-2 text-sm text-gray-600">
+              Upload a PDF or image file of the certificate
+            </p>
+            <p className="mt-1 text-xs text-gray-400">
+              Accepted formats: PDF, PNG, JPG (max 20MB)
+            </p>
+            <input
+              ref={certInputRef}
+              type="file"
+              accept=".pdf,.png,.jpg,.jpeg"
+              onChange={handleCertificateUpload}
+              className="hidden"
+              disabled={certUploading}
+            />
+            <Button
+              variant="outline"
+              className="mt-4"
+              onClick={() => certInputRef.current?.click()}
+              loading={certUploading}
+              disabled={certUploading}
+            >
+              <Upload className="mr-2 h-4 w-4" />
+              {certUploading ? 'Uploading...' : 'Choose File'}
+            </Button>
+          </div>
+          <p className="text-xs text-gray-500">
+            If a certificate already exists for this student, the uploaded file will be attached to it. Otherwise, a new certificate record will be created.
           </p>
         </div>
       </Dialog>

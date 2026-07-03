@@ -40,6 +40,7 @@ interface PendingUser {
   city?: string | null
   subject_expertise?: string | null
   bio?: string | null
+  profile_image_url?: string | null
 }
 
 interface PhotoRequestWithStudent extends ProfilePhotoRequest {
@@ -70,12 +71,12 @@ export default function AdminApprovalsPage() {
     const [{ data: students }, { data: teachers }, { data: batchData }, { data: photoData }] = await Promise.all([
       supabase
         .from('student_profiles')
-        .select('id, auth_user_id, full_name, email, phone, profession, qualification, city, created_at')
+        .select('id, auth_user_id, full_name, email, phone, profession, qualification, city, profile_image_url, created_at')
         .eq('status', 'pending')
         .order('created_at', { ascending: false }),
       supabase
         .from('teacher_profiles')
-        .select('id, auth_user_id, full_name, email, phone, subject_expertise, qualification, bio, created_at')
+        .select('id, auth_user_id, full_name, email, phone, subject_expertise, qualification, bio, profile_image_url, created_at')
         .eq('status', 'pending')
         .order('created_at', { ascending: false }),
       supabase
@@ -388,6 +389,7 @@ export default function AdminApprovalsPage() {
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                       <div className="flex items-center gap-4">
                         <Avatar
+                          src={user.profile_image_url}
                           fallback={user.full_name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                           size="md"
                         />

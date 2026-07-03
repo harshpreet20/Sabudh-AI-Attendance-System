@@ -138,7 +138,7 @@ export default function AuditLogsPage() {
   const fetchLogs = useCallback(async () => {
     setLoading(true)
     try {
-      let matchingTargetIds: string[] | undefined
+      let matchingIds: string[] | undefined
       if (debouncedStudentName) {
         const { data: matchedStudents } = await supabase
           .from('student_profiles')
@@ -152,7 +152,7 @@ export default function AuditLogsPage() {
           setLoading(false)
           return
         }
-        matchingTargetIds = matchedStudents.flatMap((s) =>
+        matchingIds = matchedStudents.flatMap((s) =>
           [s.id, s.auth_user_id].filter(Boolean) as string[]
         )
       }
@@ -167,7 +167,7 @@ export default function AuditLogsPage() {
       if (filterTable) query = query.eq('target_table', filterTable)
       if (filterDateFrom) query = query.gte('created_at', filterDateFrom)
       if (filterDateTo) query = query.lte('created_at', `${filterDateTo}T23:59:59`)
-      if (matchingTargetIds) query = query.in('target_id', matchingTargetIds)
+      if (matchingIds) query = query.or(`target_id.in.(${matchingIds.join(',')}),actor_id.in.(${matchingIds.join(',')})`)
 
       const { data, count, error } = await query
       if (error) throw error
@@ -197,7 +197,7 @@ export default function AuditLogsPage() {
   async function handleExportCsv() {
     setExporting(true)
     try {
-      let matchingTargetIds: string[] | undefined
+      let exportMatchingIds: string[] | undefined
       if (debouncedStudentName) {
         const { data: matchedStudents } = await supabase
           .from('student_profiles')
@@ -209,7 +209,7 @@ export default function AuditLogsPage() {
           setExporting(false)
           return
         }
-        matchingTargetIds = matchedStudents.flatMap((s) =>
+        exportMatchingIds = matchedStudents.flatMap((s) =>
           [s.id, s.auth_user_id].filter(Boolean) as string[]
         )
       }
@@ -224,7 +224,7 @@ export default function AuditLogsPage() {
       if (filterTable) query = query.eq('target_table', filterTable)
       if (filterDateFrom) query = query.gte('created_at', filterDateFrom)
       if (filterDateTo) query = query.lte('created_at', `${filterDateTo}T23:59:59`)
-      if (matchingTargetIds) query = query.in('target_id', matchingTargetIds)
+      if (exportMatchingIds) query = query.or(`target_id.in.(${exportMatchingIds.join(',')}),actor_id.in.(${exportMatchingIds.join(',')})`)
 
       const { data, error } = await query
       if (error) throw error
@@ -264,8 +264,9 @@ export default function AuditLogsPage() {
       const url = URL.createObjectURL(blob)
       const link = document.createElement('a')
       const today = new Date().toISOString().split('T')[0]
+      const nameSuffix = debouncedStudentName ? `-${debouncedStudentName.replace(/\s+/g, '_').toLowerCase()}` : ''
       link.href = url
-      link.download = `audit-logs-${today}.csv`
+      link.download = `audit-logs${nameSuffix}-${today}.csv`
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)

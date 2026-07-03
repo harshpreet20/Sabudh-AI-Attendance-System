@@ -8,11 +8,13 @@ import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { Avatar } from '@/components/ui/avatar'
+import { ProfilePopover } from '@/components/ui/profile-popover'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Dialog } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
-import { CheckCircle, XCircle, ClipboardList, Clock, Gift } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { CheckCircle, XCircle, ClipboardList, Clock, Gift, BookOpen, Save } from 'lucide-react'
 import type { Batch } from '@/types/database'
 
 interface SessionRecord {
@@ -23,6 +25,9 @@ interface SessionRecord {
   attendance_open: string | null
   attendance_close: string | null
   attendance_word: string | null
+  topic_taught: string | null
+  next_topic: string | null
+  topic_teacher_name: string | null
 }
 
 interface AttendanceRecord {
@@ -64,6 +69,12 @@ export default function TeacherAttendancePage() {
   const [eligibleStudents, setEligibleStudents] = useState<StudentOption[]>([])
   const [loadingStudents, setLoadingStudents] = useState(false)
 
+  // Topic tracking state
+  const [topicTaught, setTopicTaught] = useState('')
+  const [nextTopic, setNextTopic] = useState('')
+  const [topicTeacherName, setTopicTeacherName] = useState('')
+  const [savingTopic, setSavingTopic] = useState(false)
+
   const fetchBatchesAndSessions = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
@@ -94,7 +105,7 @@ export default function TeacherAttendancePage() {
 
       const { data } = await supabase
         .from('sessions')
-        .select('id, session_date, status, batch_id, attendance_open, attendance_close, attendance_word')
+        .select('id, session_date, status, batch_id, attendance_open, attendance_close, attendance_word, topic_taught, next_topic, topic_teacher_name')
         .eq('batch_id', selectedBatch)
         .order('session_date', { ascending: false })
         .limit(30)
@@ -225,6 +236,55 @@ export default function TeacherAttendancePage() {
     setGraceSubmitting(false)
   }
 
+  // Sync topic fields when session changes
+  useEffect(() => {
+    if (!selectedSession) {
+      setTopicTaught('')
+      setNextTopic('')
+      setTopicTeacherName('')
+      return
+    }
+    const session = sessions.find((s) => s.id === selectedSession)
+    if (session) {
+      setTopicTaught(session.topic_taught ?? '')
+      setNextTopic(session.next_topic ?? '')
+      setTopicTeacherName(session.topic_teacher_name ?? '')
+    }
+  }, [selectedSession, sessions])
+
+  async function handleSaveTopic() {
+    if (!selectedSession) return
+    setSavingTopic(true)
+
+    const { error } = await supabase
+      .from('sessions')
+      .update({
+        topic_taught: topicTaught.trim() || null,
+        next_topic: nextTopic.trim() || null,
+        topic_teacher_name: topicTeacherName.trim() || null,
+      })
+      .eq('id', selectedSession)
+
+    if (error) {
+      toast.error('Failed to save topic info')
+    } else {
+      toast.success('Topic info saved')
+      setSessions((prev) =>
+        prev.map((s) =>
+          s.id === selectedSession
+            ? {
+                ...s,
+                topic_taught: topicTaught.trim() || null,
+                next_topic: nextTopic.trim() || null,
+                topic_teacher_name: topicTeacherName.trim() || null,
+              }
+            : s
+        )
+      )
+    }
+    setSavingTopic(false)
+  }
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -327,11 +387,13 @@ export default function TeacherAttendancePage() {
                 {attendanceRecords.map((record) => (
                   <div key={record.id} className="flex items-center justify-between rounded-xl glass-subtle px-4 py-3">
                     <div className="flex items-center gap-3">
-                      <Avatar
-                        src={record.student_profiles?.profile_image_url}
-                        fallback={record.student_profiles?.full_name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) ?? '?'}
-                        size="sm"
-                      />
+                      <ProfilePopover profileId={record.student_id} profileType="student">
+                        <Avatar
+                          src={record.student_profiles?.profile_image_url}
+                          fallback={record.student_profiles?.full_name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) ?? '?'}
+                          size="sm"
+                        />
+                      </ProfilePopover>
                       <div>
                         <p className="text-sm font-medium text-gray-900">{record.student_profiles?.full_name}</p>
                         <p className="text-xs text-gray-500">{record.student_profiles?.email}</p>
@@ -365,6 +427,46 @@ export default function TeacherAttendancePage() {
                 ))}
               </div>
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Topic Tracking */}
+      {selectedSession && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BookOpen className="h-5 w-5 text-indigo-600" />
+              Session Topic Info
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <Input
+                label="Topic Taught Today"
+                placeholder="e.g. Introduction to React Hooks"
+                value={topicTaught}
+                onChange={(e) => setTopicTaught(e.target.value)}
+              />
+              <Input
+                label="Next Class Topic"
+                placeholder="e.g. State Management with Redux"
+                value={nextTopic}
+                onChange={(e) => setNextTopic(e.target.value)}
+              />
+              <Input
+                label="Topic Teacher"
+                placeholder="e.g. Dr. Sharma"
+                value={topicTeacherName}
+                onChange={(e) => setTopicTeacherName(e.target.value)}
+              />
+            </div>
+            <div className="mt-4 flex justify-end">
+              <Button onClick={handleSaveTopic} disabled={savingTopic}>
+                <Save className="mr-2 h-4 w-4" />
+                {savingTopic ? 'Saving...' : 'Save Topic Info'}
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}

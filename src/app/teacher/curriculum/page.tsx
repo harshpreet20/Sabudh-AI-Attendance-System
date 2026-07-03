@@ -281,16 +281,6 @@ export default function TeacherCurriculumPage() {
 
     setDeleting(true)
 
-    const { error: storageError } = await supabase.storage
-      .from('uploads')
-      .remove([deletingMaterial.storage_path])
-
-    if (storageError) {
-      toast.error('Failed to remove file from storage')
-      setDeleting(false)
-      return
-    }
-
     const { error: dbError } = await supabase
       .from('course_materials')
       .delete()
@@ -299,6 +289,10 @@ export default function TeacherCurriculumPage() {
     if (dbError) {
       toast.error('Failed to delete material record')
     } else {
+      await supabase.storage
+        .from('uploads')
+        .remove([deletingMaterial.storage_path])
+
       toast.success('Material deleted')
       setShowDeleteDialog(false)
       setDeletingMaterial(null)

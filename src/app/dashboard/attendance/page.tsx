@@ -24,6 +24,7 @@ import {
   KeyRound,
   Fingerprint,
   ShieldAlert,
+  BookOpen,
 } from 'lucide-react'
 import type { Session, StudentProfile, Attendance } from '@/types/database'
 
@@ -39,7 +40,7 @@ type PageState =
 
 export default function AttendancePage() {
   const [pageState, setPageState] = useState<PageState>('loading')
-  const [session, setSession] = useState<(Session & { attendance_word?: string | null }) | null>(null)
+  const [session, setSession] = useState<(Session & { attendance_word?: string | null; topic_taught?: string | null; next_topic?: string | null; topic_teacher_name?: string | null }) | null>(null)
   const [profile, setProfile] = useState<StudentProfile | null>(null)
   const [existingAttendance, setExistingAttendance] = useState<Attendance | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -97,7 +98,7 @@ export default function AttendancePage() {
         return
       }
 
-      const activeSession = sessions[0] as Session & { attendance_word?: string | null }
+      const activeSession = sessions[0] as Session & { attendance_word?: string | null; topic_taught?: string | null; next_topic?: string | null; topic_teacher_name?: string | null }
       setSession(activeSession)
       setHasAttendanceWord(!!activeSession.attendance_word)
 
@@ -458,6 +459,38 @@ export default function AttendancePage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Topic info */}
+      {session && (session.topic_taught || session.next_topic || session.topic_teacher_name) && (
+        <Card className="!bg-indigo-50/60 !border-indigo-200/50">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <BookOpen className="h-5 w-5 text-indigo-600" />
+              <p className="text-sm font-medium text-indigo-800">Session Topics</p>
+            </div>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              {session.topic_taught && (
+                <div>
+                  <p className="text-xs font-medium text-indigo-600 uppercase tracking-wider">Today&apos;s Topic</p>
+                  <p className="mt-0.5 text-sm text-gray-900">{session.topic_taught}</p>
+                </div>
+              )}
+              {session.next_topic && (
+                <div>
+                  <p className="text-xs font-medium text-indigo-600 uppercase tracking-wider">Next Class</p>
+                  <p className="mt-0.5 text-sm text-gray-900">{session.next_topic}</p>
+                </div>
+              )}
+              {session.topic_teacher_name && (
+                <div>
+                  <p className="text-xs font-medium text-indigo-600 uppercase tracking-wider">Instructor</p>
+                  <p className="mt-0.5 text-sm text-gray-900">{session.topic_teacher_name}</p>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Countdown timer */}
       {timeRemaining && (

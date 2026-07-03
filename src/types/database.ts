@@ -262,6 +262,8 @@ export interface Certificate {
   issued_at: string;
   verification_token: string;
   qr_code_url: string | null;
+  certificate_file_url: string | null;
+  certificate_storage_path: string | null;
   status: "active" | "revoked";
   revoked_at: string | null;
   revoked_reason: string | null;

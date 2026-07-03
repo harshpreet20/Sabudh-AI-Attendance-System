@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Avatar } from '@/components/ui/avatar'
+import { ProfilePopover } from '@/components/ui/profile-popover'
 import { Dialog } from '@/components/ui/dialog'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -422,11 +423,13 @@ export default function AdminMessagesPage() {
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
-          <Avatar
-            src={activeChannel.other_avatar}
-            fallback={getInitials(activeChannel.other_name)}
-            size="sm"
-          />
+          <ProfilePopover profileId={activeChannel.other_id} profileType={activeChannel.other_role} lookupBy="auth_user_id">
+            <Avatar
+              src={activeChannel.other_avatar}
+              fallback={getInitials(activeChannel.other_name)}
+              size="sm"
+            />
+          </ProfilePopover>
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-gray-900 truncate">{activeChannel.other_name}</p>
             <p className="text-xs text-gray-500 capitalize">{activeChannel.other_role}</p>
@@ -556,11 +559,13 @@ export default function AdminMessagesPage() {
                 <CardContent className="p-3 sm:p-4">
                   <div className="flex items-center gap-3">
                     <div className="relative">
-                      <Avatar
-                        src={channel.other_avatar}
-                        fallback={getInitials(channel.other_name)}
-                        size="md"
-                      />
+                      <ProfilePopover profileId={channel.other_id} profileType={channel.other_role} lookupBy="auth_user_id">
+                        <Avatar
+                          src={channel.other_avatar}
+                          fallback={getInitials(channel.other_name)}
+                          size="md"
+                        />
+                      </ProfilePopover>
                       {channel.unread_count > 0 && (
                         <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-indigo-500 text-[10px] font-bold text-white">
                           {channel.unread_count > 9 ? '9+' : channel.unread_count}

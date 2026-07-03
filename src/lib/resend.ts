@@ -434,6 +434,93 @@ export function welcomeEmailHtml(params: {
 </html>`
 }
 
+export function teacherWelcomeEmailHtml(params: {
+  teacherName: string
+  email: string
+  password: string
+  courseName: string
+  location: string
+  loginUrl: string
+}): string {
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background-color:#0a0a1a;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#0a0a1a;padding:40px 20px;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#0f1628 0%,#1a1a3e 50%,#0f1628 100%);border-radius:16px;overflow:hidden;border:1px solid rgba(139,92,246,0.3);">
+        <tr><td style="padding:40px 40px 20px;text-align:center;background:linear-gradient(180deg,rgba(139,92,246,0.15) 0%,transparent 100%);">
+          <div style="font-size:48px;margin-bottom:8px;">🎓✨</div>
+          <h1 style="margin:0;color:#e2e8f0;font-size:24px;font-weight:700;">Sabudh Foundation</h1>
+          <p style="margin:4px 0 0;color:#8b5cf6;font-size:13px;text-transform:uppercase;letter-spacing:3px;font-weight:600;">Instructor Portal</p>
+        </td></tr>
+        <tr><td style="padding:0 40px;"><div style="height:1px;background:linear-gradient(90deg,transparent,rgba(139,92,246,0.5),rgba(234,179,8,0.5),rgba(139,92,246,0.5),transparent);"></div></td></tr>
+        <tr><td style="padding:30px 40px 20px;">
+          <p style="color:#94a3b8;font-size:14px;margin:0 0 4px;">Sat Sri Akal 🙏</p>
+          <h2 style="margin:0;color:#f1f5f9;font-size:22px;font-weight:600;">Welcome, ${params.teacherName}</h2>
+          <p style="color:#94a3b8;font-size:15px;line-height:1.6;margin:12px 0 0;">
+            You have been added as an <strong style="color:#a78bfa;">Instructor</strong> for the
+            <strong style="color:#a78bfa;">${params.courseName}</strong> program.
+            You now have access to the Teacher Dashboard where you can manage sessions, mark attendance, grade assignments, and more.
+          </p>
+        </td></tr>
+        <tr><td style="padding:10px 40px 20px;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.2);border-radius:12px;">
+            <tr><td style="padding:24px;">
+              <p style="margin:0 0 16px;color:#c4b5fd;font-size:12px;text-transform:uppercase;letter-spacing:2px;font-weight:600;">🔐 Your Login Credentials</p>
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr><td style="padding:8px 0;">
+                  <span style="color:#94a3b8;font-size:13px;">Email</span><br>
+                  <span style="color:#f1f5f9;font-size:15px;font-family:monospace;background:rgba(0,0,0,0.3);padding:4px 10px;border-radius:6px;display:inline-block;margin-top:4px;">${params.email}</span>
+                </td></tr>
+                <tr><td style="padding:8px 0;">
+                  <span style="color:#94a3b8;font-size:13px;">Temporary Password</span><br>
+                  <span style="color:#fbbf24;font-size:15px;font-family:monospace;font-weight:700;background:rgba(0,0,0,0.3);padding:4px 10px;border-radius:6px;display:inline-block;margin-top:4px;">${params.password}</span>
+                </td></tr>
+              </table>
+              <p style="margin:16px 0 0;color:#f87171;font-size:12px;">⚠️ Please change your password after first login</p>
+            </td></tr>
+          </table>
+        </td></tr>
+        <tr><td style="padding:10px 40px;text-align:center;">
+          <a href="${params.loginUrl}" style="display:inline-block;background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#ffffff;text-decoration:none;padding:14px 40px;border-radius:10px;font-size:15px;font-weight:600;box-shadow:0 4px 15px rgba(124,58,237,0.4);">Login to Teacher Dashboard</a>
+        </td></tr>
+        <tr><td style="padding:10px 40px 20px;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(34,197,94,0.06);border:1px solid rgba(34,197,94,0.15);border-radius:12px;">
+            <tr><td style="padding:16px 20px;">
+              <p style="margin:0 0 8px;color:#4ade80;font-size:12px;text-transform:uppercase;letter-spacing:2px;font-weight:600;">What You Can Do</p>
+              <p style="margin:0;color:#e2e8f0;font-size:14px;line-height:1.8;">
+                • Create and manage class sessions<br>
+                • Open attendance windows with verification words<br>
+                • Grant grace attendance and grace marks<br>
+                • Upload curriculum materials and assignments<br>
+                • Grade student submissions (manual + AI-assisted)<br>
+                • Manage discussions and announcements<br>
+                • Track student progress and generate reports
+              </p>
+            </td></tr>
+          </table>
+        </td></tr>
+        <tr><td style="padding:20px 40px;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(234,179,8,0.06);border:1px solid rgba(234,179,8,0.15);border-radius:12px;">
+            <tr><td style="padding:20px 24px;">
+              <p style="margin:0 0 8px;color:#fbbf24;font-size:12px;text-transform:uppercase;letter-spacing:2px;font-weight:600;">📍 Class Location</p>
+              <p style="margin:0;color:#e2e8f0;font-size:14px;line-height:1.5;">${params.location}</p>
+            </td></tr>
+          </table>
+        </td></tr>
+        <tr><td style="padding:10px 40px;"><div style="height:1px;background:linear-gradient(90deg,transparent,rgba(139,92,246,0.3),transparent);"></div></td></tr>
+        <tr><td style="padding:20px 40px 30px;text-align:center;">
+          <p style="color:#64748b;font-size:12px;margin:0;line-height:1.6;">"Where seva meets silicon, wisdom flows through every node."</p>
+          <p style="color:#475569;font-size:11px;margin:12px 0 0;">Sabudh Foundation &bull; ${params.courseName}<br>${params.location}</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`
+}
+
 export function approvalNotificationEmailHtml(params: {
   studentName: string
   status: 'approved' | 'rejected'
