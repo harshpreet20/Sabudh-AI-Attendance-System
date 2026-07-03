@@ -12,6 +12,7 @@ import { createClient } from '@/lib/supabase/client'
 import {
   Bell,
   Menu,
+  MessageSquare,
   User,
   Settings,
   LogOut,
@@ -65,6 +66,8 @@ interface HeaderProps {
   userEmail?: string
   avatarUrl?: string | null
   notificationCount?: number
+  messageCount?: number
+  role?: 'student' | 'teacher' | 'admin'
   onMenuClick?: () => void
 }
 
@@ -74,12 +77,15 @@ export function Header({
   userEmail = '',
   avatarUrl,
   notificationCount = 0,
+  messageCount = 0,
+  role = 'student',
   onMenuClick,
 }: HeaderProps) {
   const router = useRouter()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(notificationCount)
   const [notifOpen, setNotifOpen] = useState(false)
+  const unreadMessages = messageCount
 
   const initials = userName
     .split(' ')
@@ -165,7 +171,24 @@ export function Header({
         {title}
       </h1>
 
-      <div className="ml-auto flex items-center gap-3">
+      <div className="ml-auto flex items-center gap-2">
+        {/* Messages icon */}
+        <button
+          onClick={() => {
+            const basePath = role === 'admin' ? '/admin' : role === 'teacher' ? '/teacher' : '/dashboard'
+            router.push(`${basePath}/messages`)
+          }}
+          className="relative rounded-xl p-2 text-gray-500 transition-all duration-200 hover:bg-white/50"
+          aria-label={`Messages${unreadMessages > 0 ? ` (${unreadMessages} unread)` : ''}`}
+        >
+          <MessageSquare className="h-5 w-5" />
+          {unreadMessages > 0 && (
+            <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-indigo-500 px-1 text-[10px] font-bold text-white shadow-lg shadow-indigo-500/30">
+              {unreadMessages > 99 ? '99+' : unreadMessages}
+            </span>
+          )}
+        </button>
+
         {/* Notification bell dropdown */}
         <div className="relative">
           <button

@@ -44,20 +44,20 @@ interface NavItem {
   label: string
   icon: LucideIcon
   href: string
+  badgeKey?: string
 }
 
 const studentNavItems: NavItem[] = [
   { label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
   { label: 'Attendance', icon: CheckSquare, href: '/dashboard/attendance' },
   { label: 'Curriculum', icon: BookOpen, href: '/dashboard/curriculum' },
-  { label: 'Assignments', icon: ClipboardList, href: '/dashboard/assignments' },
+  { label: 'Assignments', icon: ClipboardList, href: '/dashboard/assignments', badgeKey: 'assignments' },
   { label: 'Projects', icon: FolderKanban, href: '/dashboard/projects' },
   { label: 'History', icon: History, href: '/dashboard/history' },
   { label: 'Schedules', icon: Calendar, href: '/dashboard/schedules' },
-  { label: 'Leave', icon: CalendarOff, href: '/dashboard/leave' },
-  { label: 'Discussions', icon: MessageSquare, href: '/dashboard/discussions' },
-  { label: 'Messages', icon: MessageSquare, href: '/dashboard/messages' },
-  { label: 'Announcements', icon: Megaphone, href: '/dashboard/announcements' },
+  { label: 'Leave', icon: CalendarOff, href: '/dashboard/leave', badgeKey: 'leave' },
+  { label: 'Discussions', icon: MessageSquare, href: '/dashboard/discussions', badgeKey: 'discussions' },
+  { label: 'Announcements', icon: Megaphone, href: '/dashboard/announcements', badgeKey: 'announcements' },
   { label: 'My Journey', icon: MapPin, href: '/dashboard/journey' },
   { label: 'Certificate', icon: Award, href: '/dashboard/certificate' },
   { label: 'Profile', icon: User, href: '/dashboard/profile' },
@@ -69,26 +69,24 @@ const teacherNavItems: NavItem[] = [
   { label: 'Students', icon: GraduationCap, href: '/teacher/students' },
   { label: 'Attendance', icon: CheckSquare, href: '/teacher/attendance' },
   { label: 'Curriculum', icon: BookOpen, href: '/teacher/curriculum' },
-  { label: 'Assignments', icon: ClipboardList, href: '/teacher/assignments' },
-  { label: 'Projects', icon: FolderKanban, href: '/teacher/projects' },
+  { label: 'Assignments', icon: ClipboardList, href: '/teacher/assignments', badgeKey: 'assignments' },
+  { label: 'Projects', icon: FolderKanban, href: '/teacher/projects', badgeKey: 'projects' },
   { label: 'Progress', icon: TrendingUp, href: '/teacher/progress' },
   { label: 'Schedules', icon: Calendar, href: '/teacher/schedules' },
-  { label: 'Discussions', icon: MessageSquare, href: '/teacher/discussions' },
-  { label: 'Messages', icon: MessageSquare, href: '/teacher/messages' },
+  { label: 'Discussions', icon: MessageSquare, href: '/teacher/discussions', badgeKey: 'discussions' },
   { label: 'Announcements', icon: Megaphone, href: '/teacher/announcements' },
-  { label: 'Leave Requests', icon: CalendarOff, href: '/teacher/leave' },
+  { label: 'Leave Requests', icon: CalendarOff, href: '/teacher/leave', badgeKey: 'leave' },
   { label: 'Profile', icon: User, href: '/teacher/profile' },
 ]
 
 const adminNavItems: NavItem[] = [
   { label: 'Dashboard', icon: LayoutDashboard, href: '/admin' },
-  { label: 'Approvals', icon: ShieldCheck, href: '/admin/approvals' },
+  { label: 'Approvals', icon: ShieldCheck, href: '/admin/approvals', badgeKey: 'approvals' },
   { label: 'Manage Users', icon: UserPlus, href: '/admin/users' },
   { label: 'Students', icon: Users, href: '/admin/students' },
-  { label: 'Discussions', icon: MessageSquare, href: '/admin/discussions' },
-  { label: 'Messages', icon: MessageSquare, href: '/admin/messages' },
-  { label: 'Announcements', icon: Megaphone, href: '/admin/announcements' },
-  { label: 'Leave Requests', icon: CalendarOff, href: '/admin/leave' },
+  { label: 'Discussions', icon: MessageSquare, href: '/admin/discussions', badgeKey: 'discussions' },
+  { label: 'Announcements', icon: Megaphone, href: '/admin/announcements', badgeKey: 'announcements' },
+  { label: 'Leave Requests', icon: CalendarOff, href: '/admin/leave', badgeKey: 'leave' },
   { label: 'Sessions', icon: Calendar, href: '/admin/sessions' },
   { label: 'Classrooms', icon: Building2, href: '/admin/classrooms' },
   { label: 'Campuses', icon: MapPin, href: '/admin/campuses' },
@@ -109,6 +107,7 @@ interface SidebarProps {
   avatarUrl?: string | null
   mobileOpen?: boolean
   onMobileClose?: () => void
+  badgeCounts?: Record<string, number>
 }
 
 export function Sidebar({
@@ -119,6 +118,7 @@ export function Sidebar({
   avatarUrl,
   mobileOpen = false,
   onMobileClose,
+  badgeCounts = {},
 }: SidebarProps) {
   const router = useRouter()
   const [signingOut, setSigningOut] = useState(false)
@@ -157,9 +157,10 @@ export function Sidebar({
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 space-y-1 px-3 py-4" aria-label="Main navigation">
+      <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4" aria-label="Main navigation">
         {navItems.map((item) => {
           const active = isActive(item.href)
+          const count = item.badgeKey ? (badgeCounts[item.badgeKey] ?? 0) : 0
           return (
             <Link
               key={item.href}
@@ -179,7 +180,12 @@ export function Sidebar({
                   active ? 'text-indigo-500' : 'text-gray-400'
                 )}
               />
-              {item.label}
+              <span className="flex-1 truncate">{item.label}</span>
+              {count > 0 && (
+                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white shadow-sm">
+                  {count > 99 ? '99+' : count}
+                </span>
+              )}
             </Link>
           )
         })}

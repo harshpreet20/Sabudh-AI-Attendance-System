@@ -7,6 +7,7 @@ import { Header } from './header'
 import { Footer } from './footer'
 import { MobileNav } from './mobile-nav'
 import { ChatWidget } from '@/components/chatbot/chat-widget'
+import { useBadgeCounts } from '@/hooks/use-badge-counts'
 
 interface DashboardShellProps {
   children: React.ReactNode
@@ -76,27 +77,8 @@ export function DashboardShell({
   avatarUrl,
 }: DashboardShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [notificationCount, setNotificationCount] = useState(0)
-
-  useEffect(() => {
-    async function fetchNotificationCount() {
-      const supabase = createClient()
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) return
-
-      const { count } = await supabase
-        .from('notifications')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-        .is('read_at', null)
-
-      setNotificationCount(count ?? 0)
-    }
-
-    fetchNotificationCount()
-  }, [])
+  const badgeCounts = useBadgeCounts()
+  const notificationCount = badgeCounts.notifications ?? 0
 
   const pageTitle = pageTitles[currentPath]
     || (currentPath.startsWith('/teacher/projects/') ? 'Project Details' : null)
@@ -112,6 +94,7 @@ export function DashboardShell({
         avatarUrl={avatarUrl}
         mobileOpen={mobileOpen}
         onMobileClose={() => setMobileOpen(false)}
+        badgeCounts={badgeCounts}
       />
 
       <div className="lg:pl-64">
@@ -121,6 +104,8 @@ export function DashboardShell({
           userEmail={userEmail}
           avatarUrl={avatarUrl}
           notificationCount={notificationCount}
+          messageCount={badgeCounts.messages ?? 0}
+          role={role}
           onMenuClick={() => setMobileOpen(true)}
         />
 
