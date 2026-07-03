@@ -103,8 +103,34 @@ export interface Batch {
   start_date: string | null;
   end_date: string | null;
   status: "active" | "completed" | "archived";
+  total_planned_sessions: number;
+  attendance_threshold_pct: number;
   created_at: string;
   updated_at: string;
+}
+
+export interface BatchTeacher {
+  id: string;
+  batch_id: string;
+  teacher_id: string;
+  role: string;
+  assigned_at: string;
+  assigned_by: string | null;
+}
+
+export interface AttendanceAlert {
+  id: string;
+  student_id: string;
+  batch_id: string;
+  alert_type: "warning" | "urgent" | "critical";
+  current_attendance_pct: number;
+  required_attendance_pct: number;
+  classes_remaining: number;
+  classes_needed: number;
+  message: string;
+  email_sent: boolean;
+  dismissed: boolean;
+  created_at: string;
 }
 
 export interface UserRoleRecord {
@@ -165,6 +191,10 @@ export interface Session {
   attendance_word: string | null;
   status: SessionStatus;
   notes: string | null;
+  topic_taught: string | null;
+  next_topic: string | null;
+  topic_teacher_name: string | null;
+  topic_completion_pct: number;
   created_at: string;
   updated_at: string;
 }

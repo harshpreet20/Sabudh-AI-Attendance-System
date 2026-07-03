@@ -109,6 +109,7 @@ export default function SessionsPage() {
 
   // Action dropdown
   const [openDropdown, setOpenDropdown] = useState<string | null>(null)
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number } | null>(null)
 
   // Cancel confirmation
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
@@ -355,6 +356,7 @@ export default function SessionsPage() {
   useEffect(() => {
     function handleClickOutside() {
       setOpenDropdown(null)
+      setDropdownPos(null)
     }
     if (openDropdown) {
       document.addEventListener('click', handleClickOutside)
@@ -517,96 +519,23 @@ export default function SessionsPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="relative inline-block">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setOpenDropdown(
-                              openDropdown === session.id ? null : session.id
-                            )
-                          }}
-                        >
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-
-                        {openDropdown === session.id && (
-                          <div className="absolute right-0 z-10 mt-1 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
-                            <button
-                              className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                              onClick={() => openEditDialog(session)}
-                            >
-                              <Edit className="h-4 w-4" />
-                              Edit Session
-                            </button>
-
-                            {session.status === 'scheduled' && (
-                              <button
-                                className="flex w-full items-center gap-2 px-4 py-2 text-sm text-green-700 hover:bg-green-50"
-                                onClick={() =>
-                                  updateSessionStatus(session.id, 'attendance_open')
-                                }
-                              >
-                                <Play className="h-4 w-4" />
-                                Open Attendance
-                              </button>
-                            )}
-
-                            {session.status === 'attendance_open' && (
-                              <button
-                                className="flex w-full items-center gap-2 px-4 py-2 text-sm text-amber-700 hover:bg-amber-50"
-                                onClick={() =>
-                                  updateSessionStatus(session.id, 'attendance_closed')
-                                }
-                              >
-                                <Square className="h-4 w-4" />
-                                Close Attendance
-                              </button>
-                            )}
-
-                            {session.status === 'attendance_closed' && (
-                              <button
-                                className="flex w-full items-center gap-2 px-4 py-2 text-sm text-blue-700 hover:bg-blue-50"
-                                onClick={() =>
-                                  updateSessionStatus(session.id, 'completed')
-                                }
-                              >
-                                <CheckCircle className="h-4 w-4" />
-                                Complete Session
-                              </button>
-                            )}
-
-                            {session.status !== 'cancelled' &&
-                              session.status !== 'completed' && (
-                                <button
-                                  className="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-700 hover:bg-red-50"
-                                  onClick={() => {
-                                    setCancelSessionId(session.id)
-                                    setCancelDialogOpen(true)
-                                    setOpenDropdown(null)
-                                  }}
-                                >
-                                  <XCircle className="h-4 w-4" />
-                                  Cancel Session
-                                </button>
-                              )}
-
-                            <div className="my-1 border-t border-gray-100" />
-                            <button
-                              className="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-700 hover:bg-red-50"
-                              onClick={() => {
-                                setDeleteSessionId(session.id)
-                                setDeleteDialogOpen(true)
-                                setOpenDropdown(null)
-                              }}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                              Delete Session
-                            </button>
-                          </div>
-                        )}
-                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (openDropdown === session.id) {
+                            setOpenDropdown(null)
+                            setDropdownPos(null)
+                          } else {
+                            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                            setDropdownPos({ top: rect.bottom + 4, left: rect.right })
+                            setOpenDropdown(session.id)
+                          }
+                        }}
+                      >
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -647,6 +576,86 @@ export default function SessionsPage() {
           )}
         </>
       )}
+
+      {/* Floating dropdown menu rendered outside table overflow */}
+      {openDropdown && dropdownPos && (() => {
+        const session = sessions.find(s => s.id === openDropdown)
+        if (!session) return null
+        return (
+          <div
+            className="fixed z-50 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+            style={{ top: dropdownPos.top, left: dropdownPos.left - 192 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+              onClick={() => openEditDialog(session)}
+            >
+              <Edit className="h-4 w-4" />
+              Edit Session
+            </button>
+
+            {session.status === 'scheduled' && (
+              <button
+                className="flex w-full items-center gap-2 px-4 py-2 text-sm text-green-700 hover:bg-green-50"
+                onClick={() => updateSessionStatus(session.id, 'attendance_open')}
+              >
+                <Play className="h-4 w-4" />
+                Open Attendance
+              </button>
+            )}
+
+            {session.status === 'attendance_open' && (
+              <button
+                className="flex w-full items-center gap-2 px-4 py-2 text-sm text-amber-700 hover:bg-amber-50"
+                onClick={() => updateSessionStatus(session.id, 'attendance_closed')}
+              >
+                <Square className="h-4 w-4" />
+                Close Attendance
+              </button>
+            )}
+
+            {session.status === 'attendance_closed' && (
+              <button
+                className="flex w-full items-center gap-2 px-4 py-2 text-sm text-blue-700 hover:bg-blue-50"
+                onClick={() => updateSessionStatus(session.id, 'completed')}
+              >
+                <CheckCircle className="h-4 w-4" />
+                Complete Session
+              </button>
+            )}
+
+            {session.status !== 'cancelled' && session.status !== 'completed' && (
+              <button
+                className="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-700 hover:bg-red-50"
+                onClick={() => {
+                  setCancelSessionId(session.id)
+                  setCancelDialogOpen(true)
+                  setOpenDropdown(null)
+                  setDropdownPos(null)
+                }}
+              >
+                <XCircle className="h-4 w-4" />
+                Cancel Session
+              </button>
+            )}
+
+            <div className="my-1 border-t border-gray-100" />
+            <button
+              className="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-700 hover:bg-red-50"
+              onClick={() => {
+                setDeleteSessionId(session.id)
+                setDeleteDialogOpen(true)
+                setOpenDropdown(null)
+                setDropdownPos(null)
+              }}
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete Session
+            </button>
+          </div>
+        )
+      })()}
 
       {/* Create Session Dialog */}
       <Dialog

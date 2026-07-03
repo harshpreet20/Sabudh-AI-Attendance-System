@@ -28,6 +28,7 @@ interface SessionRecord {
   topic_taught: string | null
   next_topic: string | null
   topic_teacher_name: string | null
+  topic_completion_pct: number
 }
 
 interface AttendanceRecord {
@@ -73,6 +74,7 @@ export default function TeacherAttendancePage() {
   const [topicTaught, setTopicTaught] = useState('')
   const [nextTopic, setNextTopic] = useState('')
   const [topicTeacherName, setTopicTeacherName] = useState('')
+  const [topicCompletionPct, setTopicCompletionPct] = useState(0)
   const [savingTopic, setSavingTopic] = useState(false)
 
   const fetchBatchesAndSessions = useCallback(async () => {
@@ -105,7 +107,7 @@ export default function TeacherAttendancePage() {
 
       const { data } = await supabase
         .from('sessions')
-        .select('id, session_date, status, batch_id, attendance_open, attendance_close, attendance_word, topic_taught, next_topic, topic_teacher_name')
+        .select('id, session_date, status, batch_id, attendance_open, attendance_close, attendance_word, topic_taught, next_topic, topic_teacher_name, topic_completion_pct')
         .eq('batch_id', selectedBatch)
         .order('session_date', { ascending: false })
         .limit(30)
@@ -242,6 +244,7 @@ export default function TeacherAttendancePage() {
       setTopicTaught('')
       setNextTopic('')
       setTopicTeacherName('')
+      setTopicCompletionPct(0)
       return
     }
     const session = sessions.find((s) => s.id === selectedSession)
@@ -249,6 +252,7 @@ export default function TeacherAttendancePage() {
       setTopicTaught(session.topic_taught ?? '')
       setNextTopic(session.next_topic ?? '')
       setTopicTeacherName(session.topic_teacher_name ?? '')
+      setTopicCompletionPct(session.topic_completion_pct ?? 0)
     }
   }, [selectedSession, sessions])
 
@@ -262,6 +266,7 @@ export default function TeacherAttendancePage() {
         topic_taught: topicTaught.trim() || null,
         next_topic: nextTopic.trim() || null,
         topic_teacher_name: topicTeacherName.trim() || null,
+        topic_completion_pct: topicCompletionPct,
       })
       .eq('id', selectedSession)
 
@@ -277,12 +282,102 @@ export default function TeacherAttendancePage() {
                 topic_taught: topicTaught.trim() || null,
                 next_topic: nextTopic.trim() || null,
                 topic_teacher_name: topicTeacherName.trim() || null,
+                topic_completion_pct: topicCompletionPct,
               }
             : s
         )
       )
+
+      if (selectedBatch) {
+        calculateAttendanceAlerts(selectedBatch)
+      }
     }
     setSavingTopic(false)
+  }
+
+  async function calculateAttendanceAlerts(batchId: string) {
+    const { data: batch } = await supabase
+      .from('batches')
+      .select('id, total_planned_sessions, attendance_threshold_pct, course_id, courses(attendance_requirement)')
+      .eq('id', batchId)
+      .single()
+
+    if (!batch) return
+
+    const courseData = batch.courses as unknown as { attendance_requirement: number } | { attendance_requirement: number }[] | null
+    const course = Array.isArray(courseData) ? courseData[0] : courseData
+    const thresholdPct = batch.attendance_threshold_pct
+      ?? course?.attendance_requirement
+      ?? 75
+
+    const { data: batchSessions } = await supabase
+      .from('sessions')
+      .select('id, status')
+      .eq('batch_id', batchId)
+
+    const totalSessions = batch.total_planned_sessions || (batchSessions?.length ?? 0)
+    const completedSessions = batchSessions?.filter(s =>
+      ['completed', 'attendance_closed'].includes(s.status)
+    ).length ?? 0
+    const remainingSessions = Math.max(0, totalSessions - completedSessions)
+
+    const { data: students } = await supabase
+      .from('student_profiles')
+      .select('id, full_name, attendance_percentage, present_count, total_sessions')
+      .eq('batch_id', batchId)
+      .eq('status', 'active')
+
+    if (!students || students.length === 0) return
+
+    const alerts: Array<{
+      student_id: string
+      batch_id: string
+      alert_type: string
+      current_attendance_pct: number
+      required_attendance_pct: number
+      classes_remaining: number
+      classes_needed: number
+      message: string
+    }> = []
+
+    for (const student of students) {
+      const currentPct = student.attendance_percentage ?? 0
+      const presentCount = student.present_count ?? 0
+
+      const neededPresent = Math.ceil((thresholdPct / 100) * totalSessions)
+      const classesNeeded = Math.max(0, neededPresent - presentCount)
+      const canMakeIt = classesNeeded <= remainingSessions
+
+      if (currentPct < thresholdPct) {
+        let alertType = 'warning'
+        let message = ''
+
+        if (!canMakeIt) {
+          alertType = 'critical'
+          message = `Your attendance is ${currentPct.toFixed(1)}% — below the ${thresholdPct}% threshold. Even attending all ${remainingSessions} remaining classes won't be enough for certificate eligibility. Please contact your instructor.`
+        } else if (classesNeeded >= remainingSessions * 0.8) {
+          alertType = 'urgent'
+          message = `Urgent: Your attendance is ${currentPct.toFixed(1)}%. You must attend ${classesNeeded} of the ${remainingSessions} remaining classes to reach ${thresholdPct}% for certificate eligibility.`
+        } else {
+          message = `Your attendance is ${currentPct.toFixed(1)}% — below the ${thresholdPct}% requirement. You need to attend at least ${classesNeeded} more classes (${remainingSessions} remaining) to be eligible for the certificate.`
+        }
+
+        alerts.push({
+          student_id: student.id,
+          batch_id: batchId,
+          alert_type: alertType,
+          current_attendance_pct: currentPct,
+          required_attendance_pct: thresholdPct,
+          classes_remaining: remainingSessions,
+          classes_needed: classesNeeded,
+          message,
+        })
+      }
+    }
+
+    if (alerts.length > 0) {
+      await supabase.from('attendance_alerts').insert(alerts)
+    }
   }
 
   if (loading) {
@@ -460,6 +555,37 @@ export default function TeacherAttendancePage() {
                 value={topicTeacherName}
                 onChange={(e) => setTopicTeacherName(e.target.value)}
               />
+            </div>
+            <div className="mt-4">
+              <label className="mb-2 block text-sm font-medium text-gray-700">
+                Topic Completion: <span className="font-bold text-indigo-600">{topicCompletionPct}%</span>
+              </label>
+              <div className="flex items-center gap-4">
+                <span className="text-xs text-gray-400 w-6">0%</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={5}
+                  value={topicCompletionPct}
+                  onChange={(e) => setTopicCompletionPct(parseInt(e.target.value, 10))}
+                  className="h-2 w-full cursor-pointer appearance-none rounded-full bg-gray-200 accent-indigo-500 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-indigo-500 [&::-webkit-slider-thumb]:shadow-md"
+                />
+                <span className="text-xs text-gray-400 w-8">100%</span>
+              </div>
+              <div className="mt-1 h-1.5 w-full rounded-full bg-gray-100 overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all duration-300"
+                  style={{
+                    width: `${topicCompletionPct}%`,
+                    background: topicCompletionPct < 30
+                      ? '#ef4444'
+                      : topicCompletionPct < 70
+                        ? '#f59e0b'
+                        : '#22c55e',
+                  }}
+                />
+              </div>
             </div>
             <div className="mt-4 flex justify-end">
               <Button onClick={handleSaveTopic} disabled={savingTopic}>

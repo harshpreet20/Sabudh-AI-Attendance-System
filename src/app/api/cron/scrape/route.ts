@@ -3,12 +3,6 @@ import { createServiceClient } from '@/lib/supabase/service'
 
 const ORG_ID = 'a0000000-0000-0000-0000-000000000001'
 
-const PAGES_TO_SCRAPE = [
-  { url: '/', title: 'Home Page', category: 'platform' },
-  { url: '/login', title: 'Login Page', category: 'auth' },
-  { url: '/register', title: 'Registration Page', category: 'auth' },
-]
-
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get('authorization')
   const cronSecret = process.env.CRON_SECRET
@@ -18,105 +12,79 @@ export async function GET(req: NextRequest) {
   }
 
   const supabase = createServiceClient()
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SUPABASE_URL?.replace('supabase.co', 'vercel.app') || 'http://localhost:3000'
+  const results: Array<{ source: string; status: string }> = []
 
-  const results: Array<{ url: string; status: string }> = []
+  try {
+    const { count: studentCount } = await supabase
+      .from('student_profiles')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'active')
 
-  for (const page of PAGES_TO_SCRAPE) {
-    try {
-      const res = await fetch(`${baseUrl}${page.url}`, {
-        headers: { 'User-Agent': 'SabudhAI-Scraper/1.0' },
-      })
+    const { count: teacherCount } = await supabase
+      .from('teacher_profiles')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'active')
 
-      if (!res.ok) {
-        results.push({ url: page.url, status: `error: ${res.status}` })
-        continue
-      }
+    const { data: batchData } = await supabase
+      .from('batches')
+      .select('id, name, status, start_date, end_date, course_id, courses(title, attendance_requirement)')
+      .order('created_at', { ascending: false })
+      .limit(20)
 
-      const html = await res.text()
+    const activeBatches = batchData?.filter(b => b.status === 'active') ?? []
 
-      const textContent = html
-        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-        .replace(/<[^>]+>/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim()
-        .slice(0, 5000)
+    const { data: scheduleData } = await supabase
+      .from('class_schedules')
+      .select('title, scheduled_date, start_time, end_time, status, batch_id')
+      .eq('organization_id', ORG_ID)
+      .gte('scheduled_date', new Date().toISOString().split('T')[0])
+      .order('scheduled_date', { ascending: true })
+      .limit(15)
 
-      if (!textContent || textContent.length < 50) {
-        results.push({ url: page.url, status: 'skipped: too short' })
-        continue
-      }
+    const { data: announcementData } = await supabase
+      .from('announcements')
+      .select('title, content, priority, published_at')
+      .eq('organization_id', ORG_ID)
+      .order('published_at', { ascending: false })
+      .limit(10)
 
-      const { data: existing } = await supabase
-        .from('chatbot_knowledge')
-        .select('id')
-        .eq('source', 'scrape')
-        .eq('source_url', page.url)
-        .eq('organization_id', ORG_ID)
-        .single()
+    const { data: recentSessions } = await supabase
+      .from('sessions')
+      .select('id, session_date, status, topic_taught, next_topic, batches(name)')
+      .order('session_date', { ascending: false })
+      .limit(10)
 
-      if (existing) {
-        await supabase
-          .from('chatbot_knowledge')
-          .update({
-            content: textContent,
-            title: page.title,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', existing.id)
-      } else {
-        await supabase
-          .from('chatbot_knowledge')
-          .insert({
-            organization_id: ORG_ID,
-            title: page.title,
-            content: textContent,
-            source: 'scrape',
-            source_url: page.url,
-            category: page.category,
-          })
-      }
+    const { data: courseData } = await supabase
+      .from('courses')
+      .select('id, title, description, duration_weeks, attendance_requirement, status')
+      .eq('organization_id', ORG_ID)
+      .order('title')
 
-      results.push({ url: page.url, status: 'ok' })
-    } catch (err) {
-      results.push({ url: page.url, status: `error: ${err instanceof Error ? err.message : 'unknown'}` })
-    }
-  }
+    const platformSummary = [
+      `Sabudh AI Platform Summary (updated ${new Date().toISOString()})`,
+      ``,
+      `Total active students: ${studentCount ?? 0}`,
+      `Total active teachers: ${teacherCount ?? 0}`,
+      ``,
+      `Courses:`,
+      ...(courseData?.map(c => `- ${c.title}: ${c.description || 'No description'} (${c.duration_weeks ?? '?'} weeks, ${c.attendance_requirement}% attendance required, ${c.status})`) ?? ['  None']),
+      ``,
+      `Active Batches:`,
+      ...(activeBatches.map(b => {
+        const course = (b as Record<string, unknown>).courses as { title: string; attendance_requirement: number } | null
+        return `- ${b.name}: Course "${course?.title ?? 'N/A'}", ${b.start_date ?? '?'} to ${b.end_date ?? '?'}`
+      })),
+      ``,
+      scheduleData?.length ? `Upcoming Schedules:\n${scheduleData.map(s => `- ${s.title} on ${s.scheduled_date} (${s.start_time}-${s.end_time})`).join('\n')}` : 'No upcoming schedules',
+      ``,
+      announcementData?.length ? `Recent Announcements:\n${announcementData.map(a => `- [${a.priority}] ${a.title}: ${(a.content || '').slice(0, 200)}`).join('\n')}` : 'No recent announcements',
+      ``,
+      recentSessions?.length ? `Recent Sessions:\n${recentSessions.map(s => {
+        const batch = (s as Record<string, unknown>).batches as { name: string } | null
+        return `- ${batch?.name ?? 'Unknown batch'} on ${s.session_date} (${s.status})${s.topic_taught ? ` — Topic: ${s.topic_taught}` : ''}${s.next_topic ? ` — Next: ${s.next_topic}` : ''}`
+      }).join('\n')}` : 'No recent sessions',
+    ].join('\n')
 
-  const { data: platformData } = await supabase
-    .from('student_profiles')
-    .select('id', { count: 'exact', head: true })
-    .eq('organization_id', ORG_ID)
-
-  const { data: batchData } = await supabase
-    .from('batches')
-    .select('id, name, status')
-    .limit(20)
-
-  const { data: scheduleData } = await supabase
-    .from('class_schedules')
-    .select('title, scheduled_date, start_time, end_time, status')
-    .eq('organization_id', ORG_ID)
-    .gte('scheduled_date', new Date().toISOString().split('T')[0])
-    .order('scheduled_date', { ascending: true })
-    .limit(10)
-
-  const { data: announcementData } = await supabase
-    .from('announcements')
-    .select('title, content, priority, published_at')
-    .eq('organization_id', ORG_ID)
-    .order('published_at', { ascending: false })
-    .limit(5)
-
-  const platformSummary = [
-    `Total students: ${platformData?.length ?? 'unknown'}`,
-    `Active batches: ${batchData?.filter(b => b.status === 'active').map(b => b.name).join(', ') || 'none'}`,
-    scheduleData?.length ? `Upcoming schedules: ${scheduleData.map(s => `${s.title} on ${s.scheduled_date}`).join('; ')}` : '',
-    announcementData?.length ? `Recent announcements: ${announcementData.map(a => `${a.title} (${a.priority})`).join('; ')}` : '',
-  ].filter(Boolean).join('\n')
-
-  if (platformSummary) {
     const { data: existing } = await supabase
       .from('chatbot_knowledge')
       .select('id')
@@ -129,7 +97,7 @@ export async function GET(req: NextRequest) {
       organization_id: ORG_ID,
       title: 'Platform Activity Summary',
       content: platformSummary,
-      source: 'scrape',
+      source: 'scrape' as const,
       source_url: '/platform-summary',
       category: 'activity',
     }
@@ -139,6 +107,52 @@ export async function GET(req: NextRequest) {
     } else {
       await supabase.from('chatbot_knowledge').insert(doc)
     }
+
+    results.push({ source: 'platform-summary', status: 'ok' })
+
+    const aboutContent = [
+      `About Sabudh AI`,
+      `Sabudh AI is an educational technology platform for AI/ML training.`,
+      `Features: Attendance tracking with face/voice verification, course management, batch-based learning,`,
+      `assignments and project submissions with AI assessment, discussion forums, 1-on-1 messaging,`,
+      `certificate management, student journey tracking, and admin analytics.`,
+      ``,
+      `Students can: Mark attendance with biometric verification, view course materials, submit assignments/projects,`,
+      `participate in discussions, track their learning progress, and download certificates.`,
+      ``,
+      `Teachers can: Create sessions, manage curriculum, grade submissions, track student progress,`,
+      `set topic completion percentages, and manage attendance.`,
+      ``,
+      `Admins can: Manage users (students/teachers), courses, batches, classrooms, view audit logs,`,
+      `configure system settings, manage announcements, and view analytics dashboards.`,
+    ].join('\n')
+
+    const { data: aboutExisting } = await supabase
+      .from('chatbot_knowledge')
+      .select('id')
+      .eq('source', 'scrape')
+      .eq('source_url', '/about-platform')
+      .eq('organization_id', ORG_ID)
+      .single()
+
+    const aboutDoc = {
+      organization_id: ORG_ID,
+      title: 'About Sabudh AI Platform',
+      content: aboutContent,
+      source: 'scrape' as const,
+      source_url: '/about-platform',
+      category: 'platform',
+    }
+
+    if (aboutExisting) {
+      await supabase.from('chatbot_knowledge').update({ ...aboutDoc, updated_at: new Date().toISOString() }).eq('id', aboutExisting.id)
+    } else {
+      await supabase.from('chatbot_knowledge').insert(aboutDoc)
+    }
+
+    results.push({ source: 'about-platform', status: 'ok' })
+  } catch (err) {
+    results.push({ source: 'data-scrape', status: `error: ${err instanceof Error ? err.message : 'unknown'}` })
   }
 
   return NextResponse.json({ success: true, results, timestamp: new Date().toISOString() })

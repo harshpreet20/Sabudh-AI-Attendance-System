@@ -30,6 +30,7 @@ import {
   Users,
   Eye,
   CheckCircle2,
+  Plus,
 } from 'lucide-react'
 import type { Batch } from '@/types/database'
 
@@ -81,6 +82,10 @@ export default function TeacherCurriculumPage() {
   const [editingMaterial, setEditingMaterial] = useState<CourseMaterial | null>(null)
   const [editForm, setEditForm] = useState({ title: '', description: '' })
   const [saving, setSaving] = useState(false)
+
+  const [showAddDialog, setShowAddDialog] = useState(false)
+  const [addForm, setAddForm] = useState({ title: '', description: '' })
+  const [addSaving, setAddSaving] = useState(false)
 
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [deletingMaterial, setDeletingMaterial] = useState<CourseMaterial | null>(null)
@@ -236,6 +241,55 @@ export default function TeacherCurriculumPage() {
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
+  async function handleManualAdd() {
+    if (!addForm.title.trim()) {
+      toast.error('Title is required')
+      return
+    }
+
+    if (!selectedBatch) {
+      toast.error('Please select a batch first')
+      return
+    }
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      toast.error('You must be logged in')
+      return
+    }
+
+    setAddSaving(true)
+
+    const maxSortOrder = materials.length > 0
+      ? Math.max(...materials.map(m => m.sort_order)) + 1
+      : 0
+
+    const { error } = await supabase
+      .from('course_materials')
+      .insert({
+        batch_id: selectedBatch,
+        title: addForm.title.trim(),
+        description: addForm.description.trim() || null,
+        file_url: '',
+        storage_path: '',
+        file_name: '',
+        file_type: 'topic',
+        file_size: 0,
+        sort_order: maxSortOrder,
+        uploaded_by: user.id,
+      })
+
+    if (error) {
+      toast.error(`Failed to add material: ${error.message}`)
+    } else {
+      toast.success('Material added successfully')
+      setShowAddDialog(false)
+      setAddForm({ title: '', description: '' })
+      fetchMaterials()
+    }
+    setAddSaving(false)
+  }
+
   function openEditDialog(material: CourseMaterial) {
     setEditingMaterial(material)
     setEditForm({
@@ -322,7 +376,16 @@ export default function TeacherCurriculumPage() {
           </Select>
         </div>
 
-        <div>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setShowAddDialog(true)}
+            disabled={!selectedBatch}
+            className="w-full sm:w-auto"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Add Topic
+          </Button>
           <input
             ref={fileInputRef}
             type="file"
@@ -413,11 +476,15 @@ export default function TeacherCurriculumPage() {
                     </div>
                   </TableCell>
                   <TableCell className="hidden sm:table-cell">
-                    <div className="flex items-center gap-2 text-sm text-gray-500">
-                      <FileText className="h-4 w-4 shrink-0" />
-                      <span className="truncate max-w-[150px]">{m.file_name}</span>
-                      <Badge variant="secondary">{formatFileSize(m.file_size)}</Badge>
-                    </div>
+                    {m.file_name ? (
+                      <div className="flex items-center gap-2 text-sm text-gray-500">
+                        <FileText className="h-4 w-4 shrink-0" />
+                        <span className="truncate max-w-[150px]">{m.file_name}</span>
+                        <Badge variant="secondary">{formatFileSize(m.file_size)}</Badge>
+                      </div>
+                    ) : (
+                      <Badge variant="secondary">Topic</Badge>
+                    )}
                   </TableCell>
                   <TableCell className="hidden md:table-cell">
                     <span className="text-sm text-gray-500">
@@ -448,11 +515,13 @@ export default function TeacherCurriculumPage() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <a href={m.file_url} target="_blank" rel="noopener noreferrer">
-                        <Button variant="ghost" size="sm">
-                          <Download className="h-4 w-4" />
-                        </Button>
-                      </a>
+                      {m.file_url && (
+                        <a href={m.file_url} target="_blank" rel="noopener noreferrer">
+                          <Button variant="ghost" size="sm">
+                            <Download className="h-4 w-4" />
+                          </Button>
+                        </a>
+                      )}
                       <Button variant="ghost" size="sm" onClick={() => openEditDialog(m)}>
                         <Pencil className="h-4 w-4" />
                       </Button>
@@ -467,6 +536,32 @@ export default function TeacherCurriculumPage() {
           </TableBody>
         </Table>
       )}
+
+      <Dialog
+        open={showAddDialog}
+        onClose={() => setShowAddDialog(false)}
+        title="Add Topic"
+        description="Add a curriculum topic or material entry manually."
+      >
+        <div className="space-y-4">
+          <Input
+            label="Title *"
+            value={addForm.title}
+            onChange={(e) => setAddForm(f => ({ ...f, title: e.target.value }))}
+            placeholder="e.g. Introduction to Machine Learning"
+          />
+          <Textarea
+            label="Description"
+            value={addForm.description}
+            onChange={(e) => setAddForm(f => ({ ...f, description: e.target.value }))}
+            placeholder="Topic description, learning objectives, or notes"
+            rows={3}
+          />
+          <Button onClick={handleManualAdd} loading={addSaving} className="w-full">
+            Add Topic
+          </Button>
+        </div>
+      </Dialog>
 
       <Dialog
         open={showEditDialog}

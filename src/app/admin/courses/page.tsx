@@ -61,6 +61,8 @@ interface Batch {
   status: 'active' | 'completed' | 'archived'
   created_at: string
   updated_at: string
+  total_planned_sessions?: number
+  attendance_threshold_pct?: number
 }
 
 interface TeacherProfile {
@@ -88,10 +90,17 @@ const EMPTY_BATCH_FORM = {
   instructor_id: '',
   start_date: '',
   end_date: '',
+  total_planned_sessions: '',
+  attendance_threshold_pct: '75',
 }
 
 type CourseFormData = typeof EMPTY_COURSE_FORM
 type BatchFormData = typeof EMPTY_BATCH_FORM
+
+interface BatchTeacher {
+  batch_id: string
+  teacher_id: string
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -148,6 +157,10 @@ export default function CoursesPage() {
   const [editingBatch, setEditingBatch] = useState<Batch | null>(null)
   const [batchForm, setBatchForm] = useState<BatchFormData>(EMPTY_BATCH_FORM)
   const [batchFormLoading, setBatchFormLoading] = useState(false)
+
+  // Multi-teacher per batch
+  const [batchTeachersMap, setBatchTeachersMap] = useState<Record<string, string[]>>({})
+  const [selectedTeacherIds, setSelectedTeacherIds] = useState<string[]>([])
 
   // Delete confirmation
   const [deleteTarget, setDeleteTarget] = useState<{ type: 'course' | 'batch'; id: string; name: string } | null>(null)
@@ -213,9 +226,24 @@ export default function CoursesPage() {
     if (!error && data) setTeachers(data)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const fetchBatchTeachers = useCallback(async () => {
+    const { data } = await supabase
+      .from('batch_teachers')
+      .select('batch_id, teacher_id')
+    if (data) {
+      const map: Record<string, string[]> = {}
+      for (const row of data as BatchTeacher[]) {
+        if (!map[row.batch_id]) map[row.batch_id] = []
+        map[row.batch_id].push(row.teacher_id)
+      }
+      setBatchTeachersMap(map)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => { fetchTeachers() }, [fetchTeachers])
   useEffect(() => { fetchCourses() }, [fetchCourses])
   useEffect(() => { fetchBatches() }, [fetchBatches])
+  useEffect(() => { fetchBatchTeachers() }, [fetchBatchTeachers])
 
   // ---------------------------------------------------------------------------
   // Course helpers — maps for lookups
@@ -231,6 +259,16 @@ export default function CoursesPage() {
     if (!instructorId) return '—'
     const t = teachers.find((tp) => tp.auth_user_id === instructorId)
     return t?.full_name ?? 'Unknown'
+  }
+
+  function batchTeacherNames(batchId: string, fallbackInstructorId: string | null): string {
+    const teacherIds = batchTeachersMap[batchId]
+    if (teacherIds && teacherIds.length > 0) {
+      return teacherIds
+        .map(tid => teachers.find(t => t.auth_user_id === tid)?.full_name ?? 'Unknown')
+        .join(', ')
+    }
+    return instructorName(fallbackInstructorId)
   }
 
   // ---------------------------------------------------------------------------
@@ -305,10 +343,11 @@ export default function CoursesPage() {
       ...EMPTY_BATCH_FORM,
       course_id: courses.length > 0 ? courses[0].id : '',
     })
+    setSelectedTeacherIds([])
     setBatchDialogOpen(true)
   }
 
-  function openEditBatch(batch: Batch) {
+  function openEditBatch(batch: Batch & { total_planned_sessions?: number; attendance_threshold_pct?: number }) {
     setEditingBatch(batch)
     setBatchForm({
       name: batch.name,
@@ -316,7 +355,10 @@ export default function CoursesPage() {
       instructor_id: batch.instructor_id ?? '',
       start_date: batch.start_date ?? '',
       end_date: batch.end_date ?? '',
+      total_planned_sessions: batch.total_planned_sessions?.toString() ?? '',
+      attendance_threshold_pct: batch.attendance_threshold_pct?.toString() ?? '75',
     })
+    setSelectedTeacherIds(batchTeachersMap[batch.id] ?? (batch.instructor_id ? [batch.instructor_id] : []))
     setBatchDialogOpen(true)
   }
 
@@ -330,31 +372,58 @@ export default function CoursesPage() {
     e.preventDefault()
     setBatchFormLoading(true)
 
+    const primaryInstructor = selectedTeacherIds[0] || batchForm.instructor_id || null
+
     const payload = {
       name: batchForm.name,
       course_id: batchForm.course_id,
-      instructor_id: batchForm.instructor_id || null,
+      instructor_id: primaryInstructor,
       start_date: batchForm.start_date || null,
       end_date: batchForm.end_date || null,
+      total_planned_sessions: batchForm.total_planned_sessions ? parseInt(batchForm.total_planned_sessions, 10) : 0,
+      attendance_threshold_pct: parseFloat(batchForm.attendance_threshold_pct) || 75,
     }
 
     try {
+      let batchId: string
+
       if (editingBatch) {
         const { error } = await supabase
           .from('batches')
           .update({ ...payload, updated_at: new Date().toISOString() })
           .eq('id', editingBatch.id)
         if (error) throw error
+        batchId = editingBatch.id
         toast.success('Batch updated successfully')
       } else {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('batches')
           .insert({ ...payload, status: 'active' })
+          .select('id')
+          .single()
         if (error) throw error
+        batchId = data.id
         toast.success('Batch created successfully')
       }
+
+      if (editingBatch) {
+        await supabase.from('batch_teachers').delete().eq('batch_id', batchId)
+      }
+      if (selectedTeacherIds.length > 0) {
+        const { data: { user } } = await supabase.auth.getUser()
+        await supabase.from('batch_teachers').insert(
+          selectedTeacherIds.map(tid => ({
+            batch_id: batchId,
+            teacher_id: tid,
+            role: 'instructor',
+            assigned_by: user?.id ?? null,
+          }))
+        )
+      }
+
       closeBatchDialog()
       fetchBatches()
+      fetchBatchTeachers()
     } catch {
       toast.error(editingBatch ? 'Failed to update batch' : 'Failed to create batch')
     } finally {
@@ -426,8 +495,13 @@ export default function CoursesPage() {
       toast.success(`${deleteTarget.type === 'course' ? 'Course' : 'Batch'} deleted successfully`)
       if (deleteTarget.type === 'course') fetchCourses()
       else fetchBatches()
-    } catch {
-      toast.error(`Failed to delete ${deleteTarget.type}`)
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : ''
+      if (msg.includes('violates foreign key')) {
+        toast.error(`Cannot delete: other records still reference this ${deleteTarget.type}. Try archiving instead.`)
+      } else {
+        toast.error(`Failed to delete ${deleteTarget.type}`)
+      }
     } finally {
       setDeleteLoading(false)
       setDeleteTarget(null)
@@ -654,7 +728,7 @@ export default function CoursesPage() {
                   <TableCell>
                     <div className="flex items-center gap-1.5">
                       <User className="h-3.5 w-3.5 text-gray-400" />
-                      <span className="text-sm">{instructorName(batch.instructor_id)}</span>
+                      <span className="text-sm">{batchTeacherNames(batch.id, batch.instructor_id)}</span>
                     </div>
                   </TableCell>
                   <TableCell>
@@ -842,31 +916,74 @@ export default function CoursesPage() {
               </option>
             ))}
           </Select>
-          <Select
-            label="Instructor"
-            placeholder="Select an instructor"
-            value={batchForm.instructor_id}
-            onChange={(e) => setBatchForm((f) => ({ ...f, instructor_id: e.target.value }))}
-          >
-            <option value="">No instructor assigned</option>
-            {teachers.map((t) => (
-              <option key={t.auth_user_id} value={t.auth_user_id}>
-                {t.full_name} ({t.email})
-              </option>
-            ))}
-          </Select>
-          <Input
-            label="Start Date"
-            type="date"
-            value={batchForm.start_date}
-            onChange={(e) => setBatchForm((f) => ({ ...f, start_date: e.target.value }))}
-          />
-          <Input
-            label="End Date"
-            type="date"
-            value={batchForm.end_date}
-            onChange={(e) => setBatchForm((f) => ({ ...f, end_date: e.target.value }))}
-          />
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">
+              Assigned Teachers
+            </label>
+            <div className="max-h-40 overflow-y-auto rounded-lg border border-gray-200 bg-white p-2 space-y-1">
+              {teachers.length === 0 ? (
+                <p className="text-sm text-gray-400 px-2 py-1">No teachers available</p>
+              ) : (
+                teachers.map((t) => (
+                  <label
+                    key={t.auth_user_id}
+                    className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-gray-50 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedTeacherIds.includes(t.auth_user_id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedTeacherIds(prev => [...prev, t.auth_user_id])
+                        } else {
+                          setSelectedTeacherIds(prev => prev.filter(id => id !== t.auth_user_id))
+                        }
+                      }}
+                      className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <span className="text-sm text-gray-700">{t.full_name}</span>
+                    <span className="text-xs text-gray-400">({t.email})</span>
+                  </label>
+                ))
+              )}
+            </div>
+            {selectedTeacherIds.length > 0 && (
+              <p className="mt-1 text-xs text-gray-500">{selectedTeacherIds.length} teacher(s) selected</p>
+            )}
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              label="Start Date"
+              type="date"
+              value={batchForm.start_date}
+              onChange={(e) => setBatchForm((f) => ({ ...f, start_date: e.target.value }))}
+            />
+            <Input
+              label="End Date"
+              type="date"
+              value={batchForm.end_date}
+              onChange={(e) => setBatchForm((f) => ({ ...f, end_date: e.target.value }))}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              label="Total Planned Sessions"
+              type="number"
+              placeholder="e.g. 30"
+              min={0}
+              value={batchForm.total_planned_sessions}
+              onChange={(e) => setBatchForm((f) => ({ ...f, total_planned_sessions: e.target.value }))}
+            />
+            <Input
+              label="Attendance Threshold (%)"
+              type="number"
+              placeholder="75"
+              min={0}
+              max={100}
+              value={batchForm.attendance_threshold_pct}
+              onChange={(e) => setBatchForm((f) => ({ ...f, attendance_threshold_pct: e.target.value }))}
+            />
+          </div>
         </form>
       </Dialog>
 
@@ -893,11 +1010,29 @@ export default function CoursesPage() {
           </>
         }
       >
-        <p className="text-sm text-gray-600">
-          {deleteTarget?.type === 'course'
-            ? 'Deleting this course will also affect any batches associated with it. Consider archiving instead if you want to preserve the data.'
-            : 'This batch and all its associations will be permanently removed.'}
-        </p>
+        <div className="space-y-2 text-sm text-gray-600">
+          {deleteTarget?.type === 'course' ? (
+            <>
+              <p className="font-medium text-red-600">This will permanently delete:</p>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>All batches under this course</li>
+                <li>All sessions, assignments, and projects in those batches</li>
+                <li>All discussion threads and materials</li>
+              </ul>
+              <p>Students will be unlinked but not deleted. Consider archiving instead.</p>
+            </>
+          ) : (
+            <>
+              <p className="font-medium text-red-600">This will permanently delete:</p>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>All sessions and attendance records</li>
+                <li>All assignments, projects, and submissions</li>
+                <li>All discussion threads and materials</li>
+              </ul>
+              <p>Students will be unlinked but not deleted.</p>
+            </>
+          )}
+        </div>
       </Dialog>
     </div>
   )

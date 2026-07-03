@@ -16,6 +16,7 @@ import {
   Clock,
   BookOpen,
   UserPlus,
+  AlertTriangle,
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -113,8 +114,49 @@ export default async function DashboardPage() {
     }
   }
 
-  // Certificate progress - assume 75% is required
-  const requiredPercentage = 75
+  // Fetch attendance alerts
+  let attendanceAlerts: Array<{
+    id: string
+    alert_type: string
+    current_attendance_pct: number
+    required_attendance_pct: number
+    classes_remaining: number
+    classes_needed: number
+    message: string
+    dismissed: boolean
+    created_at: string
+  }> = []
+
+  if (profile.id) {
+    const { data: alerts } = await supabase
+      .from('attendance_alerts')
+      .select('*')
+      .eq('student_id', profile.id)
+      .eq('dismissed', false)
+      .order('created_at', { ascending: false })
+      .limit(3)
+
+    attendanceAlerts = alerts ?? []
+  }
+
+  // Fetch batch attendance threshold
+  let requiredPercentage = 75
+  if (profile.batch_id) {
+    const { data: batch } = await supabase
+      .from('batches')
+      .select('attendance_threshold_pct, courses(attendance_requirement)')
+      .eq('id', profile.batch_id)
+      .single()
+
+    if (batch) {
+      const courseData = batch.courses as unknown as { attendance_requirement: number } | { attendance_requirement: number }[] | null
+      const course = Array.isArray(courseData) ? courseData[0] : courseData
+      requiredPercentage = batch.attendance_threshold_pct
+        ?? course?.attendance_requirement
+        ?? 75
+    }
+  }
+
   const certificateEligible = attendancePercentage >= requiredPercentage
 
   return (
@@ -150,6 +192,49 @@ export default async function DashboardPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Attendance Alerts */}
+      {attendanceAlerts.length > 0 && (
+        <div className="space-y-3">
+          {attendanceAlerts.map((alert) => (
+            <Card key={alert.id} className={
+              alert.alert_type === 'critical'
+                ? 'border-red-300 bg-red-50/50'
+                : alert.alert_type === 'urgent'
+                  ? 'border-amber-300 bg-amber-50/50'
+                  : 'border-blue-300 bg-blue-50/50'
+            }>
+              <CardContent className="flex items-start gap-3 p-4">
+                <AlertTriangle className={`h-5 w-5 mt-0.5 shrink-0 ${
+                  alert.alert_type === 'critical'
+                    ? 'text-red-600'
+                    : alert.alert_type === 'urgent'
+                      ? 'text-amber-600'
+                      : 'text-blue-600'
+                }`} />
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-semibold ${
+                    alert.alert_type === 'critical'
+                      ? 'text-red-800'
+                      : alert.alert_type === 'urgent'
+                        ? 'text-amber-800'
+                        : 'text-blue-800'
+                  }`}>
+                    {alert.alert_type === 'critical' ? 'Critical' : alert.alert_type === 'urgent' ? 'Urgent' : 'Attention'}: Attendance Below Threshold
+                  </p>
+                  <p className="mt-1 text-sm text-gray-600">{alert.message}</p>
+                  <div className="mt-2 flex flex-wrap gap-3 text-xs text-gray-500">
+                    <span>Current: <strong>{alert.current_attendance_pct.toFixed(1)}%</strong></span>
+                    <span>Required: <strong>{alert.required_attendance_pct}%</strong></span>
+                    <span>Classes left: <strong>{alert.classes_remaining}</strong></span>
+                    <span>Need to attend: <strong>{alert.classes_needed}</strong></span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
       {/* Priority Announcements */}
       <PriorityAnnouncements
