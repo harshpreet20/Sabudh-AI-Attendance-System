@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
+import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import {
   LayoutDashboard,
@@ -121,28 +122,36 @@ const STEPS: OnboardingStep[] = [
   },
 ]
 
-const LOCALSTORAGE_KEY = 'teacher_onboarding_completed'
+const LOCALSTORAGE_PREFIX = 'teacher_onboarding_completed_'
 
 export function TeacherOnboardingTour() {
   const [step, setStep] = useState(0)
   const [visible, setVisible] = useState(false)
   const [completing, setCompleting] = useState(false)
+  const storageKeyRef = useRef<string | null>(null)
 
   useEffect(() => {
-    try {
-      const completed = localStorage.getItem(LOCALSTORAGE_KEY)
-      if (!completed) {
-        setVisible(true)
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return
+      const key = `${LOCALSTORAGE_PREFIX}${user.id}`
+      storageKeyRef.current = key
+      try {
+        if (!localStorage.getItem(key)) {
+          setVisible(true)
+        }
+      } catch {
+        // localStorage unavailable
       }
-    } catch {
-      // localStorage unavailable, don't show tour
-    }
+    })
   }, [])
 
   const markComplete = useCallback(() => {
     setCompleting(true)
     try {
-      localStorage.setItem(LOCALSTORAGE_KEY, 'true')
+      if (storageKeyRef.current) {
+        localStorage.setItem(storageKeyRef.current, 'true')
+      }
     } catch {
       // localStorage unavailable, silently continue
     }
