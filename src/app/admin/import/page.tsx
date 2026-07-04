@@ -25,6 +25,8 @@ import {
   Link as LinkIcon,
   UserCheck,
   RefreshCw,
+  Mail,
+  MailX,
 } from 'lucide-react'
 
 interface ImportResult {
@@ -32,6 +34,8 @@ interface ImportResult {
   name: string
   status: 'created' | 'exists' | 'updated' | 'error'
   error?: string
+  email_sent?: boolean
+  email_error?: string
 }
 
 interface ImportResponse {
@@ -41,6 +45,8 @@ interface ImportResponse {
   updated: number
   exists: number
   errors: number
+  emails_sent: number
+  emails_failed: number
   results: ImportResult[]
 }
 
@@ -327,7 +333,7 @@ export default function ImportStudentsPage() {
             <CardDescription>{response.message}</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className={`mb-4 grid gap-4 ${response.updated > 0 ? 'grid-cols-4' : 'grid-cols-3'}`}>
+            <div className="mb-4 grid grid-cols-3 gap-4">
               <div className="rounded-xl bg-emerald-50/60 p-3 text-center backdrop-blur-sm border border-emerald-200/40">
                 <p className="text-2xl font-bold text-emerald-700">{response.created}</p>
                 <p className="text-xs text-emerald-600">Created</p>
@@ -346,6 +352,16 @@ export default function ImportStudentsPage() {
                 <p className="text-2xl font-bold text-red-700">{response.errors}</p>
                 <p className="text-xs text-red-600">Errors</p>
               </div>
+              <div className="rounded-xl bg-teal-50/60 p-3 text-center backdrop-blur-sm border border-teal-200/40">
+                <p className="text-2xl font-bold text-teal-700">{response.emails_sent}</p>
+                <p className="text-xs text-teal-600 flex items-center justify-center gap-1"><Mail className="h-3 w-3" /> Emails Sent</p>
+              </div>
+              {response.emails_failed > 0 && (
+                <div className="rounded-xl bg-orange-50/60 p-3 text-center backdrop-blur-sm border border-orange-200/40">
+                  <p className="text-2xl font-bold text-orange-700">{response.emails_failed}</p>
+                  <p className="text-xs text-orange-600 flex items-center justify-center gap-1"><MailX className="h-3 w-3" /> Emails Failed</p>
+                </div>
+              )}
             </div>
 
             <div className="max-h-80 space-y-2 overflow-y-auto">
@@ -381,6 +397,18 @@ export default function ImportStudentsPage() {
                       <Badge variant="destructive">
                         <XCircle className="mr-1 h-3 w-3" />
                         {r.error || 'Error'}
+                      </Badge>
+                    )}
+                    {r.status === 'created' && r.email_sent && (
+                      <Badge variant="success">
+                        <Mail className="mr-1 h-3 w-3" />
+                        Emailed
+                      </Badge>
+                    )}
+                    {r.status === 'created' && !r.email_sent && (
+                      <Badge variant="destructive" title={r.email_error}>
+                        <MailX className="mr-1 h-3 w-3" />
+                        Email Failed
                       </Badge>
                     )}
                   </div>

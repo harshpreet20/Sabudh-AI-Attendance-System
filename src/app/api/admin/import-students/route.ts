@@ -169,7 +169,7 @@ export async function POST(request: NextRequest) {
       auth: { autoRefreshToken: false, persistSession: false },
     })
 
-    const results: Array<{ email: string; name: string; status: 'created' | 'exists' | 'updated' | 'error'; error?: string }> = []
+    const results: Array<{ email: string; name: string; status: 'created' | 'exists' | 'updated' | 'error'; error?: string; email_sent?: boolean; email_error?: string }> = []
     const loginUrl = process.env.NEXT_PUBLIC_APP_URL
       ? `${process.env.NEXT_PUBLIC_APP_URL}/login`
       : 'https://attendanceai.harshpreetbhasin.com/login'
@@ -267,9 +267,12 @@ export async function POST(request: NextRequest) {
           status: 'active',
         })
 
+        let emailSent = false
+        let emailError: string | undefined
+
         if (process.env.RESEND_API_KEY) {
           try {
-            await resend.emails.send({
+            const emailResult = await resend.emails.send({
               from: process.env.RESEND_FROM_EMAIL || 'Sabudh Foundation <noreply@sabudh.org>',
               to: row.email,
               subject: `Welcome to ${COURSE_NAME} - Your Credentials Inside`,
@@ -282,12 +285,16 @@ export async function POST(request: NextRequest) {
                 loginUrl,
               }),
             })
-          } catch {
-            // Email send failure shouldn't block account creation
+            emailSent = !emailResult.error
+            if (emailResult.error) emailError = emailResult.error.message
+          } catch (err) {
+            emailError = err instanceof Error ? err.message : 'Email send failed'
           }
+        } else {
+          emailError = 'RESEND_API_KEY is not configured'
         }
 
-        results.push({ email: row.email, name: row.full_name, status: 'created' })
+        results.push({ email: row.email, name: row.full_name, status: 'created', email_sent: emailSent, email_error: emailError })
       } catch (err) {
         results.push({
           email: row.email,
@@ -302,11 +309,15 @@ export async function POST(request: NextRequest) {
     const updated = results.filter((r) => r.status === 'updated').length
     const exists = results.filter((r) => r.status === 'exists').length
     const errors = results.filter((r) => r.status === 'error').length
+    const emailsSent = results.filter((r) => r.email_sent).length
+    const emailsFailed = results.filter((r) => r.status === 'created' && !r.email_sent).length
 
     const messageParts = [`Imported ${created} students`]
     if (updated > 0) messageParts.push(`${updated} updated`)
     if (exists > 0) messageParts.push(`${exists} already existed`)
     if (errors > 0) messageParts.push(`${errors} failed`)
+    if (emailsSent > 0) messageParts.push(`${emailsSent} welcome emails sent`)
+    if (emailsFailed > 0) messageParts.push(`${emailsFailed} emails failed`)
 
     return NextResponse.json({
       message: messageParts.join('. ') + '.',
@@ -315,6 +326,8 @@ export async function POST(request: NextRequest) {
       updated,
       exists,
       errors,
+      emails_sent: emailsSent,
+      emails_failed: emailsFailed,
       results,
     })
   } catch (error) {
