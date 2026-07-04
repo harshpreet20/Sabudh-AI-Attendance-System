@@ -72,7 +72,7 @@ function parseCSV(csv: string): SheetRow[] {
   const headers = rawHeaders.map(normalizeHeader)
 
   const nameIdx = headers.findIndex((h) => matchesAny(h, ['full_name', 'name', 'student_name', 'participant']))
-  const emailIdx = headers.findIndex((h) => matchesAny(h, ['email', 'email_address', 'e_mail']))
+  const emailIdx = headers.findIndex((h) => matchesAny(h, ['email', 'email_address', 'e_mail', 'username']))
   const phoneIdx = headers.findIndex((h) =>
     matchesAny(h, ['phone_number', 'phone', 'mobile']) && !h.includes('alternate')
   )
