@@ -45,40 +45,61 @@ export async function POST(request: NextRequest) {
         email,
         password: newPassword,
         email_sent: false,
+        email_error: 'RESEND_API_KEY is not configured',
       })
     }
 
-    await resend.emails.send({
-      from: process.env.RESEND_FROM_EMAIL || 'Sabudh Foundation <noreply@sabudh.org>',
-      to: email,
-      subject: type === 'teacher'
-        ? `Your Updated Credentials - ${COURSE_NAME} (Instructor)`
-        : `Your Updated Credentials - ${COURSE_NAME}`,
-      html: type === 'teacher'
-        ? teacherWelcomeEmailHtml({
-            teacherName: full_name,
-            email,
-            password: newPassword,
-            courseName: COURSE_NAME,
-            location: LOCATION,
-            loginUrl,
-          })
-        : welcomeEmailHtml({
-            studentName: full_name,
-            email,
-            password: newPassword,
-            courseName: COURSE_NAME,
-            location: LOCATION,
-            loginUrl,
-          }),
-    })
+    try {
+      const emailResult = await resend.emails.send({
+        from: process.env.RESEND_FROM_EMAIL || 'Sabudh Foundation <noreply@sabudh.org>',
+        to: email,
+        subject: type === 'teacher'
+          ? `Your Updated Credentials - ${COURSE_NAME} (Instructor)`
+          : `Your Updated Credentials - ${COURSE_NAME}`,
+        html: type === 'teacher'
+          ? teacherWelcomeEmailHtml({
+              teacherName: full_name,
+              email,
+              password: newPassword,
+              courseName: COURSE_NAME,
+              location: LOCATION,
+              loginUrl,
+            })
+          : welcomeEmailHtml({
+              studentName: full_name,
+              email,
+              password: newPassword,
+              courseName: COURSE_NAME,
+              location: LOCATION,
+              loginUrl,
+            }),
+      })
 
-    return NextResponse.json({
-      success: true,
-      email,
-      password: newPassword,
-      email_sent: true,
-    })
+      if (emailResult.error) {
+        return NextResponse.json({
+          success: true,
+          email,
+          password: newPassword,
+          email_sent: false,
+          email_error: emailResult.error.message || 'Resend API error',
+        })
+      }
+
+      return NextResponse.json({
+        success: true,
+        email,
+        password: newPassword,
+        email_sent: true,
+      })
+    } catch (emailErr) {
+      return NextResponse.json({
+        success: true,
+        email,
+        password: newPassword,
+        email_sent: false,
+        email_error: emailErr instanceof Error ? emailErr.message : 'Email send failed',
+      })
+    }
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to resend credentials' },

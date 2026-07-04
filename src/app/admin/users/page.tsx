@@ -103,6 +103,7 @@ export default function AdminUsersPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [bulkProcessing, setBulkProcessing] = useState(false)
 
+  const [resendingId, setResendingId] = useState<string | null>(null)
   const [deleteDialog, setDeleteDialog] = useState<DisplayTeacher | null>(null)
   const [bulkDeleteDialog, setBulkDeleteDialog] = useState(false)
   const [bulkStatusDialog, setBulkStatusDialog] = useState<'active' | 'suspended' | null>(null)
@@ -213,7 +214,14 @@ export default function AdminUsersPage() {
       }
 
       setResult(data)
-      toast.success(`${tab === 'teacher' ? 'Teacher' : 'Student'} added successfully`)
+      if (data.email_sent === false) {
+        toast.warning(
+          `${tab === 'teacher' ? 'Teacher' : 'Student'} created but email not sent${data.email_error ? `: ${data.email_error}` : ''}. Password: ${data.password}`,
+          { duration: 15000 }
+        )
+      } else {
+        toast.success(`${tab === 'teacher' ? 'Teacher' : 'Student'} added and welcome email sent`)
+      }
       if (tab === 'teacher') {
         fetchTeachers()
       }
@@ -337,6 +345,7 @@ export default function AdminUsersPage() {
   }
 
   async function handleResendEmail(teacher: DisplayTeacher) {
+    setResendingId(teacher.id)
     try {
       const res = await fetch('/api/admin/resend-welcome', {
         method: 'POST',
@@ -354,12 +363,17 @@ export default function AdminUsersPage() {
         return
       }
       if (data.email_sent === false) {
-        toast.info(`Password reset for ${teacher.full_name}. New password: ${data.password}`, { duration: 15000 })
+        toast.warning(
+          `Password reset but email not sent${data.email_error ? `: ${data.email_error}` : ''}. New password: ${data.password}`,
+          { duration: 15000 }
+        )
       } else {
-        toast.success(`Welcome email resent to ${teacher.email}`)
+        toast.success(`Welcome email sent to ${teacher.email}. New password: ${data.password}`, { duration: 15000 })
       }
     } catch {
-      toast.error('Failed to resend email')
+      toast.error('Failed to resend email — check network connection')
+    } finally {
+      setResendingId(null)
     }
   }
 
@@ -682,9 +696,11 @@ export default function AdminUsersPage() {
                             variant="ghost"
                             size="sm"
                             onClick={() => handleResendEmail(teacher)}
+                            disabled={resendingId === teacher.id}
+                            loading={resendingId === teacher.id}
                             title="Resend welcome email"
                           >
-                            <Mail className="h-4 w-4" />
+                            {resendingId !== teacher.id && <Mail className="h-4 w-4" />}
                           </Button>
                           <Button
                             variant="ghost"
