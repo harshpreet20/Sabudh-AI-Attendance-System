@@ -181,6 +181,24 @@ export async function POST(request: NextRequest) {
       ? `${process.env.NEXT_PUBLIC_APP_URL}/login`
       : 'https://attendanceai.harshpreetbhasin.com/login'
 
+    let authUserCache: Map<string, string> | null = null
+    async function findAuthUserByEmail(email: string): Promise<string | null> {
+      if (!authUserCache) {
+        authUserCache = new Map()
+        let page = 1
+        while (true) {
+          const { data } = await adminSupabase.auth.admin.listUsers({ page, perPage: 1000 })
+          if (!data?.users?.length) break
+          for (const u of data.users) {
+            if (u.email) authUserCache.set(u.email.toLowerCase(), u.id)
+          }
+          if (data.users.length < 1000) break
+          page++
+        }
+      }
+      return authUserCache.get(email) ?? null
+    }
+
     for (const row of rows) {
       try {
         const { data: existingProfile } = await adminSupabase
@@ -245,34 +263,93 @@ export async function POST(request: NextRequest) {
           },
         })
 
+        let userId: string
+        let isExistingAuth = false
+
         if (authError || !authData.user) {
-          results.push({ email: row.email, name: row.full_name, status: 'error', error: authError?.message || 'Auth creation failed' })
-          continue
+          if (authError?.message?.includes('already been registered') || authError?.message?.includes('already exists')) {
+            const foundId = await findAuthUserByEmail(row.email)
+            if (!foundId) {
+              results.push({ email: row.email, name: row.full_name, status: 'error', error: 'Auth user exists but could not be found' })
+              continue
+            }
+            userId = foundId
+            isExistingAuth = true
+
+            await adminSupabase.auth.admin.updateUserById(userId, {
+              password,
+              email_confirm: true,
+              user_metadata: {
+                full_name: row.full_name,
+                phone: row.phone,
+              },
+            })
+          } else {
+            results.push({ email: row.email, name: row.full_name, status: 'error', error: authError?.message || 'Auth creation failed' })
+            continue
+          }
+        } else {
+          userId = authData.user.id
         }
 
-        await adminSupabase.from('user_roles').insert({
-          user_id: authData.user.id,
-          role: 'student',
-          organization_id: ORG_ID,
-        })
+        const { data: existingRole } = await adminSupabase
+          .from('user_roles')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('role', 'student')
+          .maybeSingle()
 
-        await adminSupabase.from('student_profiles').insert({
-          auth_user_id: authData.user.id,
-          organization_id: ORG_ID,
-          batch_id: batchId || null,
-          full_name: row.full_name,
-          email: row.email,
-          phone: row.phone || null,
-          date_of_birth: row.date_of_birth || null,
-          city: row.city || null,
-          profession: row.profession || null,
-          qualification: row.qualification || null,
-          organization_name: row.organization_name || null,
-          gender: row.gender || null,
-          learning_goal: row.learning_goal || null,
-          emergency_contact: row.alternate_phone || null,
-          status: 'active',
-        })
+        if (!existingRole) {
+          await adminSupabase.from('user_roles').insert({
+            user_id: userId,
+            role: 'student',
+            organization_id: ORG_ID,
+          })
+        }
+
+        const { data: existingStudentProfile } = await adminSupabase
+          .from('student_profiles')
+          .select('id')
+          .eq('auth_user_id', userId)
+          .maybeSingle()
+
+        if (existingStudentProfile) {
+          await adminSupabase
+            .from('student_profiles')
+            .update({
+              full_name: row.full_name,
+              phone: row.phone || null,
+              date_of_birth: row.date_of_birth || null,
+              city: row.city || null,
+              profession: row.profession || null,
+              qualification: row.qualification || null,
+              organization_name: row.organization_name || null,
+              gender: row.gender || null,
+              learning_goal: row.learning_goal || null,
+              emergency_contact: row.alternate_phone || null,
+              batch_id: batchId || undefined,
+              status: 'active',
+            })
+            .eq('id', existingStudentProfile.id)
+        } else {
+          await adminSupabase.from('student_profiles').insert({
+            auth_user_id: userId,
+            organization_id: ORG_ID,
+            batch_id: batchId || null,
+            full_name: row.full_name,
+            email: row.email,
+            phone: row.phone || null,
+            date_of_birth: row.date_of_birth || null,
+            city: row.city || null,
+            profession: row.profession || null,
+            qualification: row.qualification || null,
+            organization_name: row.organization_name || null,
+            gender: row.gender || null,
+            learning_goal: row.learning_goal || null,
+            emergency_contact: row.alternate_phone || null,
+            status: 'active',
+          })
+        }
 
         let emailSent = false
         let emailError: string | undefined
@@ -301,7 +378,13 @@ export async function POST(request: NextRequest) {
           emailError = 'RESEND_API_KEY is not configured'
         }
 
-        results.push({ email: row.email, name: row.full_name, status: 'created', email_sent: emailSent, email_error: emailError })
+        results.push({
+          email: row.email,
+          name: row.full_name,
+          status: isExistingAuth ? 'updated' : 'created',
+          email_sent: emailSent,
+          email_error: emailError,
+        })
       } catch (err) {
         results.push({
           email: row.email,
