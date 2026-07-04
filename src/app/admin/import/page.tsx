@@ -134,7 +134,11 @@ export default function ImportStudentsPage() {
       const data = await res.json()
 
       if (!res.ok) {
-        toast.error(data.error || 'Import failed')
+        if (data.detected_headers) {
+          toast.error(`${data.error}\n\nDetected columns: ${data.detected_headers.join(', ')}`, { duration: 10000 })
+        } else {
+          toast.error(data.error || 'Import failed')
+        }
         return
       }
 

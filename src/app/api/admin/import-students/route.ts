@@ -56,7 +56,7 @@ function parseCSVLine(line: string): string[] {
 }
 
 function normalizeHeader(h: string): string {
-  return h.toLowerCase().replace(/[^a-z0-9]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '')
+  return h.trim().toLowerCase().replace(/[^a-z0-9]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '')
 }
 
 function matchesAny(header: string, patterns: string[]): boolean {
@@ -64,14 +64,15 @@ function matchesAny(header: string, patterns: string[]): boolean {
 }
 
 function parseCSV(csv: string): SheetRow[] {
-  const lines = csv.split('\n').filter((l) => l.trim())
+  const cleaned = csv.trimStart().replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+  const lines = cleaned.split('\n').filter((l) => l.trim())
   if (lines.length < 2) return []
 
   const rawHeaders = parseCSVLine(lines[0])
   const headers = rawHeaders.map(normalizeHeader)
 
-  const nameIdx = headers.findIndex((h) => matchesAny(h, ['full_name', 'name']))
-  const emailIdx = headers.findIndex((h) => matchesAny(h, ['email']))
+  const nameIdx = headers.findIndex((h) => matchesAny(h, ['full_name', 'name', 'student_name', 'participant']))
+  const emailIdx = headers.findIndex((h) => matchesAny(h, ['email', 'email_address', 'e_mail']))
   const phoneIdx = headers.findIndex((h) =>
     matchesAny(h, ['phone_number', 'phone', 'mobile']) && !h.includes('alternate')
   )
@@ -159,8 +160,14 @@ export async function POST(request: NextRequest) {
     const rows = parseCSV(csvData)
 
     if (rows.length === 0) {
+      const firstLine = csvData.trimStart().replace(/\r/g, '').split('\n')[0] || ''
+      const detectedHeaders = parseCSVLine(firstLine).map(normalizeHeader)
+      console.error('CSV import failed — no matching headers. Detected:', detectedHeaders)
       return NextResponse.json(
-        { error: 'No valid rows found. The file must have "Name" and "Email" columns.' },
+        {
+          error: `No valid rows found. Detected columns: ${detectedHeaders.join(', ')}. The file must have a "Name" and "Email" column.`,
+          detected_headers: detectedHeaders,
+        },
         { status: 400 }
       )
     }
