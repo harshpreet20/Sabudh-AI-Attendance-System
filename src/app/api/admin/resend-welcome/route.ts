@@ -76,6 +76,7 @@ export async function POST(request: NextRequest) {
       })
 
       if (emailResult.error) {
+        console.error(`[resend-welcome] Resend API error for ${email}:`, emailResult.error.message)
         return NextResponse.json({
           success: true,
           email,
@@ -92,12 +93,14 @@ export async function POST(request: NextRequest) {
         email_sent: true,
       })
     } catch (emailErr) {
+      const errMsg = emailErr instanceof Error ? emailErr.message : 'Email send failed'
+      console.error(`[resend-welcome] Email exception for ${email}:`, errMsg)
       return NextResponse.json({
         success: true,
         email,
         password: newPassword,
         email_sent: false,
-        email_error: emailErr instanceof Error ? emailErr.message : 'Email send failed',
+        email_error: errMsg,
       })
     }
   } catch (error) {

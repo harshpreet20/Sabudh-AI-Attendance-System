@@ -27,6 +27,9 @@ import {
   RefreshCw,
   Mail,
   MailX,
+  Send,
+  CheckSquare,
+  Square,
 } from 'lucide-react'
 
 interface ImportResult {
@@ -71,6 +74,8 @@ export default function ImportStudentsPage() {
   const [loading, setLoading] = useState(false)
   const [response, setResponse] = useState<ImportResponse | null>(null)
   const [dragOver, setDragOver] = useState(false)
+  const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set())
+  const [resending, setResending] = useState(false)
 
   const fetchBatches = useCallback(async () => {
     const { data } = await supabase
@@ -104,6 +109,7 @@ export default function ImportStudentsPage() {
   async function handleImport() {
     setLoading(true)
     setResponse(null)
+    setSelectedEmails(new Set())
 
     try {
       let body: Record<string, unknown>
@@ -148,6 +154,88 @@ export default function ImportStudentsPage() {
       toast.error('Failed to import students')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const resendableEmails = response?.results.filter(
+    r => (r.status === 'created' || r.status === 'updated') && !r.email_sent
+  ) ?? []
+
+  const allSuccessEmails = response?.results.filter(
+    r => r.status === 'created' || r.status === 'updated'
+  ) ?? []
+
+  function toggleEmail(email: string) {
+    setSelectedEmails(prev => {
+      const next = new Set(prev)
+      if (next.has(email)) {
+        next.delete(email)
+      } else {
+        next.add(email)
+      }
+      return next
+    })
+  }
+
+  function selectAllFailed() {
+    setSelectedEmails(new Set(resendableEmails.map(r => r.email)))
+  }
+
+  function selectAll() {
+    setSelectedEmails(new Set(allSuccessEmails.map(r => r.email)))
+  }
+
+  function deselectAll() {
+    setSelectedEmails(new Set())
+  }
+
+  async function handleBulkResend() {
+    if (selectedEmails.size === 0) {
+      toast.error('Select at least one student to resend emails')
+      return
+    }
+
+    setResending(true)
+    try {
+      const res = await fetch('/api/admin/bulk-resend-welcome', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emails: Array.from(selectedEmails) }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        toast.error(data.error || 'Bulk resend failed')
+        return
+      }
+
+      toast.success(data.message)
+
+      if (response) {
+        const updatedResults = response.results.map(r => {
+          const resendResult = data.results?.find((rr: { email: string; status: string }) => rr.email === r.email)
+          if (resendResult?.status === 'sent') {
+            return { ...r, email_sent: true, email_error: undefined }
+          }
+          return r
+        })
+        const emailsSent = updatedResults.filter(r => r.email_sent).length
+        const emailsFailed = updatedResults.filter(r => (r.status === 'created' || r.status === 'updated') && !r.email_sent).length
+        setResponse({
+          ...response,
+          results: updatedResults,
+          emails_sent: emailsSent,
+          emails_failed: emailsFailed,
+          message: `${response.created} imported. ${emailsSent} emails sent.`,
+        })
+      }
+
+      setSelectedEmails(new Set())
+    } catch {
+      toast.error('Failed to resend emails')
+    } finally {
+      setResending(false)
     }
   }
 
@@ -368,56 +456,108 @@ export default function ImportStudentsPage() {
               )}
             </div>
 
-            <div className="max-h-80 space-y-2 overflow-y-auto">
-              {response.results.map((r, i) => (
-                <div
-                  key={i}
-                  className="flex items-center justify-between rounded-xl glass-subtle px-3 py-2"
+            {/* Resend Controls */}
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <button
+                onClick={selectedEmails.size === allSuccessEmails.length && allSuccessEmails.length > 0 ? deselectAll : selectAll}
+                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-indigo-700 bg-indigo-50/60 hover:bg-indigo-100/60 transition-colors"
+              >
+                {selectedEmails.size === allSuccessEmails.length && allSuccessEmails.length > 0
+                  ? <><CheckSquare className="h-3.5 w-3.5" /> Deselect All</>
+                  : <><Square className="h-3.5 w-3.5" /> Select All ({allSuccessEmails.length})</>
+                }
+              </button>
+              {resendableEmails.length > 0 && (
+                <button
+                  onClick={selectAllFailed}
+                  className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-orange-700 bg-orange-50/60 hover:bg-orange-100/60 transition-colors"
                 >
-                  <div className="min-w-0 flex-1">
-                    <span className="text-sm font-medium text-gray-900">{r.name}</span>
-                    <span className="ml-2 text-xs text-gray-500">{r.email}</span>
+                  <MailX className="h-3.5 w-3.5" />
+                  Select Failed ({resendableEmails.length})
+                </button>
+              )}
+              {selectedEmails.size > 0 && (
+                <Button
+                  onClick={handleBulkResend}
+                  disabled={resending}
+                  loading={resending}
+                  size="sm"
+                  className="ml-auto"
+                >
+                  <Send className="mr-1.5 h-3.5 w-3.5" />
+                  {resending ? 'Sending...' : `Resend to ${selectedEmails.size} Selected`}
+                </Button>
+              )}
+            </div>
+
+            <div className="max-h-80 space-y-2 overflow-y-auto">
+              {response.results.map((r, i) => {
+                const canSelect = r.status === 'created' || r.status === 'updated'
+                const isSelected = selectedEmails.has(r.email)
+                return (
+                  <div
+                    key={i}
+                    className={`flex items-center gap-2 rounded-xl glass-subtle px-3 py-2 transition-colors ${
+                      isSelected ? 'ring-1 ring-indigo-300/60 bg-indigo-50/20' : ''
+                    }`}
+                  >
+                    {canSelect && (
+                      <button
+                        onClick={() => toggleEmail(r.email)}
+                        className="shrink-0 text-gray-400 hover:text-indigo-600 transition-colors"
+                      >
+                        {isSelected
+                          ? <CheckSquare className="h-4 w-4 text-indigo-600" />
+                          : <Square className="h-4 w-4" />
+                        }
+                      </button>
+                    )}
+                    {!canSelect && <div className="w-4 shrink-0" />}
+                    <div className="min-w-0 flex-1">
+                      <span className="text-sm font-medium text-gray-900">{r.name}</span>
+                      <span className="ml-2 text-xs text-gray-500">{r.email}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {r.status === 'created' && (
+                        <Badge variant="success">
+                          <CheckCircle className="mr-1 h-3 w-3" />
+                          Created
+                        </Badge>
+                      )}
+                      {r.status === 'updated' && (
+                        <Badge variant="secondary">
+                          <RefreshCw className="mr-1 h-3 w-3" />
+                          Updated
+                        </Badge>
+                      )}
+                      {r.status === 'exists' && (
+                        <Badge variant="secondary">
+                          <AlertCircle className="mr-1 h-3 w-3" />
+                          Exists
+                        </Badge>
+                      )}
+                      {r.status === 'error' && (
+                        <Badge variant="destructive">
+                          <XCircle className="mr-1 h-3 w-3" />
+                          {r.error || 'Error'}
+                        </Badge>
+                      )}
+                      {(r.status === 'created' || r.status === 'updated') && r.email_sent && (
+                        <Badge variant="success">
+                          <Mail className="mr-1 h-3 w-3" />
+                          Emailed
+                        </Badge>
+                      )}
+                      {(r.status === 'created' || r.status === 'updated') && !r.email_sent && (
+                        <Badge variant="destructive" title={r.email_error}>
+                          <MailX className="mr-1 h-3 w-3" />
+                          {r.email_error || 'Email Failed'}
+                        </Badge>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {r.status === 'created' && (
-                      <Badge variant="success">
-                        <CheckCircle className="mr-1 h-3 w-3" />
-                        Created
-                      </Badge>
-                    )}
-                    {r.status === 'updated' && (
-                      <Badge variant="secondary">
-                        <RefreshCw className="mr-1 h-3 w-3" />
-                        Updated
-                      </Badge>
-                    )}
-                    {r.status === 'exists' && (
-                      <Badge variant="secondary">
-                        <AlertCircle className="mr-1 h-3 w-3" />
-                        Exists
-                      </Badge>
-                    )}
-                    {r.status === 'error' && (
-                      <Badge variant="destructive">
-                        <XCircle className="mr-1 h-3 w-3" />
-                        {r.error || 'Error'}
-                      </Badge>
-                    )}
-                    {r.status === 'created' && r.email_sent && (
-                      <Badge variant="success">
-                        <Mail className="mr-1 h-3 w-3" />
-                        Emailed
-                      </Badge>
-                    )}
-                    {r.status === 'created' && !r.email_sent && (
-                      <Badge variant="destructive" title={r.email_error}>
-                        <MailX className="mr-1 h-3 w-3" />
-                        Email Failed
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </CardContent>
         </Card>

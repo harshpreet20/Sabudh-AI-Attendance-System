@@ -13,14 +13,17 @@ export async function POST() {
 
     if (process.env.RESEND_API_KEY) {
       try {
-        await getResend().emails.send({
+        const result = await getResend().emails.send({
           from: process.env.RESEND_FROM_EMAIL || 'Sabudh Foundation <noreply@sabudh.org>',
           to: user.email,
           subject: 'Password changed - Sabudh AI Attendance System',
           html: passwordChangedEmailHtml(),
         })
-      } catch {
-        // Non-critical — password was already changed
+        if (result.error) {
+          console.error('[password-changed] Resend API error:', result.error.message)
+        }
+      } catch (err) {
+        console.error('[password-changed] Email send exception:', err instanceof Error ? err.message : err)
       }
     }
 

@@ -121,9 +121,13 @@ export async function POST(request: NextRequest) {
               }),
         })
         emailSent = !emailResult.error
-        if (emailResult.error) emailError = emailResult.error.message
+        if (emailResult.error) {
+          emailError = emailResult.error.message
+          console.error(`[add-user] Resend API error for ${email}:`, emailResult.error.message)
+        }
       } catch (err) {
         emailError = err instanceof Error ? err.message : 'Email send failed'
+        console.error(`[add-user] Email exception for ${email}:`, emailError)
       }
     } else {
       emailError = 'RESEND_API_KEY is not configured'

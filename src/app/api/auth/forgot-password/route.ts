@@ -36,14 +36,17 @@ export async function POST(request: NextRequest) {
 
     if (process.env.RESEND_API_KEY) {
       try {
-        await getResend().emails.send({
+        const result = await getResend().emails.send({
           from: process.env.RESEND_FROM_EMAIL || 'Sabudh Foundation <noreply@sabudh.org>',
           to: email.toLowerCase(),
           subject: 'Reset your password - Sabudh AI Attendance System',
           html: passwordResetEmailHtml({ resetUrl }),
         })
-      } catch {
-        // Silently fail — don't reveal email existence
+        if (result.error) {
+          console.error('[forgot-password] Resend API error:', result.error.message)
+        }
+      } catch (err) {
+        console.error('[forgot-password] Email send exception:', err instanceof Error ? err.message : err)
       }
     }
 

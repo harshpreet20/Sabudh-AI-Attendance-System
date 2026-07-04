@@ -124,7 +124,8 @@ export async function GET(req: NextRequest) {
             .limit(1)
 
           alertsSent++
-        } catch {
+        } catch (err) {
+          console.error(`[attendance-alerts] Email failed for ${student.email}:`, err instanceof Error ? err.message : err)
           errors++
         }
       }

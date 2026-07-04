@@ -354,10 +354,12 @@ export async function POST(request: NextRequest) {
         let emailSent = false
         let emailError: string | undefined
 
+        const fromEmail = process.env.RESEND_FROM_EMAIL || 'Sabudh Foundation <noreply@sabudh.org>'
+
         if (process.env.RESEND_API_KEY) {
           try {
             const emailResult = await resend.emails.send({
-              from: process.env.RESEND_FROM_EMAIL || 'Sabudh Foundation <noreply@sabudh.org>',
+              from: fromEmail,
               to: row.email,
               subject: `Welcome to ${COURSE_NAME} - Your Credentials Inside`,
               html: welcomeEmailHtml({
@@ -370,12 +372,17 @@ export async function POST(request: NextRequest) {
               }),
             })
             emailSent = !emailResult.error
-            if (emailResult.error) emailError = emailResult.error.message
+            if (emailResult.error) {
+              emailError = emailResult.error.message
+              console.error(`[import-students] Resend API error for ${row.email}:`, emailResult.error.message, '| from:', fromEmail)
+            }
           } catch (err) {
             emailError = err instanceof Error ? err.message : 'Email send failed'
+            console.error(`[import-students] Email exception for ${row.email}:`, emailError, '| from:', fromEmail)
           }
         } else {
           emailError = 'RESEND_API_KEY is not configured'
+          console.warn('[import-students] RESEND_API_KEY is not set — skipping all emails')
         }
 
         results.push({
@@ -401,6 +408,8 @@ export async function POST(request: NextRequest) {
     const errors = results.filter((r) => r.status === 'error').length
     const emailsSent = results.filter((r) => r.email_sent).length
     const emailsFailed = results.filter((r) => r.status === 'created' && !r.email_sent).length
+
+    console.log(`[import-students] Complete: ${created} created, ${updated} updated, ${exists} existed, ${errors} errors, ${emailsSent} emails sent, ${emailsFailed} emails failed`)
 
     const messageParts = [`Imported ${created} students`]
     if (updated > 0) messageParts.push(`${updated} updated`)

@@ -21,7 +21,7 @@ export async function sendSignupNotificationEmails(params: {
 
   const roleLabel = params.role === 'teacher' ? 'Instructor' : 'Student'
 
-  await Promise.allSettled([
+  const results = await Promise.allSettled([
     resend.emails.send({
       from: FROM_EMAIL,
       to: params.userEmail,
@@ -44,4 +44,12 @@ export async function sendSignupNotificationEmails(params: {
       }),
     }),
   ])
+
+  for (const r of results) {
+    if (r.status === 'rejected') {
+      console.error('[signup-email] Send failed:', r.reason)
+    } else if (r.value?.error) {
+      console.error('[signup-email] Resend API error:', r.value.error.message)
+    }
+  }
 }

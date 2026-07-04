@@ -91,6 +91,7 @@ const adminNavItems: NavItem[] = [
   { label: 'Classrooms', icon: Building2, href: '/admin/classrooms' },
   { label: 'Campuses', icon: MapPin, href: '/admin/campuses' },
   { label: 'Courses', icon: BookOpen, href: '/admin/courses' },
+  { label: 'Curriculum', icon: GraduationCap, href: '/admin/curriculum' },
   { label: 'Analytics', icon: BarChart3, href: '/admin/analytics' },
   { label: 'Certificates', icon: Award, href: '/admin/certificates' },
   { label: 'Import Students', icon: Upload, href: '/admin/import' },

@@ -46,14 +46,17 @@ export async function POST(request: NextRequest) {
 
     if (process.env.RESEND_API_KEY) {
       try {
-        await getResend().emails.send({
+        const result = await getResend().emails.send({
           from: process.env.RESEND_FROM_EMAIL || 'Sabudh Foundation <noreply@sabudh.org>',
           to: email.toLowerCase(),
           subject: 'Confirm your email - Sabudh AI Attendance System',
           html: signupConfirmationEmailHtml({ confirmUrl }),
         })
-      } catch {
-        // Email failed but user was created — they can request a resend
+        if (result.error) {
+          console.error('[signup] Resend API error:', result.error.message)
+        }
+      } catch (err) {
+        console.error('[signup] Email send exception:', err instanceof Error ? err.message : err)
       }
     }
 
