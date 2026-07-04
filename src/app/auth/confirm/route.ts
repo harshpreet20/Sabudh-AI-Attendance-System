@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
 import { type EmailOtpType } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
+import { sendSignupNotificationEmails } from '@/lib/signup-email'
+
+const ORG_ID = 'a0000000-0000-0000-0000-000000000001'
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
@@ -19,6 +22,112 @@ export async function GET(request: Request) {
       if (type === 'recovery') {
         return NextResponse.redirect(`${origin}/reset-password`)
       }
+
+      const { data: { user } } = await supabase.auth.getUser()
+
+      if (user) {
+        const { data: existingRole } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', user.id)
+          .single()
+
+        if (!existingRole) {
+          const meta = user.user_metadata || {}
+          const fullName = meta.full_name || user.email?.split('@')[0] || 'New User'
+          const signupRole = meta.signup_role || 'student'
+
+          if (signupRole === 'teacher') {
+            const { data: existingTeacher } = await supabase
+              .from('teacher_profiles')
+              .select('id')
+              .eq('auth_user_id', user.id)
+              .single()
+
+            if (!existingTeacher) {
+              await supabase.from('teacher_profiles').insert({
+                auth_user_id: user.id,
+                organization_id: ORG_ID,
+                full_name: fullName,
+                email: user.email || '',
+                phone: meta.phone || null,
+                status: 'pending',
+              })
+            }
+
+            await supabase.from('user_roles').insert({
+              user_id: user.id,
+              role: 'instructor',
+              organization_id: ORG_ID,
+            })
+          } else {
+            const { data: existingStudent } = await supabase
+              .from('student_profiles')
+              .select('id')
+              .eq('auth_user_id', user.id)
+              .single()
+
+            if (!existingStudent) {
+              await supabase.from('student_profiles').insert({
+                auth_user_id: user.id,
+                organization_id: ORG_ID,
+                full_name: fullName,
+                email: user.email || '',
+                phone: meta.phone || null,
+                date_of_birth: meta.date_of_birth || null,
+                gender: meta.gender || null,
+                qualification: meta.qualification || null,
+                profession: meta.profession || null,
+                organization_name: meta.organization_name || null,
+                city: meta.city || null,
+                emergency_contact: meta.emergency_contact || null,
+                learning_goal: meta.learning_goal || null,
+                status: 'pending',
+                preferred_language: 'en',
+                attendance_percentage: 0,
+                present_count: 0,
+                absent_count: 0,
+                late_count: 0,
+                total_sessions: 0,
+                risk_score: 0,
+              })
+            }
+
+            await supabase.from('user_roles').insert({
+              user_id: user.id,
+              role: 'student',
+              organization_id: ORG_ID,
+            })
+          }
+
+          sendSignupNotificationEmails({
+            userName: fullName,
+            userEmail: user.email || '',
+            role: signupRole === 'teacher' ? 'teacher' : 'student',
+            origin,
+          }).catch(() => {})
+
+          return NextResponse.redirect(`${origin}/pending-approval`)
+        }
+
+        const role = existingRole.role
+        if (role === 'admin' || role === 'super_admin') {
+          return NextResponse.redirect(`${origin}/admin`)
+        } else if (role === 'instructor') {
+          return NextResponse.redirect(`${origin}/teacher`)
+        } else {
+          const { data: sp } = await supabase
+            .from('student_profiles')
+            .select('status')
+            .eq('auth_user_id', user.id)
+            .single()
+          if (sp?.status === 'pending') {
+            return NextResponse.redirect(`${origin}/pending-approval`)
+          }
+          return NextResponse.redirect(`${origin}/dashboard`)
+        }
+      }
+
       return NextResponse.redirect(`${origin}/dashboard`)
     }
   }

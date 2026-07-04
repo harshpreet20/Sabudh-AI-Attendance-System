@@ -29,6 +29,7 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
 
   const [formData, setFormData] = useState({
+    signup_role: "student" as "student" | "teacher",
     full_name: "",
     email: "",
     phone: "",
@@ -64,6 +65,7 @@ export default function RegisterPage() {
   }
 
   function canProceedStep2() {
+    if (formData.signup_role === "teacher") return true;
     return (
       formData.date_of_birth.trim() &&
       formData.gender.trim() &&
@@ -75,6 +77,9 @@ export default function RegisterPage() {
       formData.learning_goal.trim()
     );
   }
+
+  const totalSteps = formData.signup_role === "teacher" ? 2 : 3;
+  const displayStep = formData.signup_role === "teacher" ? (step === 1 ? 1 : 2) : step;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -90,6 +95,7 @@ export default function RegisterPage() {
           data: {
             full_name: formData.full_name,
             phone: formData.phone,
+            signup_role: formData.signup_role,
             date_of_birth: formData.date_of_birth,
             gender: formData.gender,
             qualification: formData.qualification,
@@ -127,17 +133,17 @@ export default function RegisterPage() {
           </Link>
           <h1 className="mt-8 text-2xl font-bold text-gray-900">Create your account</h1>
           <p className="mt-2 text-sm text-gray-500">
-            Step {step} of 3 - {step === 1 ? "Account" : step === 2 ? "Personal Info" : "Review"}
+            Step {displayStep} of {totalSteps} - {step === 1 ? "Account" : step === 2 ? "Personal Info" : "Review"}
           </p>
         </div>
 
         {/* Progress pills */}
         <div className="mt-4 flex justify-center gap-2">
-          {[1, 2, 3].map((s) => (
+          {Array.from({ length: totalSteps }, (_, i) => i + 1).map((s) => (
             <div
               key={s}
               className={`h-1.5 w-16 rounded-full transition-all duration-300 ${
-                s <= step ? "bg-indigo-500/80 shadow-sm shadow-indigo-500/30" : "bg-white/40 backdrop-blur-sm"
+                s <= displayStep ? "bg-indigo-500/80 shadow-sm shadow-indigo-500/30" : "bg-white/40 backdrop-blur-sm"
               }`}
             />
           ))}
@@ -154,6 +160,37 @@ export default function RegisterPage() {
 
             {step === 1 && (
               <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    I want to register as *
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => updateField("signup_role", "student")}
+                      className={`flex flex-col items-center gap-1.5 rounded-xl border-2 px-4 py-3 text-sm font-medium transition-all duration-200 ${
+                        formData.signup_role === "student"
+                          ? "border-indigo-500 bg-indigo-50/70 text-indigo-700 shadow-sm"
+                          : "border-white/40 glass text-gray-600 hover:border-gray-300"
+                      }`}
+                    >
+                      <span className="text-2xl">🎓</span>
+                      Student
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateField("signup_role", "teacher")}
+                      className={`flex flex-col items-center gap-1.5 rounded-xl border-2 px-4 py-3 text-sm font-medium transition-all duration-200 ${
+                        formData.signup_role === "teacher"
+                          ? "border-indigo-500 bg-indigo-50/70 text-indigo-700 shadow-sm"
+                          : "border-white/40 glass text-gray-600 hover:border-gray-300"
+                      }`}
+                    >
+                      <span className="text-2xl">👨‍🏫</span>
+                      Teacher
+                    </button>
+                  </div>
+                </div>
                 <div>
                   <label htmlFor="full_name" className="block text-sm font-medium text-gray-700 mb-1.5">
                     Full Name *
@@ -251,7 +288,7 @@ export default function RegisterPage() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => setStep(2)}
+                  onClick={() => setStep(formData.signup_role === "teacher" ? 3 : 2)}
                   disabled={!canProceedStep1()}
                   className="mt-2 w-full rounded-xl bg-indigo-500/90 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 active:scale-[0.98]"
                 >
@@ -406,17 +443,20 @@ export default function RegisterPage() {
                 <h3 className="font-semibold text-gray-900">Review your information</h3>
                 <div className="space-y-3 text-sm">
                   {[
+                    ["Role", formData.signup_role === "teacher" ? "Teacher" : "Student"],
                     ["Name", formData.full_name],
                     ["Email", formData.email],
                     ["Phone", formData.phone],
-                    ["Date of Birth", formData.date_of_birth],
-                    ["Gender", formData.gender],
-                    ["Qualification", formData.qualification],
-                    ["Profession", formData.profession],
-                    ["Organization", formData.organization_name],
-                    ["City", formData.city],
-                    ["Emergency Contact", formData.emergency_contact],
-                    ["Learning Goal", formData.learning_goal],
+                    ...(formData.signup_role === "student" ? [
+                      ["Date of Birth", formData.date_of_birth],
+                      ["Gender", formData.gender],
+                      ["Qualification", formData.qualification],
+                      ["Profession", formData.profession],
+                      ["Organization", formData.organization_name],
+                      ["City", formData.city],
+                      ["Emergency Contact", formData.emergency_contact],
+                      ["Learning Goal", formData.learning_goal],
+                    ] : []),
                   ]
                     .filter(([, v]) => v)
                     .map(([label, value]) => (
@@ -434,7 +474,7 @@ export default function RegisterPage() {
                 <div className="flex gap-3 pt-2">
                   <button
                     type="button"
-                    onClick={() => setStep(2)}
+                    onClick={() => setStep(formData.signup_role === "teacher" ? 1 : 2)}
                     className="w-full rounded-xl py-2.5 text-sm font-semibold glass hover:bg-white/70 transition-all duration-200 active:scale-[0.98]"
                   >
                     Back

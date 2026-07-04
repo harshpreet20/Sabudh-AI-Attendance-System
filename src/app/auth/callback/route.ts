@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { sendSignupNotificationEmails } from '@/lib/signup-email'
 
 const ORG_ID = 'a0000000-0000-0000-0000-000000000001'
 
@@ -27,39 +28,65 @@ export async function GET(request: Request) {
           .single()
 
         if (!role) {
-          const { data: existingStudent } = await supabase
-            .from('student_profiles')
-            .select('id')
-            .eq('auth_user_id', user.id)
-            .single()
+          const meta = user.user_metadata || {}
+          const fullName = meta.full_name || user.email?.split('@')[0] || 'New User'
+          const signupRole = meta.signup_role || 'student'
 
-          if (!existingStudent) {
-            const meta = user.user_metadata || {}
-            const fullName = meta.full_name || user.email?.split('@')[0] || 'New User'
+          if (signupRole === 'teacher') {
+            const { data: existingTeacher } = await supabase
+              .from('teacher_profiles')
+              .select('id')
+              .eq('auth_user_id', user.id)
+              .single()
 
-            await supabase.from('student_profiles').insert({
-              auth_user_id: user.id,
+            if (!existingTeacher) {
+              await supabase.from('teacher_profiles').insert({
+                auth_user_id: user.id,
+                organization_id: ORG_ID,
+                full_name: fullName,
+                email: user.email || '',
+                phone: meta.phone || null,
+                status: 'pending',
+              })
+            }
+
+            await supabase.from('user_roles').insert({
+              user_id: user.id,
+              role: 'instructor',
               organization_id: ORG_ID,
-              full_name: fullName,
-              email: user.email || '',
-              phone: meta.phone || null,
-              date_of_birth: meta.date_of_birth || null,
-              gender: meta.gender || null,
-              qualification: meta.qualification || null,
-              profession: meta.profession || null,
-              organization_name: meta.organization_name || null,
-              city: meta.city || null,
-              emergency_contact: meta.emergency_contact || null,
-              learning_goal: meta.learning_goal || null,
-              status: 'pending',
-              preferred_language: 'en',
-              attendance_percentage: 0,
-              present_count: 0,
-              absent_count: 0,
-              late_count: 0,
-              total_sessions: 0,
-              risk_score: 0,
             })
+          } else {
+            const { data: existingStudent } = await supabase
+              .from('student_profiles')
+              .select('id')
+              .eq('auth_user_id', user.id)
+              .single()
+
+            if (!existingStudent) {
+              await supabase.from('student_profiles').insert({
+                auth_user_id: user.id,
+                organization_id: ORG_ID,
+                full_name: fullName,
+                email: user.email || '',
+                phone: meta.phone || null,
+                date_of_birth: meta.date_of_birth || null,
+                gender: meta.gender || null,
+                qualification: meta.qualification || null,
+                profession: meta.profession || null,
+                organization_name: meta.organization_name || null,
+                city: meta.city || null,
+                emergency_contact: meta.emergency_contact || null,
+                learning_goal: meta.learning_goal || null,
+                status: 'pending',
+                preferred_language: 'en',
+                attendance_percentage: 0,
+                present_count: 0,
+                absent_count: 0,
+                late_count: 0,
+                total_sessions: 0,
+                risk_score: 0,
+              })
+            }
 
             await supabase.from('user_roles').insert({
               user_id: user.id,
@@ -67,6 +94,13 @@ export async function GET(request: Request) {
               organization_id: ORG_ID,
             })
           }
+
+          sendSignupNotificationEmails({
+            userName: fullName,
+            userEmail: user.email || '',
+            role: signupRole === 'teacher' ? 'teacher' : 'student',
+            origin,
+          }).catch(() => {})
 
           const forwardedHost = request.headers.get('x-forwarded-host')
           const isLocalEnv = process.env.NODE_ENV === 'development'
