@@ -67,6 +67,8 @@ export default function ResetPasswordPage() {
         return;
       }
 
+      fetch('/api/auth/password-changed', { method: 'POST' }).catch(() => {});
+
       setSuccess(true);
       setTimeout(() => router.push("/dashboard"), 2000);
     } catch {

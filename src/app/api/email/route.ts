@@ -21,6 +21,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
+  if (!process.env.RESEND_API_KEY) {
+    return NextResponse.json({ error: 'Email service not configured' }, { status: 503 })
+  }
+
   const body = await req.json()
   const { type } = body
 

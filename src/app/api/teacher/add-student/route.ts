@@ -68,9 +68,12 @@ export async function POST(request: NextRequest) {
       ? `${process.env.NEXT_PUBLIC_APP_URL}/login`
       : 'https://attendanceai.harshpreetbhasin.com/login'
 
+    let emailSent = false
+    let emailError: string | undefined
+
     if (process.env.RESEND_API_KEY) {
       try {
-        await resend.emails.send({
+        const emailResult = await resend.emails.send({
           from: process.env.RESEND_FROM_EMAIL || 'Sabudh Foundation <noreply@sabudh.org>',
           to: email.toLowerCase(),
           subject: `Welcome to ${COURSE_NAME} - Your Credentials Inside`,
@@ -83,12 +86,22 @@ export async function POST(request: NextRequest) {
             loginUrl,
           }),
         })
-      } catch {
-        // Don't block on email failure
+        emailSent = !emailResult.error
+        if (emailResult.error) emailError = emailResult.error.message
+      } catch (err) {
+        emailError = err instanceof Error ? err.message : 'Email send failed'
       }
+    } else {
+      emailError = 'RESEND_API_KEY is not configured'
     }
 
-    return NextResponse.json({ success: true, email: email.toLowerCase() })
+    return NextResponse.json({
+      success: true,
+      email: email.toLowerCase(),
+      password,
+      email_sent: emailSent,
+      email_error: emailError,
+    })
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to add student' },

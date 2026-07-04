@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
-import { getResend } from '@/lib/resend'
+import { getResend, attendanceAlertEmailHtml } from '@/lib/resend'
 
-const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'Sabudh AI <noreply@sabudh.co.in>'
+const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'Sabudh Foundation <noreply@sabudh.org>'
 
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get('authorization')
@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
   }
 
   const supabase = createServiceClient()
-  const resend = getResend()
+  const hasResend = !!process.env.RESEND_API_KEY
   let alertsSent = 0
   let errors = 0
 
@@ -102,42 +102,17 @@ export async function GET(req: NextRequest) {
         continue
       }
 
-      if (student.email) {
+      if (student.email && hasResend) {
         try {
-          const studentName = student.full_name || 'Student'
-          const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c: string) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] || c))
-          const escapedName = escapeHtml(studentName)
-          const escapedBatch = escapeHtml(batch.name || '')
-
-          await resend.emails.send({
+          await getResend().emails.send({
             from: FROM_EMAIL,
             to: student.email,
-            subject: `${alertType === 'critical' ? '🚨' : alertType === 'urgent' ? '⚠️' : '📊'} Attendance Alert — ${batch.name}`,
-            html: `
-              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-                <div style="text-align: center; margin-bottom: 20px;">
-                  <h2 style="color: ${alertType === 'critical' ? '#dc2626' : alertType === 'urgent' ? '#d97706' : '#4f46e5'};">
-                    Attendance Alert
-                  </h2>
-                </div>
-                <p>Hi ${escapedName},</p>
-                <p>${message}</p>
-                <div style="background: #f3f4f6; border-radius: 8px; padding: 16px; margin: 16px 0;">
-                  <p style="margin: 4px 0;"><strong>Batch:</strong> ${escapedBatch}</p>
-                  <p style="margin: 4px 0;"><strong>Current Attendance:</strong> ${currentPct.toFixed(1)}%</p>
-                  <p style="margin: 4px 0;"><strong>Required:</strong> ${thresholdPct}%</p>
-                  <p style="margin: 4px 0;"><strong>Classes Remaining:</strong> ${remainingSessions}</p>
-                  <p style="margin: 4px 0;"><strong>Classes You Need to Attend:</strong> ${classesNeeded}</p>
-                </div>
-                <p style="color: #6b7280; font-size: 14px;">
-                  Please ensure you attend upcoming classes to maintain your eligibility for the course certificate.
-                </p>
-                <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
-                <p style="color: #9ca3af; font-size: 12px; text-align: center;">
-                  Sabudh AI — Attendance Management System
-                </p>
-              </div>
-            `,
+            subject: `${alertType === 'critical' ? 'CRITICAL' : alertType === 'urgent' ? 'URGENT' : ''} Attendance Alert — ${batch.name}`,
+            html: attendanceAlertEmailHtml({
+              studentName: student.full_name || 'Student',
+              attendancePercentage: currentPct,
+              threshold: thresholdPct,
+            }),
           })
 
           await supabase

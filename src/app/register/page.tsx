@@ -4,7 +4,6 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Loader2, Check } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 import { ElectricBorder } from "@/components/ui/electric-border";
 import { LogoWithText } from "@/components/ui/logo";
 
@@ -87,30 +86,30 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      const supabase = createClient();
-      const { error: authError } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-        options: {
-          data: {
-            full_name: formData.full_name,
-            phone: formData.phone,
-            signup_role: formData.signup_role,
-            date_of_birth: formData.date_of_birth,
-            gender: formData.gender,
-            qualification: formData.qualification,
-            profession: formData.profession,
-            organization_name: formData.organization_name,
-            city: formData.city,
-            emergency_contact: formData.emergency_contact,
-            learning_goal: formData.learning_goal,
-          },
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
-        },
+      const res = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+          full_name: formData.full_name,
+          phone: formData.phone,
+          signup_role: formData.signup_role,
+          date_of_birth: formData.date_of_birth,
+          gender: formData.gender,
+          qualification: formData.qualification,
+          profession: formData.profession,
+          organization_name: formData.organization_name,
+          city: formData.city,
+          emergency_contact: formData.emergency_contact,
+          learning_goal: formData.learning_goal,
+        }),
       });
 
-      if (authError) {
-        setError(authError.message);
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || 'Signup failed');
         return;
       }
 
