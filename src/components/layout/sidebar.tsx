@@ -24,6 +24,8 @@ import {
   LogOut,
   Menu,
   X,
+  ChevronDown,
+  ChevronRight,
   Upload,
   Megaphone,
   ClipboardList,
@@ -45,6 +47,7 @@ interface NavItem {
   icon: LucideIcon
   href: string
   badgeKey?: string
+  children?: NavItem[]
 }
 
 const studentNavItems: NavItem[] = [
@@ -80,7 +83,16 @@ const teacherNavItems: NavItem[] = [
 ]
 
 const adminNavItems: NavItem[] = [
-  { label: 'Dashboard', icon: LayoutDashboard, href: '/admin' },
+  {
+    label: 'Dashboard',
+    icon: LayoutDashboard,
+    href: '/admin',
+    children: [
+      { label: 'Overview', icon: LayoutDashboard, href: '/admin' },
+      { label: 'Analytics', icon: BarChart3, href: '/admin/analytics' },
+      { label: 'Audit Logs', icon: FileText, href: '/admin/audit-logs' },
+    ],
+  },
   { label: 'Approvals', icon: ShieldCheck, href: '/admin/approvals', badgeKey: 'approvals' },
   { label: 'Manage Users', icon: UserPlus, href: '/admin/users' },
   { label: 'Students', icon: Users, href: '/admin/students' },
@@ -92,11 +104,9 @@ const adminNavItems: NavItem[] = [
   { label: 'Campuses', icon: MapPin, href: '/admin/campuses' },
   { label: 'Courses', icon: BookOpen, href: '/admin/courses' },
   { label: 'Curriculum', icon: GraduationCap, href: '/admin/curriculum' },
-  { label: 'Analytics', icon: BarChart3, href: '/admin/analytics' },
   { label: 'Certificates', icon: Award, href: '/admin/certificates' },
   { label: 'Import Students', icon: Upload, href: '/admin/import' },
   { label: 'Knowledge Base', icon: Bot, href: '/admin/knowledge-base' },
-  { label: 'Audit Logs', icon: FileText, href: '/admin/audit-logs' },
   { label: 'Settings', icon: Settings, href: '/admin/settings' },
 ]
 
@@ -124,6 +134,23 @@ export function Sidebar({
   const router = useRouter()
   const [signingOut, setSigningOut] = useState(false)
   const navItems = role === 'admin' ? adminNavItems : role === 'teacher' ? teacherNavItems : studentNavItems
+
+  // Determine which groups should be auto-expanded based on currentPath
+  const initialExpanded = navItems
+    .filter(
+      (item) =>
+        item.children &&
+        (currentPath === item.href ||
+          item.children.some((child) => currentPath.startsWith(child.href) && child.href !== item.href))
+    )
+    .map((item) => item.label)
+  const [expandedGroups, setExpandedGroups] = useState<string[]>(initialExpanded)
+
+  function toggleGroup(label: string) {
+    setExpandedGroups((prev) =>
+      prev.includes(label) ? prev.filter((l) => l !== label) : [...prev, label]
+    )
+  }
 
   const initials = userName
     .split(' ')
@@ -162,6 +189,83 @@ export function Sidebar({
         {navItems.map((item) => {
           const active = isActive(item.href)
           const count = item.badgeKey ? (badgeCounts[item.badgeKey] ?? 0) : 0
+
+          if (item.children) {
+            const isExpanded = expandedGroups.includes(item.label)
+            const anyChildActive = item.children.some((child) => isActive(child.href))
+            const parentActive = active || anyChildActive
+
+            return (
+              <div key={item.label}>
+                <Link
+                  href={item.href}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    toggleGroup(item.label)
+                    router.push(item.href)
+                    onMobileClose?.()
+                  }}
+                  className={cn(
+                    'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200',
+                    parentActive
+                      ? 'bg-indigo-500/10 text-indigo-700 shadow-sm backdrop-blur-sm'
+                      : 'text-gray-600 hover:bg-white/50 hover:text-gray-900'
+                  )}
+                  aria-current={parentActive ? 'page' : undefined}
+                  aria-expanded={isExpanded}
+                >
+                  <item.icon
+                    className={cn(
+                      'h-5 w-5 shrink-0',
+                      parentActive ? 'text-indigo-500' : 'text-gray-400'
+                    )}
+                  />
+                  <span className="flex-1 truncate">{item.label}</span>
+                  {isExpanded ? (
+                    <ChevronDown className="h-4 w-4 shrink-0 text-gray-400" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4 shrink-0 text-gray-400" />
+                  )}
+                </Link>
+                {isExpanded && (
+                  <div className="ml-4 mt-1 space-y-1 border-l border-gray-200 pl-3">
+                    {item.children.map((child) => {
+                      const childActive = isActive(child.href)
+                      const childCount = child.badgeKey ? (badgeCounts[child.badgeKey] ?? 0) : 0
+                      return (
+                        <Link
+                          key={child.href}
+                          href={child.href}
+                          onClick={onMobileClose}
+                          className={cn(
+                            'flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-200',
+                            childActive
+                              ? 'bg-indigo-500/10 text-indigo-700'
+                              : 'text-gray-500 hover:bg-white/50 hover:text-gray-900'
+                          )}
+                          aria-current={childActive ? 'page' : undefined}
+                        >
+                          <child.icon
+                            className={cn(
+                              'h-4 w-4 shrink-0',
+                              childActive ? 'text-indigo-500' : 'text-gray-400'
+                            )}
+                          />
+                          <span className="flex-1 truncate">{child.label}</span>
+                          {childCount > 0 && (
+                            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white shadow-sm">
+                              {childCount > 99 ? '99+' : childCount}
+                            </span>
+                          )}
+                        </Link>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )
+          }
+
           return (
             <Link
               key={item.href}

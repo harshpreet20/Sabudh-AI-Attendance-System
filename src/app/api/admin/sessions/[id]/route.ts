@@ -23,12 +23,16 @@ export async function PATCH(
     const { action, ...updateData } = body;
 
     if (action === "open_attendance") {
+      const updatePayload: Record<string, unknown> = {
+        status: "attendance_open",
+        attendance_open: new Date().toISOString(),
+      };
+      if (body.attendance_close) {
+        updatePayload.attendance_close = body.attendance_close;
+      }
       const { data, error } = await supabase
         .from("sessions")
-        .update({
-          status: "attendance_open",
-          attendance_open: new Date().toISOString(),
-        })
+        .update(updatePayload)
         .eq("id", id)
         .select()
         .single();

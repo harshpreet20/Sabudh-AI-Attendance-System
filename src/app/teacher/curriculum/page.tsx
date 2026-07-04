@@ -98,7 +98,6 @@ export default function TeacherCurriculumPage() {
     const { data } = await supabase
       .from('batches')
       .select('*')
-      .eq('status', 'active')
       .order('name')
 
     const batchList = (data as Batch[]) ?? []

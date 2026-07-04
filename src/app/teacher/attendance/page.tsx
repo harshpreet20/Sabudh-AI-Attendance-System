@@ -14,7 +14,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { Dialog } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
-import { CheckCircle, XCircle, ClipboardList, Clock, Gift, BookOpen, Save } from 'lucide-react'
+import { CheckCircle, XCircle, ClipboardList, Clock, Gift, BookOpen, Save, Play, Square } from 'lucide-react'
 import type { Batch } from '@/types/database'
 
 interface SessionRecord {
@@ -77,6 +77,12 @@ export default function TeacherAttendancePage() {
   const [topicCompletionPct, setTopicCompletionPct] = useState(0)
   const [savingTopic, setSavingTopic] = useState(false)
 
+  // Attendance window controls state
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [openDialogVisible, setOpenDialogVisible] = useState(false)
+  const [openSessionTarget, setOpenSessionTarget] = useState<string | null>(null)
+  const [customCloseTime, setCustomCloseTime] = useState('')
+
   const fetchBatchesAndSessions = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
@@ -138,6 +144,79 @@ export default function TeacherAttendancePage() {
 
     fetchAttendance()
   }, [selectedSession]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const refreshSessions = useCallback(async () => {
+    if (!selectedBatch) return
+    const { data } = await supabase
+      .from('sessions')
+      .select('id, session_date, status, batch_id, attendance_open, attendance_close, attendance_word, topic_taught, next_topic, topic_teacher_name, topic_completion_pct')
+      .eq('batch_id', selectedBatch)
+      .order('session_date', { ascending: false })
+      .limit(30)
+    setSessions((data as SessionRecord[]) ?? [])
+  }, [selectedBatch]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  function initiateOpenAttendance(sessionId: string) {
+    setOpenSessionTarget(sessionId)
+    setCustomCloseTime('')
+    setOpenDialogVisible(true)
+  }
+
+  async function confirmOpenAttendance() {
+    if (!openSessionTarget) return
+    setActionLoading(openSessionTarget)
+    setOpenDialogVisible(false)
+
+    try {
+      const body: Record<string, string> = { action: 'open_attendance' }
+      if (customCloseTime) {
+        body.attendance_close = customCloseTime
+      }
+
+      const res = await fetch(`/api/admin/sessions/${openSessionTarget}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const result = await res.json()
+
+      if (!res.ok || !result.success) {
+        toast.error(result.error?.message ?? 'Failed to open attendance')
+      } else {
+        toast.success('Attendance window opened')
+        await refreshSessions()
+      }
+    } catch {
+      toast.error('Failed to open attendance')
+    } finally {
+      setActionLoading(null)
+      setOpenSessionTarget(null)
+      setCustomCloseTime('')
+    }
+  }
+
+  async function handleCloseAttendance(sessionId: string) {
+    setActionLoading(sessionId)
+    try {
+      const res = await fetch(`/api/admin/sessions/${sessionId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'close_attendance' }),
+      })
+      const result = await res.json()
+
+      if (!res.ok || !result.success) {
+        toast.error(result.error?.message ?? 'Failed to close attendance')
+      } else {
+        toast.success('Attendance window closed')
+        await refreshSessions()
+      }
+    } catch {
+      toast.error('Failed to close attendance')
+    } finally {
+      setActionLoading(null)
+    }
+  }
 
   async function handleUpdateStatus(attendanceId: string, decision: 'accepted' | 'rejected') {
     const status = decision === 'accepted' ? 'approved' : 'rejected'
@@ -431,6 +510,58 @@ export default function TeacherAttendancePage() {
         )}
       </div>
 
+      {/* Attendance Window Controls */}
+      {selectedSession && (() => {
+        const activeSession = sessions.find((s) => s.id === selectedSession)
+        if (!activeSession) return null
+        const isScheduled = activeSession.status === 'scheduled'
+        const isOpen = activeSession.status === 'attendance_open'
+        if (!isScheduled && !isOpen) return null
+        return (
+          <Card className={isOpen ? '!bg-amber-50/60 !border-amber-200/50' : '!bg-emerald-50/60 !border-emerald-200/50'}>
+            <CardContent className="flex items-center justify-between gap-4 p-4">
+              <div className="flex items-center gap-3">
+                <div className={`rounded-xl p-2.5 ${isOpen ? 'bg-amber-100' : 'bg-emerald-100'}`}>
+                  {isOpen ? <Square className="h-5 w-5 text-amber-700" /> : <Play className="h-5 w-5 text-emerald-700" />}
+                </div>
+                <div>
+                  <p className={`text-xs font-medium uppercase tracking-wider ${isOpen ? 'text-amber-600' : 'text-emerald-600'}`}>
+                    {isOpen ? 'Attendance Window is Open' : 'Attendance Window is Closed'}
+                  </p>
+                  <p className={`text-sm mt-0.5 ${isOpen ? 'text-amber-800' : 'text-emerald-800'}`}>
+                    {isOpen
+                      ? `Opened at ${new Date(activeSession.attendance_open!).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`
+                      : 'Ready to open attendance for this session'}
+                  </p>
+                </div>
+              </div>
+              <div>
+                {isScheduled && (
+                  <Button
+                    onClick={() => initiateOpenAttendance(activeSession.id)}
+                    disabled={actionLoading === activeSession.id}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                  >
+                    <Play className="mr-2 h-4 w-4" />
+                    {actionLoading === activeSession.id ? 'Opening...' : 'Open Attendance'}
+                  </Button>
+                )}
+                {isOpen && (
+                  <Button
+                    onClick={() => handleCloseAttendance(activeSession.id)}
+                    disabled={actionLoading === activeSession.id}
+                    className="bg-amber-600 hover:bg-amber-700 text-white"
+                  >
+                    <Square className="mr-2 h-4 w-4" />
+                    {actionLoading === activeSession.id ? 'Closing...' : 'Close Attendance'}
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )
+      })()}
+
       {selectedSession && (() => {
         const activeSession = sessions.find((s) => s.id === selectedSession)
         if (!activeSession?.attendance_word) return null
@@ -596,6 +727,51 @@ export default function TeacherAttendancePage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Open Attendance Dialog */}
+      <Dialog
+        open={openDialogVisible}
+        onClose={() => {
+          setOpenDialogVisible(false)
+          setOpenSessionTarget(null)
+          setCustomCloseTime('')
+        }}
+        title="Open Attendance Window"
+        description="Attendance will open immediately. You can optionally set a time for it to auto-close."
+        footer={
+          <>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setOpenDialogVisible(false)
+                setOpenSessionTarget(null)
+                setCustomCloseTime('')
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmOpenAttendance}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              <Play className="mr-2 h-4 w-4" />
+              Open Now
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <Input
+            label="Auto-close time (optional)"
+            type="datetime-local"
+            value={customCloseTime}
+            onChange={(e) => setCustomCloseTime(e.target.value)}
+          />
+          <p className="text-xs text-gray-500">
+            Leave blank to keep the window open until you manually close it.
+          </p>
+        </div>
+      </Dialog>
 
       {/* Grace Attendance Dialog */}
       <Dialog

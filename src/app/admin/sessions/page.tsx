@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import {
   Plus,
   Calendar,
+  Clock,
   MoreHorizontal,
   Play,
   Square,
@@ -111,6 +112,8 @@ export default function SessionsPage() {
     classroom_id: '',
     session_date: '',
     notes: '',
+    attendance_open_time: '',
+    attendance_close_time: '',
   })
 
   // Action dropdown
@@ -130,6 +133,8 @@ export default function SessionsPage() {
     classroom_id: '',
     session_date: '',
     notes: '',
+    attendance_open_time: '',
+    attendance_close_time: '',
   })
   const [editLoading, setEditLoading] = useState(false)
 
@@ -214,12 +219,24 @@ export default function SessionsPage() {
 
   async function updateSessionStatus(id: string, status: SessionStatus) {
     try {
-      const { error } = await supabase
-        .from('sessions')
-        .update({ status, updated_at: new Date().toISOString() })
-        .eq('id', id)
-
-      if (error) throw error
+      if (status === 'attendance_open' || status === 'attendance_closed') {
+        const action = status === 'attendance_open' ? 'open_attendance' : 'close_attendance'
+        const res = await fetch(`/api/admin/sessions/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action }),
+        })
+        const result = await res.json()
+        if (!res.ok || !result.success) {
+          throw new Error(result.error?.message || 'Failed to update session status')
+        }
+      } else {
+        const { error } = await supabase
+          .from('sessions')
+          .update({ status, updated_at: new Date().toISOString() })
+          .eq('id', id)
+        if (error) throw error
+      }
       toast.success(`Session ${STATUS_LABEL[status].toLowerCase()} successfully`)
       fetchSessions()
     } catch {
@@ -268,7 +285,7 @@ export default function SessionsPage() {
         return
       }
 
-      const { error } = await supabase.from('sessions').insert({
+      const insertData: Record<string, unknown> = {
         batch_id: formData.batch_id,
         classroom_id: formData.classroom_id || null,
         instructor_id: user.id,
@@ -276,7 +293,16 @@ export default function SessionsPage() {
         attendance_word: generateAttendanceWord(),
         status: 'scheduled',
         notes: formData.notes || null,
-      })
+      }
+
+      if (formData.attendance_open_time && formData.session_date) {
+        insertData.attendance_open = new Date(`${formData.session_date}T${formData.attendance_open_time}`).toISOString()
+      }
+      if (formData.attendance_close_time && formData.session_date) {
+        insertData.attendance_close = new Date(`${formData.session_date}T${formData.attendance_close_time}`).toISOString()
+      }
+
+      const { error } = await supabase.from('sessions').insert(insertData)
 
       if (error) throw error
 
@@ -287,6 +313,8 @@ export default function SessionsPage() {
         classroom_id: '',
         session_date: '',
         notes: '',
+        attendance_open_time: '',
+        attendance_close_time: '',
       })
       fetchSessions()
     } catch {
@@ -307,6 +335,12 @@ export default function SessionsPage() {
       classroom_id: session.classroom_id || '',
       session_date: session.session_date,
       notes: session.notes || '',
+      attendance_open_time: session.attendance_open
+        ? format(new Date(session.attendance_open), 'HH:mm')
+        : '',
+      attendance_close_time: session.attendance_close
+        ? format(new Date(session.attendance_close), 'HH:mm')
+        : '',
     })
     setEditDialogOpen(true)
     setOpenDropdown(null)
@@ -317,15 +351,29 @@ export default function SessionsPage() {
     if (!editSession) return
     setEditLoading(true)
     try {
+      const updateData: Record<string, unknown> = {
+        batch_id: editFormData.batch_id,
+        classroom_id: editFormData.classroom_id || null,
+        session_date: editFormData.session_date,
+        notes: editFormData.notes || null,
+        updated_at: new Date().toISOString(),
+      }
+
+      if (editFormData.attendance_open_time && editFormData.session_date) {
+        updateData.attendance_open = new Date(`${editFormData.session_date}T${editFormData.attendance_open_time}`).toISOString()
+      } else if (!editFormData.attendance_open_time) {
+        updateData.attendance_open = null
+      }
+
+      if (editFormData.attendance_close_time && editFormData.session_date) {
+        updateData.attendance_close = new Date(`${editFormData.session_date}T${editFormData.attendance_close_time}`).toISOString()
+      } else if (!editFormData.attendance_close_time) {
+        updateData.attendance_close = null
+      }
+
       const { error } = await supabase
         .from('sessions')
-        .update({
-          batch_id: editFormData.batch_id,
-          classroom_id: editFormData.classroom_id || null,
-          session_date: editFormData.session_date,
-          notes: editFormData.notes || null,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq('id', editSession.id)
 
       if (error) throw error
@@ -716,8 +764,10 @@ export default function SessionsPage() {
                     <TableCell>{session.classrooms?.name ?? '--'}</TableCell>
                     <TableCell className="whitespace-nowrap">
                       {session.attendance_open && session.attendance_close
-                        ? `${session.attendance_open.slice(0, 16)} - ${session.attendance_close.slice(0, 16)}`
-                        : '--'}
+                        ? `${format(new Date(session.attendance_open), 'hh:mm a')} - ${format(new Date(session.attendance_close), 'hh:mm a')}`
+                        : session.attendance_open
+                          ? `${format(new Date(session.attendance_open), 'hh:mm a')} - ...`
+                          : '--'}
                     </TableCell>
                     <TableCell>
                       <Badge variant={STATUS_BADGE_MAP[session.status]}>
@@ -928,6 +978,28 @@ export default function SessionsPage() {
               setFormData((f) => ({ ...f, session_date: e.target.value }))
             }
           />
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="Attendance Open Time"
+              type="time"
+              value={formData.attendance_open_time}
+              onChange={(e) =>
+                setFormData((f) => ({ ...f, attendance_open_time: e.target.value }))
+              }
+            />
+            <Input
+              label="Attendance Close Time"
+              type="time"
+              value={formData.attendance_close_time}
+              onChange={(e) =>
+                setFormData((f) => ({ ...f, attendance_close_time: e.target.value }))
+              }
+            />
+          </div>
+          <p className="text-xs text-gray-500 flex items-center gap-1">
+            <Clock className="h-3 w-3" />
+            Optional. Pre-schedule when the attendance window opens and closes.
+          </p>
           <Input
             label="Notes"
             placeholder="e.g. Machine Learning - Lecture 5"
@@ -1049,6 +1121,28 @@ export default function SessionsPage() {
               setEditFormData((f) => ({ ...f, session_date: e.target.value }))
             }
           />
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="Attendance Open Time"
+              type="time"
+              value={editFormData.attendance_open_time}
+              onChange={(e) =>
+                setEditFormData((f) => ({ ...f, attendance_open_time: e.target.value }))
+              }
+            />
+            <Input
+              label="Attendance Close Time"
+              type="time"
+              value={editFormData.attendance_close_time}
+              onChange={(e) =>
+                setEditFormData((f) => ({ ...f, attendance_close_time: e.target.value }))
+              }
+            />
+          </div>
+          <p className="text-xs text-gray-500 flex items-center gap-1">
+            <Clock className="h-3 w-3" />
+            Optional. Pre-schedule when the attendance window opens and closes.
+          </p>
           <Input
             label="Notes"
             placeholder="e.g. Machine Learning - Lecture 5"
