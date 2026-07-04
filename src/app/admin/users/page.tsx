@@ -259,18 +259,22 @@ export default function AdminUsersPage() {
       .eq('id', teacher.id)
 
     if (profileError) {
-      toast.error(`Failed to delete ${teacher.full_name}`)
+      toast.error(`Failed to delete ${teacher.full_name}: ${profileError.message}`)
       setBulkProcessing(false)
       setDeleteDialog(null)
       return
     }
 
-    await supabase
+    const { error: roleError } = await supabase
       .from('user_roles')
       .delete()
       .eq('user_id', teacher.auth_user_id)
 
-    toast.success(`${teacher.full_name} deleted`)
+    if (roleError) {
+      toast.error(`Profile deleted but failed to remove role: ${roleError.message}`)
+    } else {
+      toast.success(`${teacher.full_name} deleted`)
+    }
     setDeleteDialog(null)
     setBulkProcessing(false)
     fetchTeachers()
@@ -349,7 +353,11 @@ export default function AdminUsersPage() {
         toast.error(data.error || 'Failed to resend email')
         return
       }
-      toast.success(`Welcome email resent to ${teacher.email}`)
+      if (data.email_sent === false) {
+        toast.info(`Password reset for ${teacher.full_name}. New password: ${data.password}`, { duration: 15000 })
+      } else {
+        toast.success(`Welcome email resent to ${teacher.email}`)
+      }
     } catch {
       toast.error('Failed to resend email')
     }

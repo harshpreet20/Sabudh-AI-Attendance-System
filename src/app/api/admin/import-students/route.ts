@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
   try {
     await requireAdmin()
 
-    const { sheetUrl, csvText, batchId } = await request.json()
+    const { sheetUrl, csvText, batchId, duplicateAction = 'skip' } = await request.json()
 
     let csvData: string
 
@@ -169,21 +169,53 @@ export async function POST(request: NextRequest) {
       auth: { autoRefreshToken: false, persistSession: false },
     })
 
-    const results: Array<{ email: string; name: string; status: 'created' | 'exists' | 'error'; error?: string }> = []
+    const results: Array<{ email: string; name: string; status: 'created' | 'exists' | 'updated' | 'error'; error?: string }> = []
     const loginUrl = process.env.NEXT_PUBLIC_APP_URL
       ? `${process.env.NEXT_PUBLIC_APP_URL}/login`
-      : 'https://sabudh-ai-attendance-system.vercel.app/login'
+      : 'https://attendanceai.harshpreetbhasin.com/login'
 
     for (const row of rows) {
       try {
         const { data: existingProfile } = await adminSupabase
           .from('student_profiles')
-          .select('id')
+          .select('id, batch_id')
           .eq('email', row.email)
           .maybeSingle()
 
         if (existingProfile) {
-          results.push({ email: row.email, name: row.full_name, status: 'exists' })
+          if (duplicateAction === 'update') {
+            try {
+              const updateFields: Record<string, unknown> = {}
+              if (row.full_name) updateFields.full_name = row.full_name
+              if (row.phone) updateFields.phone = row.phone
+              if (row.date_of_birth) updateFields.date_of_birth = row.date_of_birth
+              if (row.city) updateFields.city = row.city
+              if (row.profession) updateFields.profession = row.profession
+              if (row.qualification) updateFields.qualification = row.qualification
+              if (row.organization_name) updateFields.organization_name = row.organization_name
+              if (row.gender) updateFields.gender = row.gender
+              if (row.learning_goal) updateFields.learning_goal = row.learning_goal
+              if (batchId && !existingProfile.batch_id) updateFields.batch_id = batchId
+
+              if (Object.keys(updateFields).length > 0) {
+                await adminSupabase
+                  .from('student_profiles')
+                  .update(updateFields)
+                  .eq('id', existingProfile.id)
+              }
+
+              results.push({ email: row.email, name: row.full_name, status: 'updated' })
+            } catch (err) {
+              results.push({
+                email: row.email,
+                name: row.full_name,
+                status: 'error',
+                error: err instanceof Error ? err.message : 'Update failed',
+              })
+            }
+          } else {
+            results.push({ email: row.email, name: row.full_name, status: 'exists' })
+          }
           continue
         }
 
@@ -267,13 +299,20 @@ export async function POST(request: NextRequest) {
     }
 
     const created = results.filter((r) => r.status === 'created').length
+    const updated = results.filter((r) => r.status === 'updated').length
     const exists = results.filter((r) => r.status === 'exists').length
     const errors = results.filter((r) => r.status === 'error').length
 
+    const messageParts = [`Imported ${created} students`]
+    if (updated > 0) messageParts.push(`${updated} updated`)
+    if (exists > 0) messageParts.push(`${exists} already existed`)
+    if (errors > 0) messageParts.push(`${errors} failed`)
+
     return NextResponse.json({
-      message: `Imported ${created} students. ${exists} already existed. ${errors} failed.`,
+      message: messageParts.join('. ') + '.',
       total: rows.length,
       created,
+      updated,
       exists,
       errors,
       results,

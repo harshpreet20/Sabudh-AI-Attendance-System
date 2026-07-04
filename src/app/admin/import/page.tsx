@@ -23,12 +23,14 @@ import {
   FileText,
   X,
   Link as LinkIcon,
+  UserCheck,
+  RefreshCw,
 } from 'lucide-react'
 
 interface ImportResult {
   email: string
   name: string
-  status: 'created' | 'exists' | 'error'
+  status: 'created' | 'exists' | 'updated' | 'error'
   error?: string
 }
 
@@ -36,6 +38,7 @@ interface ImportResponse {
   message: string
   total: number
   created: number
+  updated: number
   exists: number
   errors: number
   results: ImportResult[]
@@ -47,6 +50,7 @@ interface Batch {
 }
 
 type ImportMode = 'csv' | 'sheet'
+type DuplicateAction = 'skip' | 'update'
 
 export default function ImportStudentsPage() {
   const supabase = createClient()
@@ -57,6 +61,7 @@ export default function ImportStudentsPage() {
   const [csvFile, setCsvFile] = useState<File | null>(null)
   const [batchId, setBatchId] = useState('')
   const [batches, setBatches] = useState<Batch[]>([])
+  const [duplicateAction, setDuplicateAction] = useState<DuplicateAction>('skip')
   const [loading, setLoading] = useState(false)
   const [response, setResponse] = useState<ImportResponse | null>(null)
   const [dragOver, setDragOver] = useState(false)
@@ -104,14 +109,14 @@ export default function ImportStudentsPage() {
           return
         }
         const csvText = await csvFile.text()
-        body = { csvText, batchId: batchId || null }
+        body = { csvText, batchId: batchId || null, duplicateAction }
       } else {
         if (!sheetUrl.trim()) {
           toast.error('Please enter a Google Sheet URL')
           setLoading(false)
           return
         }
-        body = { sheetUrl: sheetUrl.trim(), batchId: batchId || null }
+        body = { sheetUrl: sheetUrl.trim(), batchId: batchId || null, duplicateAction }
       }
 
       const res = await fetch('/api/admin/import-students', {
@@ -157,7 +162,7 @@ export default function ImportStudentsPage() {
           </CardTitle>
           <CardDescription>
             Upload a CSV file or provide a published Google Sheet URL.
-            Duplicate emails are detected and skipped automatically.
+            Duplicate emails are detected automatically.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -258,6 +263,39 @@ export default function ImportStudentsPage() {
             ))}
           </Select>
 
+          {/* Duplicate Handling */}
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">
+              Duplicate Handling
+            </label>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setDuplicateAction('skip')}
+                className={`flex-1 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200 flex flex-col items-center gap-1 ${
+                  duplicateAction === 'skip'
+                    ? 'bg-indigo-500/10 text-indigo-700 shadow-sm'
+                    : 'text-gray-600 hover:bg-white/50'
+                }`}
+              >
+                <UserCheck className="h-4 w-4" />
+                <span>Skip Duplicates</span>
+                <span className="text-xs font-normal opacity-70">Existing students will be skipped</span>
+              </button>
+              <button
+                onClick={() => setDuplicateAction('update')}
+                className={`flex-1 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200 flex flex-col items-center gap-1 ${
+                  duplicateAction === 'update'
+                    ? 'bg-indigo-500/10 text-indigo-700 shadow-sm'
+                    : 'text-gray-600 hover:bg-white/50'
+                }`}
+              >
+                <RefreshCw className="h-4 w-4" />
+                <span>Update Duplicates</span>
+                <span className="text-xs font-normal opacity-70">Update existing student profiles with new data</span>
+              </button>
+            </div>
+          </div>
+
           <div className="rounded-xl bg-amber-50/60 border border-amber-200/50 p-4 backdrop-blur-sm">
             <h4 className="text-sm font-medium text-amber-800">Expected columns:</h4>
             <p className="mt-1 text-xs text-amber-700">
@@ -266,7 +304,7 @@ export default function ImportStudentsPage() {
               Professional experience, Organization, Learning Goal
             </p>
             <p className="mt-2 text-xs text-amber-600">
-              Existing students (matched by email) are detected and skipped.
+              Existing students are matched by email. Use the duplicate handling option above to choose whether to skip or update them.
             </p>
           </div>
 
@@ -289,11 +327,17 @@ export default function ImportStudentsPage() {
             <CardDescription>{response.message}</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="mb-4 grid grid-cols-3 gap-4">
+            <div className={`mb-4 grid gap-4 ${response.updated > 0 ? 'grid-cols-4' : 'grid-cols-3'}`}>
               <div className="rounded-xl bg-emerald-50/60 p-3 text-center backdrop-blur-sm border border-emerald-200/40">
                 <p className="text-2xl font-bold text-emerald-700">{response.created}</p>
                 <p className="text-xs text-emerald-600">Created</p>
               </div>
+              {response.updated > 0 && (
+                <div className="rounded-xl bg-blue-50/60 p-3 text-center backdrop-blur-sm border border-blue-200/40">
+                  <p className="text-2xl font-bold text-blue-700">{response.updated}</p>
+                  <p className="text-xs text-blue-600">Updated</p>
+                </div>
+              )}
               <div className="rounded-xl bg-indigo-50/60 p-3 text-center backdrop-blur-sm border border-indigo-200/40">
                 <p className="text-2xl font-bold text-indigo-700">{response.exists}</p>
                 <p className="text-xs text-indigo-600">Already Existed</p>
@@ -319,6 +363,12 @@ export default function ImportStudentsPage() {
                       <Badge variant="success">
                         <CheckCircle className="mr-1 h-3 w-3" />
                         Created
+                      </Badge>
+                    )}
+                    {r.status === 'updated' && (
+                      <Badge variant="secondary">
+                        <RefreshCw className="mr-1 h-3 w-3" />
+                        Updated
                       </Badge>
                     )}
                     {r.status === 'exists' && (

@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
 
     const loginUrl = process.env.NEXT_PUBLIC_APP_URL
       ? `${process.env.NEXT_PUBLIC_APP_URL}/login`
-      : 'https://sabudh-ai-attendance-system.vercel.app/login'
+      : 'https://attendanceai.harshpreetbhasin.com/login'
 
     if (!process.env.RESEND_API_KEY) {
       return NextResponse.json({

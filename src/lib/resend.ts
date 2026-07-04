@@ -59,7 +59,7 @@ export function leaveStatusEmailHtml(params: {
     <tr><td align="center">
       <table width="600" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#0f1628 0%,#1a1a3e 50%,#0f1628 100%);border-radius:16px;overflow:hidden;border:1px solid rgba(139,92,246,0.3);">
         <tr><td style="padding:40px 40px 20px;text-align:center;background:linear-gradient(180deg,rgba(139,92,246,0.15) 0%,transparent 100%);">
-          <div style="font-size:48px;margin-bottom:8px;">${statusIcon}</div>
+          <img src="https://attendanceai.harshpreetbhasin.com/sabudh-logo.png" width="140" height="auto" alt="Sabudh AI" style="display:block;margin:0 auto 12px;" />
           <h1 style="margin:0;color:#e2e8f0;font-size:24px;font-weight:700;">Leave Request ${statusText}</h1>
           <p style="margin:4px 0 0;color:#8b5cf6;font-size:13px;text-transform:uppercase;letter-spacing:3px;font-weight:600;">Sabudh Foundation</p>
         </td></tr>
@@ -100,7 +100,7 @@ export function attendanceAlertEmailHtml(params: {
     <tr><td align="center">
       <table width="600" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#0f1628 0%,#1a1a3e 50%,#0f1628 100%);border-radius:16px;overflow:hidden;border:1px solid rgba(239,68,68,0.3);">
         <tr><td style="padding:40px 40px 20px;text-align:center;background:linear-gradient(180deg,rgba(239,68,68,0.15) 0%,transparent 100%);">
-          <div style="font-size:48px;margin-bottom:8px;">⚠️</div>
+          <img src="https://attendanceai.harshpreetbhasin.com/sabudh-logo.png" width="140" height="auto" alt="Sabudh AI" style="display:block;margin:0 auto 12px;" />
           <h1 style="margin:0;color:#e2e8f0;font-size:24px;font-weight:700;">Low Attendance Alert</h1>
           <p style="margin:4px 0 0;color:#ef4444;font-size:13px;text-transform:uppercase;letter-spacing:3px;font-weight:600;">Action Required</p>
         </td></tr>
@@ -143,7 +143,7 @@ export function weeklyDigestEmailHtml(params: {
     <tr><td align="center">
       <table width="600" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#0f1628 0%,#1a1a3e 50%,#0f1628 100%);border-radius:16px;overflow:hidden;border:1px solid rgba(139,92,246,0.3);">
         <tr><td style="padding:40px 40px 20px;text-align:center;background:linear-gradient(180deg,rgba(139,92,246,0.15) 0%,transparent 100%);">
-          <div style="font-size:48px;margin-bottom:8px;">📊</div>
+          <img src="https://attendanceai.harshpreetbhasin.com/sabudh-logo.png" width="140" height="auto" alt="Sabudh AI" style="display:block;margin:0 auto 12px;" />
           <h1 style="margin:0;color:#e2e8f0;font-size:24px;font-weight:700;">Weekly Attendance Report</h1>
           <p style="margin:4px 0 0;color:#8b5cf6;font-size:13px;text-transform:uppercase;letter-spacing:3px;font-weight:600;">${p.weekStart} to ${p.weekEnd}</p>
         </td></tr>
@@ -186,10 +186,8 @@ export function signupConfirmationEmailHtml(params: {
     <tr><td align="center">
       <table width="600" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#0f1628 0%,#1a1a3e 50%,#0f1628 100%);border-radius:16px;overflow:hidden;border:1px solid rgba(139,92,246,0.3);">
         <tr><td style="padding:40px 40px 20px;text-align:center;background:linear-gradient(180deg,rgba(139,92,246,0.15) 0%,transparent 100%);">
-          <div style="display:inline-block;width:56px;height:56px;line-height:56px;text-align:center;background:linear-gradient(135deg,#7c3aed,#6d28d9);border-radius:14px;font-size:28px;box-shadow:0 4px 15px rgba(124,58,237,0.4);">
-            <span style="color:#ffffff;">S</span>
-          </div>
-          <h1 style="margin:16px 0 0;color:#e2e8f0;font-size:22px;font-weight:700;">Confirm Your Email</h1>
+          <img src="https://attendanceai.harshpreetbhasin.com/sabudh-logo.png" width="140" height="auto" alt="Sabudh AI" style="display:block;margin:0 auto 12px;" />
+          <h1 style="margin:0;color:#e2e8f0;font-size:22px;font-weight:700;">Confirm Your Email</h1>
           <p style="margin:4px 0 0;color:#8b5cf6;font-size:12px;text-transform:uppercase;letter-spacing:3px;font-weight:600;">Sabudh AI</p>
         </td></tr>
         <tr><td style="padding:0 40px;"><div style="height:1px;background:linear-gradient(90deg,transparent,rgba(139,92,246,0.5),rgba(234,179,8,0.5),rgba(139,92,246,0.5),transparent);"></div></td></tr>
@@ -228,10 +226,8 @@ export function passwordResetEmailHtml(params: {
     <tr><td align="center">
       <table width="600" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#0f1628 0%,#1a1a3e 50%,#0f1628 100%);border-radius:16px;overflow:hidden;border:1px solid rgba(139,92,246,0.3);">
         <tr><td style="padding:40px 40px 20px;text-align:center;background:linear-gradient(180deg,rgba(139,92,246,0.15) 0%,transparent 100%);">
-          <div style="display:inline-block;width:56px;height:56px;line-height:56px;text-align:center;background:linear-gradient(135deg,#7c3aed,#6d28d9);border-radius:14px;font-size:28px;box-shadow:0 4px 15px rgba(124,58,237,0.4);">
-            <span style="color:#ffffff;">S</span>
-          </div>
-          <h1 style="margin:16px 0 0;color:#e2e8f0;font-size:22px;font-weight:700;">Reset Your Password</h1>
+          <img src="https://attendanceai.harshpreetbhasin.com/sabudh-logo.png" width="140" height="auto" alt="Sabudh AI" style="display:block;margin:0 auto 12px;" />
+          <h1 style="margin:0;color:#e2e8f0;font-size:22px;font-weight:700;">Reset Your Password</h1>
           <p style="margin:4px 0 0;color:#8b5cf6;font-size:12px;text-transform:uppercase;letter-spacing:3px;font-weight:600;">Sabudh AI</p>
         </td></tr>
         <tr><td style="padding:0 40px;"><div style="height:1px;background:linear-gradient(90deg,transparent,rgba(139,92,246,0.5),rgba(234,179,8,0.5),rgba(139,92,246,0.5),transparent);"></div></td></tr>
@@ -267,10 +263,8 @@ export function passwordChangedEmailHtml(): string {
     <tr><td align="center">
       <table width="600" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#0f1628 0%,#1a1a3e 50%,#0f1628 100%);border-radius:16px;overflow:hidden;border:1px solid rgba(139,92,246,0.3);">
         <tr><td style="padding:40px 40px 20px;text-align:center;background:linear-gradient(180deg,rgba(34,197,94,0.12) 0%,transparent 100%);">
-          <div style="display:inline-block;width:56px;height:56px;line-height:56px;text-align:center;background:linear-gradient(135deg,#7c3aed,#6d28d9);border-radius:14px;font-size:28px;box-shadow:0 4px 15px rgba(124,58,237,0.4);">
-            <span style="color:#ffffff;">S</span>
-          </div>
-          <h1 style="margin:16px 0 0;color:#e2e8f0;font-size:22px;font-weight:700;">Password Changed</h1>
+          <img src="https://attendanceai.harshpreetbhasin.com/sabudh-logo.png" width="140" height="auto" alt="Sabudh AI" style="display:block;margin:0 auto 12px;" />
+          <h1 style="margin:0;color:#e2e8f0;font-size:22px;font-weight:700;">Password Changed</h1>
           <p style="margin:4px 0 0;color:#22c55e;font-size:12px;text-transform:uppercase;letter-spacing:3px;font-weight:600;">Confirmed</p>
         </td></tr>
         <tr><td style="padding:0 40px;"><div style="height:1px;background:linear-gradient(90deg,transparent,rgba(34,197,94,0.4),rgba(139,92,246,0.4),transparent);"></div></td></tr>
@@ -320,7 +314,7 @@ export function welcomeEmailHtml(params: {
           <!-- Header with divine glow -->
           <tr>
             <td style="padding:40px 40px 20px;text-align:center;background:linear-gradient(180deg,rgba(139,92,246,0.15) 0%,transparent 100%);">
-              <div style="font-size:48px;margin-bottom:8px;">🙏✨</div>
+              <img src="https://attendanceai.harshpreetbhasin.com/sabudh-logo.png" width="140" height="auto" alt="Sabudh AI" style="display:block;margin:0 auto 12px;" />
               <h1 style="margin:0;color:#e2e8f0;font-size:24px;font-weight:700;letter-spacing:0.5px;">
                 Sabudh Foundation
               </h1>
@@ -476,7 +470,7 @@ export function teacherWelcomeEmailHtml(params: {
     <tr><td align="center">
       <table width="600" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#0f1628 0%,#1a1a3e 50%,#0f1628 100%);border-radius:16px;overflow:hidden;border:1px solid rgba(139,92,246,0.3);">
         <tr><td style="padding:40px 40px 20px;text-align:center;background:linear-gradient(180deg,rgba(139,92,246,0.15) 0%,transparent 100%);">
-          <div style="font-size:48px;margin-bottom:8px;">🎓✨</div>
+          <img src="https://attendanceai.harshpreetbhasin.com/sabudh-logo.png" width="140" height="auto" alt="Sabudh AI" style="display:block;margin:0 auto 12px;" />
           <h1 style="margin:0;color:#e2e8f0;font-size:24px;font-weight:700;">Sabudh Foundation</h1>
           <p style="margin:4px 0 0;color:#8b5cf6;font-size:13px;text-transform:uppercase;letter-spacing:3px;font-weight:600;">Instructor Portal</p>
         </td></tr>
@@ -565,7 +559,7 @@ export function approvalNotificationEmailHtml(params: {
     <tr><td align="center">
       <table width="600" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#0f1628 0%,#1a1a3e 50%,#0f1628 100%);border-radius:16px;overflow:hidden;border:1px solid rgba(139,92,246,0.3);">
         <tr><td style="padding:40px 40px 20px;text-align:center;background:linear-gradient(180deg,rgba(139,92,246,0.15) 0%,transparent 100%);">
-          <div style="font-size:48px;margin-bottom:8px;">${statusIcon}</div>
+          <img src="https://attendanceai.harshpreetbhasin.com/sabudh-logo.png" width="140" height="auto" alt="Sabudh AI" style="display:block;margin:0 auto 12px;" />
           <h1 style="margin:0;color:#e2e8f0;font-size:24px;font-weight:700;">Account ${approved ? 'Approved' : 'Not Approved'}</h1>
           <p style="margin:4px 0 0;color:#8b5cf6;font-size:13px;text-transform:uppercase;letter-spacing:3px;font-weight:600;">Sabudh AI</p>
         </td></tr>
@@ -613,10 +607,8 @@ export function registrationPendingEmailHtml(params: {
     <tr><td align="center">
       <table width="600" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#0f1628 0%,#1a1a3e 50%,#0f1628 100%);border-radius:16px;overflow:hidden;border:1px solid rgba(139,92,246,0.3);">
         <tr><td style="padding:40px 40px 20px;text-align:center;background:linear-gradient(180deg,rgba(139,92,246,0.15) 0%,transparent 100%);">
-          <div style="display:inline-block;width:56px;height:56px;line-height:56px;text-align:center;background:linear-gradient(135deg,#7c3aed,#6d28d9);border-radius:14px;font-size:28px;box-shadow:0 4px 15px rgba(124,58,237,0.4);">
-            <span style="color:#ffffff;">S</span>
-          </div>
-          <h1 style="margin:16px 0 0;color:#e2e8f0;font-size:22px;font-weight:700;">Registration Received</h1>
+          <img src="https://attendanceai.harshpreetbhasin.com/sabudh-logo.png" width="140" height="auto" alt="Sabudh AI" style="display:block;margin:0 auto 12px;" />
+          <h1 style="margin:0;color:#e2e8f0;font-size:22px;font-weight:700;">Registration Received</h1>
           <p style="margin:4px 0 0;color:#8b5cf6;font-size:12px;text-transform:uppercase;letter-spacing:3px;font-weight:600;">Sabudh AI</p>
         </td></tr>
         <tr><td style="padding:0 40px;"><div style="height:1px;background:linear-gradient(90deg,transparent,rgba(139,92,246,0.5),rgba(234,179,8,0.5),rgba(139,92,246,0.5),transparent);"></div></td></tr>
@@ -670,7 +662,7 @@ export function newSignupAdminEmailHtml(params: {
     <tr><td align="center">
       <table width="600" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#0f1628 0%,#1a1a3e 50%,#0f1628 100%);border-radius:16px;overflow:hidden;border:1px solid rgba(139,92,246,0.3);">
         <tr><td style="padding:40px 40px 20px;text-align:center;background:linear-gradient(180deg,rgba(139,92,246,0.15) 0%,transparent 100%);">
-          <div style="font-size:48px;margin-bottom:8px;">🔔</div>
+          <img src="https://attendanceai.harshpreetbhasin.com/sabudh-logo.png" width="140" height="auto" alt="Sabudh AI" style="display:block;margin:0 auto 12px;" />
           <h1 style="margin:0;color:#e2e8f0;font-size:22px;font-weight:700;">New Registration</h1>
           <p style="margin:4px 0 0;color:${roleColor};font-size:12px;text-transform:uppercase;letter-spacing:3px;font-weight:600;">${roleLabel} Signup</p>
         </td></tr>
@@ -736,10 +728,8 @@ export function announcementEmailHtml(params: {
     <tr><td align="center">
       <table width="600" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#0f1628 0%,#1a1a3e 50%,#0f1628 100%);border-radius:16px;overflow:hidden;border:1px solid rgba(139,92,246,0.3);">
         <tr><td style="padding:40px 40px 20px;text-align:center;background:linear-gradient(180deg,rgba(139,92,246,0.15) 0%,transparent 100%);">
-          <div style="display:inline-block;width:56px;height:56px;line-height:56px;text-align:center;background:linear-gradient(135deg,#7c3aed,#6d28d9);border-radius:14px;font-size:28px;box-shadow:0 4px 15px rgba(124,58,237,0.4);">
-            <span style="color:#ffffff;">S</span>
-          </div>
-          <h1 style="margin:16px 0 0;color:#e2e8f0;font-size:22px;font-weight:700;">New Announcement</h1>
+          <img src="https://attendanceai.harshpreetbhasin.com/sabudh-logo.png" width="140" height="auto" alt="Sabudh AI" style="display:block;margin:0 auto 12px;" />
+          <h1 style="margin:0;color:#e2e8f0;font-size:22px;font-weight:700;">New Announcement</h1>
           <p style="margin:4px 0 0;color:${color};font-size:12px;text-transform:uppercase;letter-spacing:3px;font-weight:600;">${p.priority} Priority</p>
         </td></tr>
         <tr><td style="padding:0 40px;"><div style="height:1px;background:linear-gradient(90deg,transparent,rgba(139,92,246,0.5),rgba(234,179,8,0.5),rgba(139,92,246,0.5),transparent);"></div></td></tr>

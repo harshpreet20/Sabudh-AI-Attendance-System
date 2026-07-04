@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
       const { studentEmail, studentName, title, content, priority } = body
       const dashboardUrl = process.env.NEXT_PUBLIC_APP_URL
         ? `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/announcements`
-        : 'https://sabudh-ai-attendance-system.vercel.app/dashboard/announcements'
+        : 'https://attendanceai.harshpreetbhasin.com/dashboard/announcements'
       await resend.emails.send({
         from: FROM_EMAIL,
         to: studentEmail,
