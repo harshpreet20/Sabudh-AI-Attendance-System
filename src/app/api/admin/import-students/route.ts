@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { requireAdmin } from '@/lib/auth/helpers'
-import { resend, generatePassword, welcomeEmailHtml } from '@/lib/resend'
+import { resend, FROM_EMAIL, generatePassword, welcomeEmailHtml } from '@/lib/resend'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -354,7 +354,7 @@ export async function POST(request: NextRequest) {
         let emailSent = false
         let emailError: string | undefined
 
-        const fromEmail = process.env.RESEND_FROM_EMAIL || 'Sabudh Foundation <noreply@sabudh.org>'
+        const fromEmail = FROM_EMAIL
 
         if (process.env.RESEND_API_KEY) {
           try {

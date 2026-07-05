@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { requireAdmin } from '@/lib/auth/helpers'
-import { resend, generatePassword, welcomeEmailHtml, teacherWelcomeEmailHtml } from '@/lib/resend'
+import { resend, FROM_EMAIL, generatePassword, welcomeEmailHtml, teacherWelcomeEmailHtml } from '@/lib/resend'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
 
     try {
       const emailResult = await resend.emails.send({
-        from: process.env.RESEND_FROM_EMAIL || 'Sabudh Foundation <noreply@sabudh.org>',
+        from: FROM_EMAIL,
         to: email,
         subject: type === 'teacher'
           ? `Your Updated Credentials - ${COURSE_NAME} (Instructor)`

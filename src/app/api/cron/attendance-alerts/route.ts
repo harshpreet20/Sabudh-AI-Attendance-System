@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
-import { getResend, attendanceAlertEmailHtml } from '@/lib/resend'
-
-const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'Sabudh Foundation <noreply@sabudh.org>'
+import { getResend, FROM_EMAIL, attendanceAlertEmailHtml } from '@/lib/resend'
 
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get('authorization')

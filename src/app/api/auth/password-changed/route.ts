@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { getResend, passwordChangedEmailHtml } from '@/lib/resend'
+import { getResend, FROM_EMAIL, passwordChangedEmailHtml } from '@/lib/resend'
 
 export async function POST() {
   try {
@@ -14,7 +14,7 @@ export async function POST() {
     if (process.env.RESEND_API_KEY) {
       try {
         const result = await getResend().emails.send({
-          from: process.env.RESEND_FROM_EMAIL || 'Sabudh Foundation <noreply@sabudh.org>',
+          from: FROM_EMAIL,
           to: user.email,
           subject: 'Password changed - Sabudh AI Attendance System',
           html: passwordChangedEmailHtml(),

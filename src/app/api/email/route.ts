@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { getResend, leaveStatusEmailHtml, attendanceAlertEmailHtml, weeklyDigestEmailHtml, announcementEmailHtml, approvalNotificationEmailHtml } from '@/lib/resend'
-
-const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'Sabudh Foundation <noreply@sabudh.org>'
+import { getResend, FROM_EMAIL, leaveStatusEmailHtml, attendanceAlertEmailHtml, weeklyDigestEmailHtml, announcementEmailHtml, approvalNotificationEmailHtml } from '@/lib/resend'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()

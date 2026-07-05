@@ -1,6 +1,5 @@
-import { getResend, registrationPendingEmailHtml, newSignupAdminEmailHtml } from '@/lib/resend'
+import { getResend, FROM_EMAIL, registrationPendingEmailHtml, newSignupAdminEmailHtml } from '@/lib/resend'
 
-const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'Sabudh Foundation <noreply@sabudh.org>'
 const ADMIN_EMAIL = process.env.ADMIN_NOTIFICATION_EMAIL || 'harshpreet@hotbotstudios.com'
 
 export async function sendSignupNotificationEmails(params: {

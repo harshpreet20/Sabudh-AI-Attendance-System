@@ -11,6 +11,12 @@ export function getResend(): Resend {
 
 export const resend = { get emails() { return getResend().emails } }
 
+// Centralized sender address. Must use a domain verified on the Resend account.
+// The verified domain is attendanceai.harshpreetbhasin.com — do NOT fall back to an
+// unverified domain (e.g. sabudh.org) or every send is rejected by Resend.
+export const FROM_EMAIL =
+  process.env.RESEND_FROM_EMAIL || 'Sabudh Foundation <noreply@attendanceai.harshpreetbhasin.com>'
+
 function esc(str: string): string {
   return str
     .replace(/&/g, '&amp;')
