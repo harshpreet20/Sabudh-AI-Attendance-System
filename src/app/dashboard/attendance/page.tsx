@@ -86,13 +86,15 @@ export default function AttendancePage() {
         return
       }
 
-      const today = new Date().toISOString().split('T')[0]
+      // Show whichever session currently has an OPEN window for this batch —
+      // not just today's. This lets students mark attendance for a session a
+      // teacher/admin reopened, even if its date is in the past.
       const { data: sessions } = await supabase
         .from('sessions')
         .select('*')
         .eq('batch_id', profileData.batch_id)
-        .eq('session_date', today)
         .eq('status', 'attendance_open')
+        .order('attendance_open', { ascending: false })
         .limit(1)
 
       if (!sessions || sessions.length === 0) {
