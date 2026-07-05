@@ -100,6 +100,7 @@ const adminNavItems: NavItem[] = [
   { label: 'Announcements', icon: Megaphone, href: '/admin/announcements', badgeKey: 'announcements' },
   { label: 'Leave Requests', icon: CalendarOff, href: '/admin/leave', badgeKey: 'leave' },
   { label: 'Sessions', icon: Calendar, href: '/admin/sessions' },
+  { label: 'Attendance', icon: CheckSquare, href: '/admin/attendance' },
   { label: 'Classrooms', icon: Building2, href: '/admin/classrooms' },
   { label: 'Campuses', icon: MapPin, href: '/admin/campuses' },
   { label: 'Courses', icon: BookOpen, href: '/admin/courses' },
