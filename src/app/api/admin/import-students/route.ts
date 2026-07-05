@@ -203,7 +203,7 @@ export async function POST(request: NextRequest) {
       try {
         const { data: existingProfile } = await adminSupabase
           .from('student_profiles')
-          .select('id, batch_id')
+          .select('id, batch_id, auth_user_id')
           .eq('email', row.email)
           .maybeSingle()
 
@@ -229,7 +229,53 @@ export async function POST(request: NextRequest) {
                   .eq('id', existingProfile.id)
               }
 
-              results.push({ email: row.email, name: row.full_name, status: 'updated' })
+              // Existing students still need working credentials: reset the
+              // password and (re)send the welcome email so re-import delivers login details.
+              let emailSent = false
+              let emailError: string | undefined
+
+              if (existingProfile.auth_user_id) {
+                const password = generatePassword()
+                const { error: pwErr } = await adminSupabase.auth.admin.updateUserById(
+                  existingProfile.auth_user_id,
+                  { password }
+                )
+
+                if (pwErr) {
+                  emailError = `Password reset failed: ${pwErr.message}`
+                  console.error(`[import-students] Password reset failed for ${row.email}:`, pwErr.message)
+                } else if (process.env.RESEND_API_KEY) {
+                  try {
+                    const emailResult = await resend.emails.send({
+                      from: FROM_EMAIL,
+                      to: row.email,
+                      subject: `Welcome to ${COURSE_NAME} - Your Credentials Inside`,
+                      html: welcomeEmailHtml({
+                        studentName: row.full_name,
+                        email: row.email,
+                        password,
+                        courseName: COURSE_NAME,
+                        location: LOCATION,
+                        loginUrl,
+                      }),
+                    })
+                    emailSent = !emailResult.error
+                    if (emailResult.error) {
+                      emailError = emailResult.error.message
+                      console.error(`[import-students] Resend API error for ${row.email}:`, emailResult.error.message, '| from:', FROM_EMAIL)
+                    }
+                  } catch (err) {
+                    emailError = err instanceof Error ? err.message : 'Email send failed'
+                    console.error(`[import-students] Email exception for ${row.email}:`, emailError, '| from:', FROM_EMAIL)
+                  }
+                } else {
+                  emailError = 'RESEND_API_KEY is not configured'
+                }
+              } else {
+                emailError = 'No auth account linked to this profile'
+              }
+
+              results.push({ email: row.email, name: row.full_name, status: 'updated', email_sent: emailSent, email_error: emailError })
             } catch (err) {
               results.push({
                 email: row.email,
@@ -407,7 +453,9 @@ export async function POST(request: NextRequest) {
     const exists = results.filter((r) => r.status === 'exists').length
     const errors = results.filter((r) => r.status === 'error').length
     const emailsSent = results.filter((r) => r.email_sent).length
-    const emailsFailed = results.filter((r) => r.status === 'created' && !r.email_sent).length
+    const emailsFailed = results.filter(
+      (r) => (r.status === 'created' || r.status === 'updated') && !r.email_sent
+    ).length
 
     console.log(`[import-students] Complete: ${created} created, ${updated} updated, ${exists} existed, ${errors} errors, ${emailsSent} emails sent, ${emailsFailed} emails failed`)
 
