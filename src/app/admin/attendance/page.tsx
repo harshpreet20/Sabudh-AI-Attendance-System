@@ -136,7 +136,7 @@ export default function AdminAttendancePage() {
       .select('id, session_date, status, attendance_open, attendance_close, attendance_word')
       .eq('batch_id', selectedBatch)
       .order('session_date', { ascending: false })
-      .limit(60)
+      .limit(300)
     setSessions((data as SessionRow[]) ?? [])
   }
 

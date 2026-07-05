@@ -117,7 +117,7 @@ export default function TeacherAttendancePage() {
         .select('id, session_date, status, batch_id, attendance_open, attendance_close, attendance_word, topic_taught, next_topic, topic_teacher_name, topic_completion_pct')
         .eq('batch_id', selectedBatch)
         .order('session_date', { ascending: false })
-        .limit(30)
+        .limit(300)
 
       setSessions((data as SessionRecord[]) ?? [])
     }
@@ -153,7 +153,7 @@ export default function TeacherAttendancePage() {
       .select('id, session_date, status, batch_id, attendance_open, attendance_close, attendance_word, topic_taught, next_topic, topic_teacher_name, topic_completion_pct')
       .eq('batch_id', selectedBatch)
       .order('session_date', { ascending: false })
-      .limit(30)
+      .limit(300)
     setSessions((data as SessionRecord[]) ?? [])
   }, [selectedBatch]) // eslint-disable-line react-hooks/exhaustive-deps
 
