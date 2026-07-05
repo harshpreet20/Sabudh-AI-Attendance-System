@@ -171,7 +171,13 @@ export default function TeacherAttendancePage() {
     try {
       const body: Record<string, string> = { action: 'open_attendance' }
       if (customCloseTime) {
-        body.attendance_close = customCloseTime
+        // customCloseTime is a datetime-local value (no timezone). Interpret it in
+        // the teacher's local timezone and send a proper UTC ISO string so the
+        // server stores the intended moment rather than treating it as UTC.
+        const parsed = new Date(customCloseTime)
+        if (!isNaN(parsed.getTime())) {
+          body.attendance_close = parsed.toISOString()
+        }
       }
 
       const res = await fetch(`/api/admin/sessions/${openSessionTarget}`, {
