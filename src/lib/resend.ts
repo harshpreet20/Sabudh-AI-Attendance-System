@@ -12,10 +12,32 @@ export function getResend(): Resend {
 export const resend = { get emails() { return getResend().emails } }
 
 // Centralized sender address. Must use a domain verified on the Resend account.
-// The verified domain is attendanceai.harshpreetbhasin.com — do NOT fall back to an
-// unverified domain (e.g. sabudh.org) or every send is rejected by Resend.
-export const FROM_EMAIL =
-  process.env.RESEND_FROM_EMAIL || 'Sabudh Foundation <noreply@attendanceai.harshpreetbhasin.com>'
+// The verified domain is attendanceai.harshpreetbhasin.com.
+//
+// RESEND_FROM_EMAIL can be set in the environment, but Resend requires a strict
+// `email@domain` or `Name <email@domain>` format. Admins often set it to just a
+// bare domain, which Resend rejects with "Invalid `from` field". So normalize
+// whatever we're given rather than passing it through blindly.
+const DEFAULT_FROM = 'Sabudh Foundation <noreply@attendanceai.harshpreetbhasin.com>'
+
+function resolveFromEmail(): string {
+  const raw = process.env.RESEND_FROM_EMAIL?.trim()
+  if (!raw) return DEFAULT_FROM
+
+  const emailOnly = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  const namedEmail = /^.+<[^\s@]+@[^\s@]+\.[^\s@]+>$/
+  // Already a valid sender — use as-is.
+  if (namedEmail.test(raw) || emailOnly.test(raw)) return raw
+
+  // Bare domain (e.g. "attendanceai.harshpreetbhasin.com") — build a proper sender.
+  const bareDomain = /^[^\s@]+\.[^\s@]+$/
+  if (bareDomain.test(raw)) return `Sabudh Foundation <noreply@${raw}>`
+
+  // Malformed — fall back to a known-good, correctly formatted address.
+  return DEFAULT_FROM
+}
+
+export const FROM_EMAIL = resolveFromEmail()
 
 function esc(str: string): string {
   return str
