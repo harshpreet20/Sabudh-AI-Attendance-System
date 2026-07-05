@@ -21,7 +21,10 @@ import {
   Loader2,
   X,
   AlertCircle,
+  Users,
+  Search,
 } from 'lucide-react'
+import { Avatar } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
@@ -142,6 +145,16 @@ export default function SessionsPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [deleteSessionId, setDeleteSessionId] = useState<string | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
+
+  // Manual attendance override state
+  const [manageOpen, setManageOpen] = useState(false)
+  const [manageSession, setManageSession] = useState<SessionWithRelations | null>(null)
+  const [rosterLoading, setRosterLoading] = useState(false)
+  const [roster, setRoster] = useState<
+    Array<{ id: string; full_name: string; email: string; profile_image_url: string | null; present: boolean }>
+  >([])
+  const [rosterSearch, setRosterSearch] = useState('')
+  const [overrideLoadingId, setOverrideLoadingId] = useState<string | null>(null)
 
   // Bulk import state
   const importFileRef = useRef<HTMLInputElement>(null)
@@ -414,6 +427,85 @@ export default function SessionsPage() {
       setDeleteSessionId(null)
     }
   }
+
+  // ---------------------------------------------------------------------------
+  // Manual attendance override
+  // ---------------------------------------------------------------------------
+
+  async function openManageAttendance(session: SessionWithRelations) {
+    setManageSession(session)
+    setManageOpen(true)
+    setRoster([])
+    setRosterSearch('')
+    setRosterLoading(true)
+    setOpenDropdown(null)
+    setDropdownPos(null)
+
+    try {
+      const [{ data: studentsData }, { data: attendanceData }] = await Promise.all([
+        supabase
+          .from('student_profiles')
+          .select('id, full_name, email, profile_image_url')
+          .eq('batch_id', session.batch_id)
+          .eq('status', 'active')
+          .order('full_name'),
+        supabase
+          .from('attendance')
+          .select('student_id, decision, status')
+          .eq('session_id', session.id),
+      ])
+
+      const presentSet = new Set(
+        (attendanceData ?? [])
+          .filter((a) => a.decision !== 'rejected' && a.status !== 'rejected')
+          .map((a) => a.student_id)
+      )
+
+      setRoster(
+        (studentsData ?? []).map((s) => ({
+          id: s.id,
+          full_name: s.full_name,
+          email: s.email,
+          profile_image_url: s.profile_image_url,
+          present: presentSet.has(s.id),
+        }))
+      )
+    } catch {
+      toast.error('Failed to load student roster')
+    } finally {
+      setRosterLoading(false)
+    }
+  }
+
+  async function handleOverride(studentId: string, action: 'present' | 'absent') {
+    if (!manageSession) return
+    setOverrideLoadingId(studentId)
+    try {
+      const res = await fetch('/api/admin/attendance/override', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: manageSession.id, student_id: studentId, action }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.success) {
+        toast.error(data.error || 'Failed to update attendance')
+        return
+      }
+      setRoster((prev) =>
+        prev.map((s) => (s.id === studentId ? { ...s, present: action === 'present' } : s))
+      )
+      toast.success(action === 'present' ? 'Marked present' : 'Marked absent')
+    } catch {
+      toast.error('Failed to update attendance')
+    } finally {
+      setOverrideLoadingId(null)
+    }
+  }
+
+  const filteredRoster = roster.filter((s) =>
+    s.full_name.toLowerCase().includes(rosterSearch.toLowerCase()) ||
+    s.email.toLowerCase().includes(rosterSearch.toLowerCase())
+  )
 
   // ---------------------------------------------------------------------------
   // Bulk import
@@ -894,6 +986,14 @@ export default function SessionsPage() {
               Edit Session
             </button>
 
+            <button
+              className="flex w-full items-center gap-2 px-4 py-2 text-sm text-indigo-700 hover:bg-indigo-50"
+              onClick={() => openManageAttendance(session)}
+            >
+              <Users className="h-4 w-4" />
+              Manage Attendance
+            </button>
+
             {session.status === 'scheduled' && (
               <button
                 className="flex w-full items-center gap-2 px-4 py-2 text-sm text-green-700 hover:bg-green-50"
@@ -1243,6 +1343,86 @@ export default function SessionsPage() {
           Deleting a session will permanently remove it and any associated attendance records.
           If you just want to mark it as inactive, consider cancelling it instead.
         </p>
+      </Dialog>
+
+      {/* Manual Attendance Override Dialog */}
+      <Dialog
+        open={manageOpen}
+        onClose={() => { setManageOpen(false); setManageSession(null) }}
+        title="Manage Attendance"
+        description={
+          manageSession
+            ? `Manually mark students present or absent for ${format(new Date(manageSession.session_date), 'MMM dd, yyyy')} (${manageSession.batches?.name ?? 'batch'}). This overrides location and verification checks.`
+            : ''
+        }
+      >
+        <div className="space-y-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <Input
+              placeholder="Search students..."
+              value={rosterSearch}
+              onChange={(e) => setRosterSearch(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+
+          {rosterLoading ? (
+            <div className="space-y-2">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Skeleton key={i} shape="rect" height={52} />
+              ))}
+            </div>
+          ) : filteredRoster.length === 0 ? (
+            <p className="py-8 text-center text-sm text-gray-400">
+              {roster.length === 0 ? 'No active students in this batch.' : 'No students match your search.'}
+            </p>
+          ) : (
+            <div className="max-h-96 space-y-2 overflow-y-auto pr-1">
+              {filteredRoster.map((student) => (
+                <div
+                  key={student.id}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-gray-100 bg-white px-3 py-2.5"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <Avatar
+                      src={student.profile_image_url}
+                      fallback={student.full_name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)}
+                      size="sm"
+                    />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-gray-900">{student.full_name}</p>
+                      <p className="truncate text-xs text-gray-500">{student.email}</p>
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    <Badge variant={student.present ? 'success' : 'secondary'}>
+                      {student.present ? 'Present' : 'Absent'}
+                    </Badge>
+                    <Button
+                      size="sm"
+                      variant={student.present ? 'ghost' : 'outline'}
+                      disabled={overrideLoadingId === student.id || student.present}
+                      onClick={() => handleOverride(student.id, 'present')}
+                      className={student.present ? '' : 'text-emerald-700'}
+                    >
+                      <CheckCircle className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={!student.present ? 'ghost' : 'outline'}
+                      disabled={overrideLoadingId === student.id || !student.present}
+                      onClick={() => handleOverride(student.id, 'absent')}
+                      className={!student.present ? '' : 'text-red-600'}
+                    >
+                      <XCircle className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </Dialog>
 
       {/* Bulk Import Dialog */}
