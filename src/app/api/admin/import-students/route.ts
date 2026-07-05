@@ -322,7 +322,7 @@ export async function POST(request: NextRequest) {
             userId = foundId
             isExistingAuth = true
 
-            await adminSupabase.auth.admin.updateUserById(userId, {
+            const { error: pwUpdateError } = await adminSupabase.auth.admin.updateUserById(userId, {
               password,
               email_confirm: true,
               user_metadata: {
@@ -330,6 +330,13 @@ export async function POST(request: NextRequest) {
                 phone: row.phone,
               },
             })
+
+            // If the password wasn't actually reset, do NOT email a bogus one.
+            if (pwUpdateError) {
+              console.error(`[import-students] Password reset failed for ${row.email}:`, pwUpdateError.message)
+              results.push({ email: row.email, name: row.full_name, status: 'error', error: `Password reset failed: ${pwUpdateError.message}` })
+              continue
+            }
           } else {
             results.push({ email: row.email, name: row.full_name, status: 'error', error: authError?.message || 'Auth creation failed' })
             continue

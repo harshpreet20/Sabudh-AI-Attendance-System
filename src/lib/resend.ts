@@ -58,15 +58,40 @@ function escAll<T extends Record<string, unknown>>(params: T): EscapedStrings<T>
   return result as EscapedStrings<T>
 }
 
+// Generates an unambiguous, alphanumeric password meant to be typed from a
+// welcome email. Ambiguous characters (I/O/l/o/0/1) and special characters
+// (!@#$) are excluded — special characters were a frequent cause of failed
+// logins because users mistype them on mobile keyboards. A guaranteed mix of
+// upper/lower/digit keeps it strong and compliant with typical password policies.
 export function generatePassword(length = 12): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$'
-  let password = ''
-  const array = new Uint8Array(length)
-  crypto.getRandomValues(array)
-  for (let i = 0; i < length; i++) {
-    password += chars[array[i] % chars.length]
+  const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ'
+  const lower = 'abcdefghjkmnpqrstuvwxyz'
+  const digits = '23456789'
+  const all = upper + lower + digits
+
+  // Uniform random index without modulo bias (rejection sampling).
+  const randomIndex = (max: number): number => {
+    const limit = 256 - (256 % max)
+    const buf = new Uint8Array(1)
+    let v: number
+    do {
+      crypto.getRandomValues(buf)
+      v = buf[0]
+    } while (v >= limit)
+    return v % max
   }
-  return password
+  const pick = (set: string) => set[randomIndex(set.length)]
+
+  // Guarantee at least one of each class.
+  const chars: string[] = [pick(upper), pick(lower), pick(digits)]
+  for (let i = chars.length; i < Math.max(length, 3); i++) chars.push(pick(all))
+
+  // Shuffle so the guaranteed characters aren't always at the front.
+  for (let i = chars.length - 1; i > 0; i--) {
+    const j = randomIndex(i + 1)
+    ;[chars[i], chars[j]] = [chars[j], chars[i]]
+  }
+  return chars.join('')
 }
 
 export function leaveStatusEmailHtml(params: {
