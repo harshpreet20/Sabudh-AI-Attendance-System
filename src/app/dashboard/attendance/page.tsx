@@ -189,8 +189,17 @@ export default function AttendancePage() {
 
     const updateTimer = () => {
       const now = new Date()
-      const today = now.toISOString().split('T')[0]
-      const endTime = new Date(`${today}T${session.attendance_close}`)
+      // attendance_close is stored as a full ISO timestamp. Parse it directly;
+      // fall back to combining with today's date only for any legacy time-only values.
+      let endTime = new Date(session.attendance_close as string)
+      if (isNaN(endTime.getTime())) {
+        const today = now.toISOString().split('T')[0]
+        endTime = new Date(`${today}T${session.attendance_close}`)
+      }
+      if (isNaN(endTime.getTime())) {
+        setTimeRemaining('')
+        return
+      }
       const diff = endTime.getTime() - now.getTime()
 
       if (diff <= 0) {
