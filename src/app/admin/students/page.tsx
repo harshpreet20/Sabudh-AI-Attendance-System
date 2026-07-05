@@ -161,6 +161,7 @@ export default function AdminStudentsPage() {
   // Bulk selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [bulkProcessing, setBulkProcessing] = useState(false)
+  const [bulkResending, setBulkResending] = useState(false)
   const [bulkDeleteDialog, setBulkDeleteDialog] = useState(false)
   const [bulkStatusDialog, setBulkStatusDialog] = useState<'active' | 'suspended' | null>(null)
 
@@ -450,6 +451,42 @@ export default function AdminStudentsPage() {
     fetchStudents()
   }
 
+  async function handleBulkResend() {
+    const selected = students.filter((s) => selectedIds.has(s.id))
+    const emails = selected.map((s) => s.email).filter(Boolean)
+
+    if (emails.length === 0) {
+      toast.error('No valid email addresses in selection')
+      return
+    }
+
+    setBulkResending(true)
+    try {
+      const res = await fetch('/api/admin/bulk-resend-welcome', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emails }),
+      })
+      const data = await res.json()
+
+      if (!res.ok) {
+        toast.error(data.error || 'Failed to resend emails')
+        return
+      }
+
+      if (data.failed > 0) {
+        toast.warning(`${data.sent} sent, ${data.failed} failed. Check server logs for details.`)
+      } else {
+        toast.success(`${data.sent} welcome email${data.sent !== 1 ? 's' : ''} sent with fresh credentials`)
+      }
+      setSelectedIds(new Set())
+    } catch {
+      toast.error('Failed to resend emails')
+    } finally {
+      setBulkResending(false)
+    }
+  }
+
   const selectedCount = selectedIds.size
   const totalPages = Math.ceil(totalCount / PAGE_SIZE)
 
@@ -552,6 +589,15 @@ export default function AdminStudentsPage() {
             {selectedCount} selected
           </span>
           <div className="ml-auto flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleBulkResend}
+              loading={bulkResending}
+            >
+              <Mail className="mr-1 h-3.5 w-3.5" />
+              Resend Emails
+            </Button>
             <Button
               variant="outline"
               size="sm"
