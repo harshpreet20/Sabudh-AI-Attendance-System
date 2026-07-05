@@ -21,6 +21,8 @@ import {
   Trash2,
   Ban,
   Mail,
+  Download,
+  FileText,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -173,6 +175,8 @@ export default function AdminStudentsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [bulkProcessing, setBulkProcessing] = useState(false)
   const [bulkResending, setBulkResending] = useState(false)
+  const [reportLoadingId, setReportLoadingId] = useState<string | null>(null)
+  const [bulkReportLoading, setBulkReportLoading] = useState(false)
   const [bulkDeleteDialog, setBulkDeleteDialog] = useState(false)
   const [bulkStatusDialog, setBulkStatusDialog] = useState<'active' | 'suspended' | null>(null)
 
@@ -503,6 +507,121 @@ export default function AdminStudentsPage() {
     }
   }
 
+  // Build progress-report data for a set of students (attendance up to today).
+  async function fetchReportData(subset: StudentWithBatch[]) {
+    const studentIds = subset.map((s) => s.id)
+    const batchIds = [...new Set(subset.map((s) => s.batch_id).filter(Boolean))] as string[]
+    const today = new Date().toISOString().split('T')[0]
+
+    const [sessionsRes, attRes] = await Promise.all([
+      batchIds.length
+        ? supabase
+            .from('sessions')
+            .select('id, session_date, batch_id')
+            .in('batch_id', batchIds)
+            .lte('session_date', today)
+            .order('session_date', { ascending: true })
+        : Promise.resolve({ data: [] as { id: string; session_date: string; batch_id: string }[] }),
+      studentIds.length
+        ? supabase
+            .from('attendance')
+            .select('student_id, session_id, decision, status, is_grace')
+            .in('student_id', studentIds)
+        : Promise.resolve({ data: [] as { student_id: string; session_id: string; decision: string | null; status: string; is_grace: boolean | null }[] }),
+    ])
+
+    const sessionsByBatch = new Map<string, { id: string; session_date: string }[]>()
+    for (const s of sessionsRes.data ?? []) {
+      const arr = sessionsByBatch.get(s.batch_id) ?? []
+      arr.push({ id: s.id, session_date: s.session_date })
+      sessionsByBatch.set(s.batch_id, arr)
+    }
+
+    const attMap = new Map<string, { decision: string | null; status: string; is_grace: boolean | null }>()
+    for (const a of attRes.data ?? []) {
+      attMap.set(`${a.student_id}:${a.session_id}`, { decision: a.decision, status: a.status, is_grace: a.is_grace })
+    }
+
+    return subset.map((student) => {
+      const batchSessions = sessionsByBatch.get(student.batch_id ?? '') ?? []
+      const sessions = batchSessions.map((bs) => {
+        const rec = attMap.get(`${student.id}:${bs.id}`)
+        let status: 'Present' | 'Absent' | 'Grace' = 'Absent'
+        if (rec) {
+          if (rec.decision === 'rejected' || rec.status === 'rejected') status = 'Absent'
+          else if (rec.is_grace) status = 'Grace'
+          else status = 'Present'
+        }
+        return { date: formatDate(bs.session_date), status }
+      })
+      const presentCount = sessions.filter((s) => s.status !== 'Absent').length
+      const totalSessions = sessions.length
+      const attendancePct = totalSessions > 0 ? (presentCount / totalSessions) * 100 : student.attendance_percentage
+      return {
+        fullName: student.full_name,
+        email: student.email,
+        batchName: student.batches?.name ?? '--',
+        status: student.status,
+        attendancePct,
+        presentCount,
+        totalSessions,
+        sessions,
+      }
+    })
+  }
+
+  async function handleDownloadReport(student: StudentWithBatch) {
+    setReportLoadingId(student.id)
+    try {
+      const [data] = await fetchReportData([student])
+      const { buildStudentReportPdf, reportFileName } = await import('@/lib/student-report')
+      buildStudentReportPdf(data).save(reportFileName(student.full_name))
+    } catch {
+      toast.error('Failed to generate report')
+    } finally {
+      setReportLoadingId(null)
+    }
+  }
+
+  async function handleBulkReports() {
+    const subset = students.filter((s) => selectedIds.has(s.id))
+    if (subset.length === 0) return
+
+    setBulkReportLoading(true)
+    try {
+      const dataList = await fetchReportData(subset)
+      const { buildStudentReportPdf, reportFileName } = await import('@/lib/student-report')
+
+      if (dataList.length === 1) {
+        buildStudentReportPdf(dataList[0]).save(reportFileName(dataList[0].fullName))
+      } else {
+        const JSZip = (await import('jszip')).default
+        const zip = new JSZip()
+        const used = new Set<string>()
+        for (const d of dataList) {
+          const base = reportFileName(d.fullName)
+          let name = base
+          let i = 1
+          while (used.has(name)) name = base.replace(/\.pdf$/, `_${i++}.pdf`)
+          used.add(name)
+          zip.file(name, buildStudentReportPdf(d).output('arraybuffer'))
+        }
+        const blob = await zip.generateAsync({ type: 'blob' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `student_reports_${new Date().toISOString().split('T')[0]}.zip`
+        a.click()
+        URL.revokeObjectURL(url)
+      }
+      toast.success(`Generated ${dataList.length} report${dataList.length > 1 ? 's' : ''}`)
+    } catch {
+      toast.error('Failed to generate reports')
+    } finally {
+      setBulkReportLoading(false)
+    }
+  }
+
   const selectedCount = selectedIds.size
   const totalPages = Math.ceil(totalCount / PAGE_SIZE)
 
@@ -605,6 +724,15 @@ export default function AdminStudentsPage() {
             {selectedCount} selected
           </span>
           <div className="ml-auto flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleBulkReports}
+              loading={bulkReportLoading}
+            >
+              <Download className="mr-1 h-3.5 w-3.5" />
+              {selectedCount > 1 ? 'Download Reports (ZIP)' : 'Download Report'}
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -808,6 +936,12 @@ export default function AdminStudentsPage() {
                             >
                               <Mail className="h-4 w-4" />
                               Resend Welcome Email
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleDownloadReport(student)}
+                            >
+                              <FileText className="h-4 w-4" />
+                              Download Report
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             {student.status === 'active' && (
