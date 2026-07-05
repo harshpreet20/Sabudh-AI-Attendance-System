@@ -53,16 +53,37 @@ interface NavItem {
 const studentNavItems: NavItem[] = [
   { label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
   { label: 'Attendance', icon: CheckSquare, href: '/dashboard/attendance' },
-  { label: 'Curriculum', icon: BookOpen, href: '/dashboard/curriculum' },
-  { label: 'Assignments', icon: ClipboardList, href: '/dashboard/assignments', badgeKey: 'assignments' },
-  { label: 'Projects', icon: FolderKanban, href: '/dashboard/projects' },
-  { label: 'History', icon: History, href: '/dashboard/history' },
-  { label: 'Schedules', icon: Calendar, href: '/dashboard/schedules' },
-  { label: 'Leave', icon: CalendarOff, href: '/dashboard/leave', badgeKey: 'leave' },
-  { label: 'Discussions', icon: MessageSquare, href: '/dashboard/discussions', badgeKey: 'discussions' },
-  { label: 'Announcements', icon: Megaphone, href: '/dashboard/announcements', badgeKey: 'announcements' },
-  { label: 'My Journey', icon: MapPin, href: '/dashboard/journey' },
-  { label: 'Certificate', icon: Award, href: '/dashboard/certificate' },
+  {
+    label: 'Learning',
+    icon: BookOpen,
+    href: '/dashboard/curriculum',
+    children: [
+      { label: 'Curriculum', icon: BookOpen, href: '/dashboard/curriculum' },
+      { label: 'Assignments', icon: ClipboardList, href: '/dashboard/assignments', badgeKey: 'assignments' },
+      { label: 'Projects', icon: FolderKanban, href: '/dashboard/projects' },
+    ],
+  },
+  {
+    label: 'Progress',
+    icon: TrendingUp,
+    href: '/dashboard/history',
+    children: [
+      { label: 'History', icon: History, href: '/dashboard/history' },
+      { label: 'Schedules', icon: Calendar, href: '/dashboard/schedules' },
+      { label: 'My Journey', icon: MapPin, href: '/dashboard/journey' },
+      { label: 'Certificate', icon: Award, href: '/dashboard/certificate' },
+    ],
+  },
+  {
+    label: 'Community',
+    icon: MessageSquare,
+    href: '/dashboard/discussions',
+    children: [
+      { label: 'Discussions', icon: MessageSquare, href: '/dashboard/discussions', badgeKey: 'discussions' },
+      { label: 'Announcements', icon: Megaphone, href: '/dashboard/announcements', badgeKey: 'announcements' },
+      { label: 'Leave', icon: CalendarOff, href: '/dashboard/leave', badgeKey: 'leave' },
+    ],
+  },
   { label: 'Profile', icon: User, href: '/dashboard/profile' },
   { label: 'Settings', icon: Settings, href: '/dashboard/settings' },
 ]
@@ -71,14 +92,28 @@ const teacherNavItems: NavItem[] = [
   { label: 'Dashboard', icon: LayoutDashboard, href: '/teacher' },
   { label: 'Students', icon: GraduationCap, href: '/teacher/students' },
   { label: 'Attendance', icon: CheckSquare, href: '/teacher/attendance' },
-  { label: 'Curriculum', icon: BookOpen, href: '/teacher/curriculum' },
-  { label: 'Assignments', icon: ClipboardList, href: '/teacher/assignments', badgeKey: 'assignments' },
-  { label: 'Projects', icon: FolderKanban, href: '/teacher/projects', badgeKey: 'projects' },
-  { label: 'Progress', icon: TrendingUp, href: '/teacher/progress' },
+  {
+    label: 'Teaching',
+    icon: BookOpen,
+    href: '/teacher/curriculum',
+    children: [
+      { label: 'Curriculum', icon: BookOpen, href: '/teacher/curriculum' },
+      { label: 'Assignments', icon: ClipboardList, href: '/teacher/assignments', badgeKey: 'assignments' },
+      { label: 'Projects', icon: FolderKanban, href: '/teacher/projects', badgeKey: 'projects' },
+      { label: 'Progress', icon: TrendingUp, href: '/teacher/progress' },
+    ],
+  },
+  {
+    label: 'Community',
+    icon: MessageSquare,
+    href: '/teacher/discussions',
+    children: [
+      { label: 'Discussions', icon: MessageSquare, href: '/teacher/discussions', badgeKey: 'discussions' },
+      { label: 'Announcements', icon: Megaphone, href: '/teacher/announcements' },
+      { label: 'Leave Requests', icon: CalendarOff, href: '/teacher/leave', badgeKey: 'leave' },
+    ],
+  },
   { label: 'Schedules', icon: Calendar, href: '/teacher/schedules' },
-  { label: 'Discussions', icon: MessageSquare, href: '/teacher/discussions', badgeKey: 'discussions' },
-  { label: 'Announcements', icon: Megaphone, href: '/teacher/announcements' },
-  { label: 'Leave Requests', icon: CalendarOff, href: '/teacher/leave', badgeKey: 'leave' },
   { label: 'Profile', icon: User, href: '/teacher/profile' },
 ]
 
@@ -94,19 +129,47 @@ const adminNavItems: NavItem[] = [
     ],
   },
   { label: 'Approvals', icon: ShieldCheck, href: '/admin/approvals', badgeKey: 'approvals' },
-  { label: 'Manage Users', icon: UserPlus, href: '/admin/users' },
-  { label: 'Students', icon: Users, href: '/admin/students' },
-  { label: 'Discussions', icon: MessageSquare, href: '/admin/discussions', badgeKey: 'discussions' },
-  { label: 'Announcements', icon: Megaphone, href: '/admin/announcements', badgeKey: 'announcements' },
-  { label: 'Leave Requests', icon: CalendarOff, href: '/admin/leave', badgeKey: 'leave' },
-  { label: 'Sessions', icon: Calendar, href: '/admin/sessions' },
-  { label: 'Attendance', icon: CheckSquare, href: '/admin/attendance' },
-  { label: 'Classrooms', icon: Building2, href: '/admin/classrooms' },
-  { label: 'Campuses', icon: MapPin, href: '/admin/campuses' },
-  { label: 'Courses', icon: BookOpen, href: '/admin/courses' },
-  { label: 'Curriculum', icon: GraduationCap, href: '/admin/curriculum' },
-  { label: 'Certificates', icon: Award, href: '/admin/certificates' },
-  { label: 'Import Students', icon: Upload, href: '/admin/import' },
+  {
+    label: 'People',
+    icon: Users,
+    href: '/admin/students',
+    children: [
+      { label: 'Students', icon: Users, href: '/admin/students' },
+      { label: 'Manage Users', icon: UserPlus, href: '/admin/users' },
+      { label: 'Import Students', icon: Upload, href: '/admin/import' },
+    ],
+  },
+  {
+    label: 'Classes',
+    icon: Calendar,
+    href: '/admin/attendance',
+    children: [
+      { label: 'Attendance', icon: CheckSquare, href: '/admin/attendance' },
+      { label: 'Sessions', icon: Calendar, href: '/admin/sessions' },
+      { label: 'Classrooms', icon: Building2, href: '/admin/classrooms' },
+      { label: 'Campuses', icon: MapPin, href: '/admin/campuses' },
+    ],
+  },
+  {
+    label: 'Academics',
+    icon: GraduationCap,
+    href: '/admin/curriculum',
+    children: [
+      { label: 'Curriculum', icon: GraduationCap, href: '/admin/curriculum' },
+      { label: 'Courses', icon: BookOpen, href: '/admin/courses' },
+      { label: 'Certificates', icon: Award, href: '/admin/certificates' },
+    ],
+  },
+  {
+    label: 'Engagement',
+    icon: MessageSquare,
+    href: '/admin/discussions',
+    children: [
+      { label: 'Discussions', icon: MessageSquare, href: '/admin/discussions', badgeKey: 'discussions' },
+      { label: 'Announcements', icon: Megaphone, href: '/admin/announcements', badgeKey: 'announcements' },
+      { label: 'Leave Requests', icon: CalendarOff, href: '/admin/leave', badgeKey: 'leave' },
+    ],
+  },
   { label: 'Knowledge Base', icon: Bot, href: '/admin/knowledge-base' },
   { label: 'Settings', icon: Settings, href: '/admin/settings' },
 ]
@@ -195,6 +258,11 @@ export function Sidebar({
             const isExpanded = expandedGroups.includes(item.label)
             const anyChildActive = item.children.some((child) => isActive(child.href))
             const parentActive = active || anyChildActive
+            // Sum child badge counts so actionable items stay visible while collapsed.
+            const childBadgeTotal = item.children.reduce(
+              (sum, child) => sum + (child.badgeKey ? (badgeCounts[child.badgeKey] ?? 0) : 0),
+              0
+            )
 
             return (
               <div key={item.label}>
@@ -222,6 +290,11 @@ export function Sidebar({
                     )}
                   />
                   <span className="flex-1 truncate">{item.label}</span>
+                  {!isExpanded && childBadgeTotal > 0 && (
+                    <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white shadow-sm">
+                      {childBadgeTotal > 99 ? '99+' : childBadgeTotal}
+                    </span>
+                  )}
                   {isExpanded ? (
                     <ChevronDown className="h-4 w-4 shrink-0 text-gray-400" />
                   ) : (
