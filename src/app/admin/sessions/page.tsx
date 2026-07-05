@@ -775,23 +775,51 @@ export default function SessionsPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          if (openDropdown === session.id) {
-                            setOpenDropdown(null)
-                            setDropdownPos(null)
-                          } else {
-                            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-                            setDropdownPos({ top: rect.bottom + 4, left: rect.right })
-                            setOpenDropdown(session.id)
-                          }
-                        }}
-                      >
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center justify-end gap-2">
+                        {session.status === 'scheduled' && (
+                          <Button
+                            size="sm"
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              updateSessionStatus(session.id, 'attendance_open')
+                            }}
+                          >
+                            <Play className="h-3.5 w-3.5" />
+                            Open
+                          </Button>
+                        )}
+                        {session.status === 'attendance_open' && (
+                          <Button
+                            size="sm"
+                            className="bg-amber-600 hover:bg-amber-700 text-white"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              updateSessionStatus(session.id, 'attendance_closed')
+                            }}
+                          >
+                            <Square className="h-3.5 w-3.5" />
+                            Close
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            if (openDropdown === session.id) {
+                              setOpenDropdown(null)
+                              setDropdownPos(null)
+                            } else {
+                              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                              setDropdownPos({ top: rect.bottom + 4, left: rect.right })
+                              setOpenDropdown(session.id)
+                            }
+                          }}
+                        >
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
