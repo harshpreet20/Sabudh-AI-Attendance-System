@@ -185,7 +185,7 @@ export default function CampusesPage() {
       .eq('id', deletingCampus.id)
 
     if (error) {
-      toast.error('Failed to delete campus. It may have classrooms linked to it.')
+      toast.error(error.message || 'Failed to delete campus.')
     } else {
       toast.success('Campus deleted')
       setDeleteDialogOpen(false)
