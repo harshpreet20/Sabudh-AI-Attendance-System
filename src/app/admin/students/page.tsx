@@ -55,7 +55,18 @@ const PAGE_SIZE = 20
 type SortField = 'full_name' | 'attendance_percentage' | 'created_at'
 type SortDirection = 'asc' | 'desc'
 
-interface StudentWithBatch extends StudentProfile {
+type StudentWithBatch = Pick<
+  StudentProfile,
+  | 'id'
+  | 'auth_user_id'
+  | 'full_name'
+  | 'email'
+  | 'batch_id'
+  | 'profile_image_url'
+  | 'attendance_percentage'
+  | 'status'
+  | 'created_at'
+> & {
   batches: { name: string } | null
   last_attendance_date: string | null
 }
@@ -217,9 +228,14 @@ export default function AdminStudentsPage() {
   const fetchStudents = useCallback(async () => {
     setLoading(true)
     try {
+      // Only the columns the list actually renders/acts on — avoids shipping
+      // every profile field (address, learning_goal, etc.) for each row.
       let query = supabase
         .from('student_profiles')
-        .select('*, batches(name)', { count: 'exact' })
+        .select(
+          'id, auth_user_id, full_name, email, batch_id, profile_image_url, attendance_percentage, status, created_at, batches(name)',
+          { count: 'exact' }
+        )
 
       // Search filter
       if (debouncedSearch) {
@@ -293,7 +309,7 @@ export default function AdminStudentsPage() {
 
       const studentsWithExtra: StudentWithBatch[] = (data ?? []).map((s) => ({
         ...s,
-        batches: s.batches as { name: string } | null,
+        batches: (Array.isArray(s.batches) ? s.batches[0] ?? null : s.batches) as { name: string } | null,
         last_attendance_date: lastAttendanceMap[s.id] ?? null,
       }))
 
