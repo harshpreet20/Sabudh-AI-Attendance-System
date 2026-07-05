@@ -802,6 +802,21 @@ export default function SessionsPage() {
                             Close
                           </Button>
                         )}
+                        {(session.status === 'attendance_closed' ||
+                          session.status === 'completed' ||
+                          session.status === 'cancelled') && (
+                          <Button
+                            size="sm"
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              updateSessionStatus(session.id, 'attendance_open')
+                            }}
+                          >
+                            <Play className="h-3.5 w-3.5" />
+                            Reopen
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="icon"
@@ -906,6 +921,18 @@ export default function SessionsPage() {
               >
                 <CheckCircle className="h-4 w-4" />
                 Complete Session
+              </button>
+            )}
+
+            {(session.status === 'attendance_closed' ||
+              session.status === 'completed' ||
+              session.status === 'cancelled') && (
+              <button
+                className="flex w-full items-center gap-2 px-4 py-2 text-sm text-green-700 hover:bg-green-50"
+                onClick={() => updateSessionStatus(session.id, 'attendance_open')}
+              >
+                <Play className="h-4 w-4" />
+                Reopen Attendance
               </button>
             )}
 
