@@ -15,6 +15,7 @@ import { Dialog } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
 import { CheckCircle, XCircle, ClipboardList, Clock, Gift, BookOpen, Save, Play, Square } from 'lucide-react'
+import { ElectricBorder } from '@/components/ui/electric-border'
 import type { Batch } from '@/types/database'
 
 interface SessionRecord {
@@ -517,7 +518,7 @@ export default function TeacherAttendancePage() {
         const isScheduled = activeSession.status === 'scheduled'
         const isOpen = activeSession.status === 'attendance_open'
         if (!isScheduled && !isOpen) return null
-        return (
+        const windowCard = (
           <Card className={isOpen ? '!bg-amber-50/60 !border-amber-200/50' : '!bg-emerald-50/60 !border-emerald-200/50'}>
             <CardContent className="flex items-center justify-between gap-4 p-4">
               <div className="flex items-center gap-3">
@@ -559,6 +560,12 @@ export default function TeacherAttendancePage() {
               </div>
             </CardContent>
           </Card>
+        )
+        // Highlight with an animated electric border only while attendance is live.
+        return isOpen ? (
+          <ElectricBorder borderRadius={16}>{windowCard}</ElectricBorder>
+        ) : (
+          windowCard
         )
       })()}
 
