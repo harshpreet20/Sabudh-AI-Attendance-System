@@ -352,6 +352,8 @@ export function welcomeEmailHtml(params: {
   loginUrl: string
 }): string {
   const p = escAll(params)
+  // Build a login URL with the email pre-filled so the user only needs the password.
+  const loginWithEmail = `${params.loginUrl}${params.loginUrl.includes('?') ? '&' : '?'}email=${encodeURIComponent(params.email)}`
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -410,14 +412,15 @@ export function welcomeEmailHtml(params: {
                     <table width="100%" cellpadding="0" cellspacing="0">
                       <tr>
                         <td style="padding:8px 0;">
-                          <span style="color:#94a3b8;font-size:13px;">Email</span><br>
-                          <span style="color:#f1f5f9;font-size:15px;font-family:monospace;background:rgba(0,0,0,0.3);padding:4px 10px;border-radius:6px;display:inline-block;margin-top:4px;">${p.email}</span>
+                          <span style="color:#94a3b8;font-size:13px;">Email</span>
+                          <div style="color:#f1f5f9;font-size:16px;font-family:monospace;background:rgba(0,0,0,0.35);padding:12px 14px;border-radius:8px;margin-top:6px;word-break:break-all;-webkit-user-select:all;user-select:all;">${p.email}</div>
                         </td>
                       </tr>
                       <tr>
                         <td style="padding:8px 0;">
-                          <span style="color:#94a3b8;font-size:13px;">Temporary Password</span><br>
-                          <span style="color:#fbbf24;font-size:15px;font-family:monospace;font-weight:700;background:rgba(0,0,0,0.3);padding:4px 10px;border-radius:6px;display:inline-block;margin-top:4px;">${p.password}</span>
+                          <span style="color:#94a3b8;font-size:13px;">Temporary Password</span>
+                          <div style="color:#fbbf24;font-size:18px;font-family:monospace;font-weight:700;letter-spacing:1px;background:rgba(0,0,0,0.35);padding:12px 14px;border-radius:8px;margin-top:6px;word-break:break-all;-webkit-user-select:all;user-select:all;">${p.password}</div>
+                          <p style="margin:6px 0 0;color:#64748b;font-size:11px;">Tap &amp; hold (mobile) or triple-click (desktop) to select the password, then copy.</p>
                         </td>
                       </tr>
                     </table>
@@ -433,7 +436,7 @@ export function welcomeEmailHtml(params: {
           <!-- Login button -->
           <tr>
             <td style="padding:10px 40px;text-align:center;">
-              <a href="${p.loginUrl}" style="display:inline-block;background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#ffffff;text-decoration:none;padding:14px 40px;border-radius:10px;font-size:15px;font-weight:600;letter-spacing:0.5px;box-shadow:0 4px 15px rgba(124,58,237,0.4);">
+              <a href="${loginWithEmail}" style="display:inline-block;background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#ffffff;text-decoration:none;padding:14px 40px;border-radius:10px;font-size:15px;font-weight:600;letter-spacing:0.5px;box-shadow:0 4px 15px rgba(124,58,237,0.4);">
                 Login to Dashboard
               </a>
             </td>
@@ -543,12 +546,13 @@ export function teacherWelcomeEmailHtml(params: {
               <p style="margin:0 0 16px;color:#c4b5fd;font-size:12px;text-transform:uppercase;letter-spacing:2px;font-weight:600;">🔐 Your Login Credentials</p>
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr><td style="padding:8px 0;">
-                  <span style="color:#94a3b8;font-size:13px;">Email</span><br>
-                  <span style="color:#f1f5f9;font-size:15px;font-family:monospace;background:rgba(0,0,0,0.3);padding:4px 10px;border-radius:6px;display:inline-block;margin-top:4px;">${p.email}</span>
+                  <span style="color:#94a3b8;font-size:13px;">Email</span>
+                  <div style="color:#f1f5f9;font-size:16px;font-family:monospace;background:rgba(0,0,0,0.35);padding:12px 14px;border-radius:8px;margin-top:6px;word-break:break-all;-webkit-user-select:all;user-select:all;">${p.email}</div>
                 </td></tr>
                 <tr><td style="padding:8px 0;">
-                  <span style="color:#94a3b8;font-size:13px;">Temporary Password</span><br>
-                  <span style="color:#fbbf24;font-size:15px;font-family:monospace;font-weight:700;background:rgba(0,0,0,0.3);padding:4px 10px;border-radius:6px;display:inline-block;margin-top:4px;">${p.password}</span>
+                  <span style="color:#94a3b8;font-size:13px;">Temporary Password</span>
+                  <div style="color:#fbbf24;font-size:18px;font-family:monospace;font-weight:700;letter-spacing:1px;background:rgba(0,0,0,0.35);padding:12px 14px;border-radius:8px;margin-top:6px;word-break:break-all;-webkit-user-select:all;user-select:all;">${p.password}</div>
+                  <p style="margin:6px 0 0;color:#64748b;font-size:11px;">Tap &amp; hold (mobile) or triple-click (desktop) to select the password, then copy.</p>
                 </td></tr>
               </table>
               <p style="margin:16px 0 0;color:#f87171;font-size:12px;">⚠️ Please change your password after first login</p>
@@ -556,7 +560,7 @@ export function teacherWelcomeEmailHtml(params: {
           </table>
         </td></tr>
         <tr><td style="padding:10px 40px;text-align:center;">
-          <a href="${p.loginUrl}" style="display:inline-block;background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#ffffff;text-decoration:none;padding:14px 40px;border-radius:10px;font-size:15px;font-weight:600;box-shadow:0 4px 15px rgba(124,58,237,0.4);">Login to Teacher Dashboard</a>
+          <a href="${params.loginUrl}${params.loginUrl.includes('?') ? '&' : '?'}email=${encodeURIComponent(params.email)}" style="display:inline-block;background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#ffffff;text-decoration:none;padding:14px 40px;border-radius:10px;font-size:15px;font-weight:600;box-shadow:0 4px 15px rgba(124,58,237,0.4);">Login to Teacher Dashboard</a>
         </td></tr>
         <tr><td style="padding:10px 40px 20px;">
           <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(34,197,94,0.06);border:1px solid rgba(34,197,94,0.15);border-radius:12px;">

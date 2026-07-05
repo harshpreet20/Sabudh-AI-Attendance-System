@@ -22,7 +22,7 @@ function GoogleIcon({ className }: { className?: string }) {
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(searchParams.get("email") ?? "");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState(searchParams.get("error") === "auth_callback_error" ? "Authentication failed. Please try again." : "");
