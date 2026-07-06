@@ -34,7 +34,9 @@ function isProtectedRoute(pathname: string): boolean {
   )
 }
 
-export async function middleware(request: NextRequest) {
+// Renamed from `middleware` to `proxy` for Next.js 16 (the `middleware` file
+// convention is deprecated). Behavior is unchanged.
+export async function proxy(request: NextRequest) {
   const { user, supabaseResponse } = await updateSession(request)
   const { pathname } = request.nextUrl
 
