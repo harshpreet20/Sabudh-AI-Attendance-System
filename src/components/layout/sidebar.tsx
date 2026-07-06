@@ -53,6 +53,7 @@ interface NavItem {
 const studentNavItems: NavItem[] = [
   { label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
   { label: 'Attendance', icon: CheckSquare, href: '/dashboard/attendance' },
+  { label: 'Leave', icon: CalendarOff, href: '/dashboard/leave', badgeKey: 'leave' },
   {
     label: 'Learning',
     icon: BookOpen,
@@ -81,7 +82,6 @@ const studentNavItems: NavItem[] = [
     children: [
       { label: 'Discussions', icon: MessageSquare, href: '/dashboard/discussions', badgeKey: 'discussions' },
       { label: 'Announcements', icon: Megaphone, href: '/dashboard/announcements', badgeKey: 'announcements' },
-      { label: 'Leave', icon: CalendarOff, href: '/dashboard/leave', badgeKey: 'leave' },
     ],
   },
   { label: 'Profile', icon: User, href: '/dashboard/profile' },
@@ -92,6 +92,7 @@ const teacherNavItems: NavItem[] = [
   { label: 'Dashboard', icon: LayoutDashboard, href: '/teacher' },
   { label: 'Students', icon: GraduationCap, href: '/teacher/students' },
   { label: 'Attendance', icon: CheckSquare, href: '/teacher/attendance' },
+  { label: 'Leave Requests', icon: CalendarOff, href: '/teacher/leave', badgeKey: 'leave' },
   {
     label: 'Teaching',
     icon: BookOpen,
@@ -110,7 +111,6 @@ const teacherNavItems: NavItem[] = [
     children: [
       { label: 'Discussions', icon: MessageSquare, href: '/teacher/discussions', badgeKey: 'discussions' },
       { label: 'Announcements', icon: Megaphone, href: '/teacher/announcements' },
-      { label: 'Leave Requests', icon: CalendarOff, href: '/teacher/leave', badgeKey: 'leave' },
     ],
   },
   { label: 'Schedules', icon: Calendar, href: '/teacher/schedules' },
@@ -146,6 +146,7 @@ const adminNavItems: NavItem[] = [
     children: [
       { label: 'Attendance', icon: CheckSquare, href: '/admin/attendance' },
       { label: 'Sessions', icon: Calendar, href: '/admin/sessions' },
+      { label: 'Leave Requests', icon: CalendarOff, href: '/admin/leave', badgeKey: 'leave' },
       { label: 'Classrooms', icon: Building2, href: '/admin/classrooms' },
       { label: 'Campuses', icon: MapPin, href: '/admin/campuses' },
     ],
@@ -167,7 +168,6 @@ const adminNavItems: NavItem[] = [
     children: [
       { label: 'Discussions', icon: MessageSquare, href: '/admin/discussions', badgeKey: 'discussions' },
       { label: 'Announcements', icon: Megaphone, href: '/admin/announcements', badgeKey: 'announcements' },
-      { label: 'Leave Requests', icon: CalendarOff, href: '/admin/leave', badgeKey: 'leave' },
     ],
   },
   { label: 'Knowledge Base', icon: Bot, href: '/admin/knowledge-base' },

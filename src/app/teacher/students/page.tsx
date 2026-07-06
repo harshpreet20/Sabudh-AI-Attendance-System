@@ -33,6 +33,7 @@ import {
   Award,
   Upload,
   FileText,
+  CheckSquare,
 } from 'lucide-react'
 import Link from 'next/link'
 import type { StudentProfile, Batch, ProfilePhotoRequest } from '@/types/database'
@@ -80,6 +81,13 @@ export default function TeacherStudentsPage() {
   const [certDialog, setCertDialog] = useState<StudentProfile | null>(null)
   const [certUploading, setCertUploading] = useState(false)
   const certInputRef = useRef<HTMLInputElement>(null)
+
+  // Mark attendance dialog
+  const [attStudent, setAttStudent] = useState<StudentProfile | null>(null)
+  const [attSessions, setAttSessions] = useState<{ id: string; session_date: string; status: string }[]>([])
+  const [attSessionId, setAttSessionId] = useState('')
+  const [attLoading, setAttLoading] = useState(false)
+  const [markingAtt, setMarkingAtt] = useState(false)
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -451,6 +459,65 @@ export default function TeacherStudentsPage() {
     setReviewerNote('')
   }
 
+  async function openAttendanceDialog(student: StudentProfile) {
+    setAttStudent(student)
+    setAttSessionId('')
+    setAttSessions([])
+    if (!student.batch_id) {
+      toast.error('Student has no batch assigned')
+      return
+    }
+    setAttLoading(true)
+    const { data } = await supabase
+      .from('sessions')
+      .select('id, session_date, status')
+      .eq('batch_id', student.batch_id)
+      .order('session_date', { ascending: false })
+      .limit(60)
+    setAttSessions((data as { id: string; session_date: string; status: string }[]) ?? [])
+    setAttLoading(false)
+  }
+
+  async function handleMarkPresent() {
+    if (!attStudent || !attSessionId) {
+      toast.error('Please select a session')
+      return
+    }
+    setMarkingAtt(true)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      toast.error('Not authenticated')
+      setMarkingAtt(false)
+      return
+    }
+    const now = new Date().toISOString()
+    const { error } = await supabase
+      .from('attendance')
+      .upsert(
+        {
+          session_id: attSessionId,
+          student_id: attStudent.id,
+          status: 'approved',
+          decision: 'accepted',
+          is_grace: true,
+          grace_reason: 'Marked present by teacher',
+          grace_granted_by: user.id,
+          submitted_at: now,
+          verified_at: now,
+        },
+        { onConflict: 'session_id,student_id' }
+      )
+
+    if (error) {
+      toast.error(`Failed to mark attendance: ${error.message}`)
+    } else {
+      toast.success(`${attStudent.full_name} marked present`)
+      setAttStudent(null)
+      setAttSessionId('')
+    }
+    setMarkingAtt(false)
+  }
+
   const totalPages = Math.ceil(total / PAGE_SIZE)
 
   return (
@@ -514,9 +581,9 @@ export default function TeacherStudentsPage() {
 
       {tab === 'active' && (
         <>
-          <div className="flex flex-col gap-3 sm:flex-row">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 pointer-events-none" />
               <Input
                 placeholder="Search by name or email..."
                 value={search}
@@ -524,12 +591,14 @@ export default function TeacherStudentsPage() {
                 className="pl-10"
               />
             </div>
-            <Select value={batchFilter} onChange={(e) => setBatchFilter(e.target.value)}>
-              <option value="">All Batches</option>
-              {batches.map((b) => (
-                <option key={b.id} value={b.id}>{b.name}</option>
-              ))}
-            </Select>
+            <div className="w-full sm:w-56 shrink-0">
+              <Select value={batchFilter} onChange={(e) => setBatchFilter(e.target.value)}>
+                <option value="">All Batches</option>
+                {batches.map((b) => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </Select>
+            </div>
           </div>
 
           {loading ? (
@@ -591,6 +660,15 @@ export default function TeacherStudentsPage() {
                             ))}
 
                           <div className="flex flex-wrap gap-2 pt-3 border-t border-white/20">
+                            <Button
+                              variant="default"
+                              size="sm"
+                              className="flex-1 min-w-full"
+                              onClick={(e) => { e.stopPropagation(); openAttendanceDialog(student) }}
+                            >
+                              <CheckSquare className="mr-1 h-3.5 w-3.5" />
+                              Mark Attendance
+                            </Button>
                             <Link href={`/teacher/students/${student.id}`} onClick={e => e.stopPropagation()} className="flex-1">
                               <Button variant="outline" size="sm" className="w-full">
                                 <BarChart3 className="mr-1 h-3.5 w-3.5" />
@@ -972,6 +1050,49 @@ export default function TeacherStudentsPage() {
           </div>
           <p className="text-xs text-gray-500">
             If a certificate already exists for this student, the uploaded file will be attached to it. Otherwise, a new certificate record will be created.
+          </p>
+        </div>
+      </Dialog>
+
+      {/* Mark Attendance Dialog */}
+      <Dialog
+        open={!!attStudent}
+        onClose={() => { setAttStudent(null); setAttSessionId('') }}
+        title="Mark Attendance"
+        description={attStudent ? `Mark ${attStudent.full_name} present for a session. This records a grace (manual) attendance.` : ''}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => { setAttStudent(null); setAttSessionId('') }}>Cancel</Button>
+            <Button onClick={handleMarkPresent} loading={markingAtt} disabled={!attSessionId}>
+              <CheckSquare className="h-4 w-4" />
+              Mark Present
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          {attLoading ? (
+            <Skeleton className="h-10" />
+          ) : attSessions.length === 0 ? (
+            <p className="py-4 text-center text-sm text-gray-500">
+              No sessions found for this student&apos;s batch.
+            </p>
+          ) : (
+            <Select
+              label="Session"
+              value={attSessionId}
+              onChange={(e) => setAttSessionId(e.target.value)}
+            >
+              <option value="">Select a session</option>
+              {attSessions.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {new Date(s.session_date).toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })} — {s.status.replace('_', ' ')}
+                </option>
+              ))}
+            </Select>
+          )}
+          <p className="text-xs text-gray-500">
+            Use this to record attendance for a student who was present but could not check in themselves.
           </p>
         </div>
       </Dialog>
