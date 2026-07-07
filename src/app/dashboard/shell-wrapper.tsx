@@ -48,6 +48,7 @@ export function StudentShellWrapper({
       userName={userName}
       userEmail={userEmail}
       avatarUrl={avatarUrl}
+      suppressWelcome={!!showOnboarding}
     >
       {children}
       {showOnboarding && (

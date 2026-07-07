@@ -7,6 +7,7 @@ import { Header } from './header'
 import { Footer } from './footer'
 import { MobileNav } from './mobile-nav'
 import { ChatWidget } from '@/components/chatbot/chat-widget'
+import { FeatureNotes } from '@/components/onboarding/feature-notes'
 import { useBadgeCounts } from '@/hooks/use-badge-counts'
 
 interface DashboardShellProps {
@@ -16,6 +17,8 @@ interface DashboardShellProps {
   userName?: string
   userEmail?: string
   avatarUrl?: string | null
+  /** Hide the first-login welcome popup while another intro (e.g. the tour) is active. */
+  suppressWelcome?: boolean
 }
 
 const pageTitles: Record<string, string> = {
@@ -75,6 +78,7 @@ export function DashboardShell({
   userName = 'User',
   userEmail = '',
   avatarUrl,
+  suppressWelcome = false,
 }: DashboardShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const badgeCounts = useBadgeCounts()
@@ -115,6 +119,11 @@ export function DashboardShell({
 
       <MobileNav role={role} currentPath={currentPath} />
       <ChatWidget />
+      <FeatureNotes
+        role={role}
+        currentPath={currentPath}
+        suppressWelcome={suppressWelcome}
+      />
     </div>
   )
 }
