@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { DashboardShell } from '@/components/layout/dashboard-shell'
 import { OnboardingTour } from '@/components/onboarding/onboarding-tour'
+import { LoginPermissionCheck } from '@/components/pwa/login-permission-check'
 
 interface StudentShellWrapperProps {
   children: React.ReactNode
@@ -54,6 +55,7 @@ export function StudentShellWrapper({
       {showOnboarding && (
         <OnboardingTour studentProfileId={studentProfileId} />
       )}
+      <LoginPermissionCheck disabled={!!showOnboarding} />
     </DashboardShell>
   )
 }
