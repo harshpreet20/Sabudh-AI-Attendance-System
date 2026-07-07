@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { sendNotification } from "@/lib/notify";
 
 export async function GET(
   _request: NextRequest,
@@ -157,9 +158,9 @@ export async function PATCH(
       reason: reason || null,
     });
 
-    if (action === "suspend" || action === "restore") {
-      await supabase.from("notifications").insert({
-        user_id: updated.auth_user_id,
+    if ((action === "suspend" || action === "restore") && updated.auth_user_id) {
+      await sendNotification({
+        userId: updated.auth_user_id,
         type: action === "suspend" ? "account_suspended" : "account_restored",
         title: action === "suspend" ? "Account Suspended" : "Account Restored",
         message:

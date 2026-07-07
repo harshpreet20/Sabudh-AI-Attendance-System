@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import { PushToggle } from '@/components/pwa/push-toggle'
+import { InstallAppButton } from '@/components/pwa/install-app-button'
 import { toast } from 'sonner'
 import {
   Lock,
@@ -18,6 +20,7 @@ import {
   Save,
   Eye,
   EyeOff,
+  Smartphone,
 } from 'lucide-react'
 
 export default function SettingsPage() {
@@ -286,6 +289,32 @@ export default function SettingsPage() {
                 Save Preferences
               </Button>
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Push Notifications */}
+      <PushToggle />
+
+      {/* Install App */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Smartphone className="h-4 w-4 text-gray-500" />
+            Install App
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-gray-500">
+              Add Sabudh AI to your home screen for a fast, app-like experience —
+              nothing to install from an app store.
+            </p>
+            <InstallAppButton
+              variant="default"
+              label="Install app"
+              className="shrink-0"
+            />
           </div>
         </CardContent>
       </Card>

@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 import { Logo } from '@/components/ui/logo'
 import { Avatar } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
+import { InstallAppButton } from '@/components/pwa/install-app-button'
 import { createClient } from '@/lib/supabase/client'
 import {
   LayoutDashboard,
@@ -369,6 +370,11 @@ export function Sidebar({
           )
         })}
       </nav>
+
+      {/* Install app prompt (hidden once installed or unsupported) */}
+      <div className="px-4 pb-2">
+        <InstallAppButton size="sm" variant="outline" fullWidth label="Install app" />
+      </div>
 
       {/* User profile section */}
       <div className="border-t border-white/20 p-4">

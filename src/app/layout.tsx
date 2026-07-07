@@ -1,6 +1,7 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
+import { PwaRegister } from "@/components/pwa/pwa-register";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -17,7 +18,20 @@ export const metadata: Metadata = {
   title: "Sabudh AI  - Post-Lecture Engagement Platform | Sabudh Foundation",
   description:
     "Sabudh Foundation's AI-powered post-lecture engagement platform  - attendance verification, discussions, assignments, projects, and certificate management for the GEN AI Course.",
-  icons: { icon: "/sabudh-logo.png" },
+  applicationName: "Sabudh AI",
+  icons: {
+    icon: "/sabudh-logo.png",
+    apple: "/icons/apple-touch-icon.png",
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Sabudh AI",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#4f46e5",
 };
 
 export default function RootLayout({
@@ -33,6 +47,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col text-foreground">
         {children}
         <Toaster position="top-right" richColors closeButton />
+        <PwaRegister />
       </body>
     </html>
   );
