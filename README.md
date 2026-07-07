@@ -54,7 +54,7 @@ Android/Chrome; iOS Safari shows Add-to-Home-Screen instructions).
    | `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | The VAPID **public** key (exposed to the browser). |
    | `VAPID_PUBLIC_KEY` | Same public key (server side). |
    | `VAPID_PRIVATE_KEY` | The VAPID **private** key. Keep secret. |
-   | `VAPID_SUBJECT` | Contact URL, e.g. `mailto:admin@sabudh.org`. Optional. |
+   | `VAPID_SUBJECT` | Contact URL, e.g. `mailto:noreply@attendanceai.harshpreetbhasin.com`. Optional. |
    | `SUPABASE_SERVICE_ROLE_KEY` | Already required; used to deliver pushes. |
 
 Until the keys are set, push is disabled gracefully — the toggle shows as

@@ -107,6 +107,11 @@ export default function AssignmentDetailPage() {
     if (error) toast.error('Failed to grade')
     else {
       toast.success('Submission graded')
+      void fetch('/api/assignments/notify-grade', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ submission_id: gradeDialog.id }),
+      }).catch(() => {})
       setGradeDialog(null)
       setGradeForm({ score: '', feedback: '' })
       fetchData()

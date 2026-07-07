@@ -1,5 +1,39 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
+import { sendNotificationToUsers } from "@/lib/notify";
+
+// Notify a batch's active students that an attendance window just opened.
+async function notifyAttendanceOpen(session: {
+  batch_id?: string | null;
+  topic_taught?: string | null;
+}) {
+  try {
+    if (!session.batch_id) return;
+    const service = createServiceClient();
+    const { data: students } = await service
+      .from("student_profiles")
+      .select("auth_user_id")
+      .eq("batch_id", session.batch_id)
+      .eq("status", "active");
+
+    const userIds = (students ?? [])
+      .map((s) => s.auth_user_id as string | null)
+      .filter((sid): sid is string => Boolean(sid));
+
+    const topic = session.topic_taught?.trim();
+    await sendNotificationToUsers(userIds, {
+      type: "attendance_reminder",
+      title: "Attendance is open",
+      message: topic
+        ? `Attendance for "${topic}" is now open. Mark your presence before it closes.`
+        : "Attendance is now open. Mark your presence before the window closes.",
+      url: "/dashboard/attendance",
+    });
+  } catch (err) {
+    console.error("Attendance-open notification failed:", err);
+  }
+}
 
 export async function PATCH(
   request: NextRequest,
@@ -43,6 +77,8 @@ export async function PATCH(
           { status: 500 }
         );
       }
+
+      if (data) await notifyAttendanceOpen(data);
 
       return NextResponse.json({ success: true, data });
     }

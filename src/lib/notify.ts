@@ -62,3 +62,45 @@ export async function sendNotification({
     console.error('Failed to send push notification:', err)
   }
 }
+
+/**
+ * Fan a single notification out to many users: one bulk in-app insert plus a
+ * push to each. Best-effort — individual push failures don't abort the rest.
+ */
+export async function sendNotificationToUsers(
+  userIds: string[],
+  { type, title, message, metadata, url }: Omit<NotifyInput, 'userId'>
+): Promise<void> {
+  const recipients = Array.from(new Set(userIds.filter(Boolean)))
+  if (recipients.length === 0) return
+
+  const supabase = createServiceClient()
+
+  const { error } = await supabase.from('notifications').insert(
+    recipients.map((userId) => ({
+      user_id: userId,
+      type,
+      title,
+      message,
+      metadata: metadata ?? {},
+    }))
+  )
+
+  if (error) {
+    console.error('Failed to create notifications:', error)
+    return
+  }
+
+  await Promise.all(
+    recipients.map((userId) =>
+      sendPushToUser(userId, {
+        title,
+        body: message,
+        url: url ?? '/dashboard/notifications',
+        tag: type,
+      }).catch((err) => {
+        console.error('Failed to send push notification:', err)
+      })
+    )
+  )
+}

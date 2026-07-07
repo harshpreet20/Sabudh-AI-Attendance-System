@@ -101,7 +101,18 @@ export default function TeacherAnnouncementsPage() {
     } else {
       const { error } = await supabase.from('announcements').insert(payload)
       if (error) toast.error('Failed to create announcement')
-      else toast.success('Announcement published')
+      else {
+        toast.success('Announcement published')
+        void fetch('/api/announcements/notify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            batch_id: payload.batch_id,
+            title: payload.title,
+            content: payload.content,
+          }),
+        }).catch(() => {})
+      }
     }
 
     setSaving(false)
