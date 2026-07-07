@@ -155,18 +155,22 @@ export function PermissionsPopup() {
 
   async function handlePush() {
     setBusy('push')
-    const ok = await enablePushNotifications()
+    const result = await enablePushNotifications()
     setBusy(null)
-    if (ok) {
+    if (result === 'granted') {
       setPush('granted')
       toast.success('Notifications enabled.')
-    } else {
+    } else if (result === 'denied') {
       setPush(
         typeof Notification !== 'undefined' && Notification.permission === 'denied'
           ? 'denied'
           : 'prompt'
       )
-      toast.error('Notification permission was not granted.')
+      toast.error('Notifications are blocked. You can turn them on in your browser settings.')
+    } else if (result === 'error') {
+      toast.error('Could not turn on notifications. Please try again.')
+    } else {
+      toast.error('Notifications aren’t available on this device.')
     }
   }
 

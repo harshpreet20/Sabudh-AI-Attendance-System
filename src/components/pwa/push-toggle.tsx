@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { Bell, Send } from 'lucide-react'
-import { urlBase64ToUint8Array, VAPID_PUBLIC_KEY } from '@/lib/pwa'
+import { VAPID_PUBLIC_KEY } from '@/lib/pwa'
+import { enablePushNotifications } from '@/lib/push-client'
 
 export function PushToggle() {
   const [mounted, setMounted] = useState(false)
@@ -44,38 +45,21 @@ export function PushToggle() {
 
   async function enable() {
     setBusy(true)
-    try {
-      const permission = await Notification.requestPermission()
-      if (permission !== 'granted') {
-        setDenied(permission === 'denied')
-        toast.error('Notification permission was not granted.')
-        return
-      }
-
-      const reg =
-        (await navigator.serviceWorker.getRegistration()) ??
-        (await navigator.serviceWorker.register('/sw.js'))
-      await navigator.serviceWorker.ready
-
-      const sub = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
-      })
-
-      const res = await fetch('/api/push/subscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subscription: sub }),
-      })
-      if (!res.ok) throw new Error('save failed')
-
+    const result = await enablePushNotifications()
+    setBusy(false)
+    if (result === 'granted') {
+      setDenied(false)
       setEnabled(true)
       toast.success('Push notifications enabled.')
-    } catch (err) {
-      console.error('Enable push failed:', err)
-      toast.error('Could not enable push notifications.')
-    } finally {
-      setBusy(false)
+    } else if (result === 'denied') {
+      setDenied(
+        typeof Notification !== 'undefined' && Notification.permission === 'denied'
+      )
+      toast.error('Notification permission was not granted.')
+    } else if (result === 'error') {
+      toast.error('Could not enable push notifications. Please try again.')
+    } else {
+      toast.error('Push notifications aren’t available on this device.')
     }
   }
 
