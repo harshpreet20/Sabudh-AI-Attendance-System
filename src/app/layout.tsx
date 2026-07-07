@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
 import { PwaRegister } from "@/components/pwa/pwa-register";
+import { PermissionsPopup } from "@/components/pwa/permissions-popup";
+import { NotificationListener } from "@/components/pwa/notification-listener";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -48,6 +50,8 @@ export default function RootLayout({
         {children}
         <Toaster position="top-right" richColors closeButton />
         <PwaRegister />
+        <PermissionsPopup />
+        <NotificationListener />
       </body>
     </html>
   );

@@ -25,16 +25,33 @@ self.addEventListener('push', (event) => {
   }
 
   const title = payload.title || 'Sabudh AI'
+  const url = payload.url || '/dashboard/notifications'
   const options = {
     body: payload.body || '',
     icon: payload.icon || APP_ICON,
     badge: BADGE_ICON,
     tag: payload.tag || undefined,
     renotify: Boolean(payload.tag),
-    data: { url: payload.url || '/dashboard/notifications' },
+    data: { url },
   }
 
-  event.waitUntil(self.registration.showNotification(title, options))
+  event.waitUntil(
+    (async () => {
+      await self.registration.showNotification(title, options)
+      // Also notify any open app windows so they can show a consistent in-app
+      // popup regardless of the operating system.
+      const clients = await self.clients.matchAll({
+        type: 'window',
+        includeUncontrolled: true,
+      })
+      for (const client of clients) {
+        client.postMessage({
+          type: 'push',
+          payload: { title, body: options.body, url },
+        })
+      }
+    })()
+  )
 })
 
 self.addEventListener('notificationclick', (event) => {

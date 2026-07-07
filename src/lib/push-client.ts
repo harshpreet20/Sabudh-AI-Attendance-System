@@ -36,20 +36,3 @@ export async function enablePushNotifications(): Promise<boolean> {
   })
   return res.ok
 }
-
-/**
- * Trigger the browser camera permission prompt. Returns true if access was
- * granted. Stops the stream immediately — we only want the permission grant.
- */
-export async function enableCameraAccess(): Promise<boolean> {
-  if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
-    return false
-  }
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true })
-    stream.getTracks().forEach((track) => track.stop())
-    return true
-  } catch {
-    return false
-  }
-}
