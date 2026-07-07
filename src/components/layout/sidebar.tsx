@@ -409,28 +409,44 @@ export function Sidebar({
         {sidebarContent}
       </aside>
 
-      {/* Mobile sidebar overlay */}
-      {mobileOpen && (
-        <div className="fixed inset-0 z-40 lg:hidden">
-          <div
-            className="fixed inset-0 bg-black/20 backdrop-blur-sm"
-            onClick={onMobileClose}
-            aria-hidden="true"
-          />
-          <aside className="fixed inset-y-0 left-0 z-50 w-64 glass-strong shadow-spatial">
-            <div className="absolute right-3 top-3">
-              <button
-                onClick={onMobileClose}
-                className="rounded-xl p-1.5 text-gray-400 hover:bg-white/50 hover:text-gray-600"
-                aria-label="Close menu"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            {sidebarContent}
-          </aside>
-        </div>
-      )}
+      {/* Mobile sidebar overlay (slides in/out) */}
+      <div
+        className={cn(
+          'fixed inset-0 z-40 lg:hidden',
+          !mobileOpen && 'pointer-events-none'
+        )}
+        aria-hidden={!mobileOpen}
+      >
+        <div
+          className={cn(
+            'fixed inset-0 bg-black/20 backdrop-blur-sm transition-opacity duration-300 ease-out',
+            mobileOpen ? 'opacity-100' : 'opacity-0'
+          )}
+          onClick={onMobileClose}
+          aria-hidden="true"
+        />
+        <aside
+          className={cn(
+            'fixed inset-y-0 left-0 z-50 w-64 glass-strong shadow-spatial',
+            'transition-transform duration-300 ease-out will-change-transform',
+            mobileOpen ? 'translate-x-0' : '-translate-x-full'
+          )}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Navigation menu"
+        >
+          <div className="absolute right-3 top-3">
+            <button
+              onClick={onMobileClose}
+              className="rounded-xl p-1.5 text-gray-400 hover:bg-white/50 hover:text-gray-600"
+              aria-label="Close menu"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+          {sidebarContent}
+        </aside>
+      </div>
     </>
   )
 }

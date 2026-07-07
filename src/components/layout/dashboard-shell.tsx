@@ -1,13 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { useState, useCallback } from 'react'
 import { Sidebar } from './sidebar'
 import { Header } from './header'
 import { Footer } from './footer'
 import { MobileNav } from './mobile-nav'
 import { ChatWidget } from '@/components/chatbot/chat-widget'
 import { FeatureNotes } from '@/components/onboarding/feature-notes'
+import { useDrawerSwipe } from '@/hooks/use-drawer-swipe'
 import { useBadgeCounts } from '@/hooks/use-badge-counts'
 
 interface DashboardShellProps {
@@ -84,6 +84,10 @@ export function DashboardShell({
   const badgeCounts = useBadgeCounts()
   const notificationCount = badgeCounts.notifications ?? 0
 
+  const openDrawer = useCallback(() => setMobileOpen(true), [])
+  const closeDrawer = useCallback(() => setMobileOpen(false), [])
+  useDrawerSwipe({ isOpen: mobileOpen, onOpen: openDrawer, onClose: closeDrawer })
+
   const pageTitle = pageTitles[currentPath]
     || (currentPath.startsWith('/teacher/projects/') ? 'Project Details' : null)
     || 'Dashboard'
@@ -97,7 +101,7 @@ export function DashboardShell({
         userEmail={userEmail}
         avatarUrl={avatarUrl}
         mobileOpen={mobileOpen}
-        onMobileClose={() => setMobileOpen(false)}
+        onMobileClose={closeDrawer}
         badgeCounts={badgeCounts}
       />
 
@@ -110,7 +114,7 @@ export function DashboardShell({
           notificationCount={notificationCount}
           messageCount={badgeCounts.messages ?? 0}
           role={role}
-          onMenuClick={() => setMobileOpen(true)}
+          onMenuClick={openDrawer}
         />
 
         <main className="flex-1 p-4 pb-20 lg:p-6 lg:pb-6">{children}</main>
