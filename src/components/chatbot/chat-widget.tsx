@@ -79,7 +79,7 @@ export function ChatWidget() {
       {!open && (
         <button
           onClick={() => setOpen(true)}
-          className="fixed bottom-20 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-indigo-500 text-white shadow-lg shadow-indigo-500/30 transition-all duration-200 hover:bg-indigo-600 hover:shadow-xl hover:shadow-indigo-500/40 active:scale-95 lg:bottom-6"
+          className="fixed bottom-24 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-indigo-500 text-white shadow-lg shadow-indigo-500/30 transition-all duration-200 hover:bg-indigo-600 hover:shadow-xl hover:shadow-indigo-500/40 active:scale-95 lg:bottom-6"
           aria-label="Open AI Assistant"
         >
           <Bot className="h-6 w-6" />
@@ -88,7 +88,7 @@ export function ChatWidget() {
 
       {/* Chat panel */}
       {open && (
-        <div className="fixed bottom-20 left-4 right-4 z-50 flex h-[70vh] max-h-[520px] w-auto flex-col overflow-hidden rounded-2xl border border-white/30 bg-white/95 shadow-2xl backdrop-blur-xl sm:left-auto sm:h-[500px] sm:w-[400px] lg:bottom-6">
+        <div className="fixed bottom-24 left-4 right-4 z-50 flex h-[70vh] max-h-[520px] w-auto flex-col overflow-hidden rounded-2xl border border-white/30 bg-white/95 shadow-2xl backdrop-blur-xl sm:left-auto sm:h-[500px] sm:w-[400px] lg:bottom-6">
           {/* Header */}
           <div className="flex items-center justify-between border-b border-gray-100 bg-indigo-500 px-4 py-3">
             <div className="flex items-center gap-2.5">

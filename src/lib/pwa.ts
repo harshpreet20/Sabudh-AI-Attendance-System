@@ -34,4 +34,23 @@ export function isIos(): boolean {
   return iOSDevice || iPadOS
 }
 
+/** Whether the device has a touch screen (covers phones, tablets, touch laptops). */
+export function isTouchDevice(): boolean {
+  if (typeof window === 'undefined') return false
+  return (
+    'ontouchstart' in window ||
+    (typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0)
+  )
+}
+
+/** Whether the Pointer Events API is available (all modern browsers). */
+export function supportsPointerEvents(): boolean {
+  return typeof window !== 'undefined' && 'PointerEvent' in window
+}
+
+export function isAndroid(): boolean {
+  if (typeof navigator === 'undefined') return false
+  return /android/i.test(navigator.userAgent)
+}
+
 export const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? ''

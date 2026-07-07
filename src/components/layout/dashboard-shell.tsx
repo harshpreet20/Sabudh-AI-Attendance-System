@@ -117,7 +117,7 @@ export function DashboardShell({
           onMenuClick={openDrawer}
         />
 
-        <main className="flex-1 p-4 pb-20 lg:p-6 lg:pb-6">{children}</main>
+        <main className="flex-1 p-4 pb-28 lg:p-6 lg:pb-6">{children}</main>
         <Footer className="hidden lg:block" />
       </div>
 
