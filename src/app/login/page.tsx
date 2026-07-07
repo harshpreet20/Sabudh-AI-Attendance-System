@@ -7,6 +7,7 @@ import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { ElectricBorder } from "@/components/ui/electric-border";
 import { LogoWithText } from "@/components/ui/logo";
+import { SocialLogin } from "@/components/auth/social-login";
 
 function LoginForm() {
   const router = useRouter();
@@ -163,6 +164,8 @@ function LoginForm() {
             {loading && <Loader2 className="h-4 w-4 animate-spin" />}
             {loading ? "Signing in..." : "Sign in"}
           </button>
+
+          <SocialLogin />
         </div>
         </ElectricBorder>
       </form>
