@@ -66,7 +66,7 @@ function Dialog({
     <dialog
       ref={dialogRef}
       className={cn(
-        "fixed m-auto max-h-[85vh] w-full max-w-lg rounded-2xl p-0",
+        "fixed m-auto max-h-[85vh] w-[calc(100%-1.5rem)] max-w-lg overflow-hidden rounded-2xl p-0",
         "glass-strong shadow-spatial",
         "backdrop:bg-black/30 backdrop:backdrop-blur-md",
         "open:animate-in open:fade-in-0 open:zoom-in-95",
@@ -76,7 +76,7 @@ function Dialog({
       aria-describedby={description ? descId : undefined}
       onClick={handleBackdropClick}
     >
-      <div className="flex flex-col">
+      <div className="flex max-h-[85vh] flex-col">
         <div className="flex items-start justify-between p-6 pb-0">
           <div className="flex-1">
             {title && (
@@ -102,7 +102,7 @@ function Dialog({
           </button>
         </div>
 
-        <div className="overflow-y-auto p-6">{children}</div>
+        <div className="min-h-0 overflow-y-auto p-6">{children}</div>
 
         {footer && (
           <div className="flex items-center justify-end gap-3 border-t border-white/20 px-6 py-4">

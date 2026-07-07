@@ -639,7 +639,7 @@ export function FeatureNotes({
     <div
       role="status"
       aria-live="polite"
-      className="fixed bottom-20 left-4 right-4 z-50 sm:bottom-6 sm:left-6 sm:right-auto sm:w-full sm:max-w-sm animate-in fade-in slide-in-from-bottom-4 duration-300"
+      className="fixed bottom-36 left-4 right-4 z-50 sm:bottom-6 sm:left-6 sm:right-auto sm:w-full sm:max-w-sm animate-in fade-in slide-in-from-bottom-4 duration-300"
     >
       <div className="relative rounded-2xl border border-gray-100 bg-white shadow-2xl overflow-hidden">
         <div className="h-1 bg-gradient-to-r from-indigo-500 to-purple-500" />
