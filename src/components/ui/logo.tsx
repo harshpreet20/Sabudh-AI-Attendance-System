@@ -16,7 +16,7 @@ export function Logo({ size = 'md', className = '' }: LogoProps) {
   return (
     <div className={`flex ${s.container} items-center justify-center overflow-hidden shrink-0 ${className}`}>
       <Image
-        src="/sabudh-logo.png"
+        src="/sabudh-logo-transparent.png"
         alt="Sabudh AI"
         width={s.img}
         height={s.img}

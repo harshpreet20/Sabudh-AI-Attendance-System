@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { compressImage } from '@/lib/image-compress'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -183,13 +184,14 @@ export default function ProfilePage() {
 
     setUploading(true)
     const supabase = createClient()
-    const ext = file.name.split('.').pop()
+    const compressed = await compressImage(file)
+    const ext = (compressed.name.split('.').pop() || 'jpg').toLowerCase()
     const timestamp = Date.now()
     const path = `student-profiles/${profile.auth_user_id}/pending-${timestamp}.${ext}`
 
     const { error: uploadError } = await supabase.storage
       .from('avatars')
-      .upload(path, file, { upsert: true })
+      .upload(path, compressed, { upsert: true, contentType: compressed.type })
 
     if (uploadError) {
       toast.error('Upload failed. Please try again.')

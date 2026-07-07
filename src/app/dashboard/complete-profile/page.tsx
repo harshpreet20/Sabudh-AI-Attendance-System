@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { compressImage } from '@/lib/image-compress'
 import { toast } from 'sonner'
 import { Camera, Upload, Loader2, CheckCircle, AlertCircle } from 'lucide-react'
 
@@ -59,12 +60,13 @@ export default function CompleteProfilePage() {
         return
       }
 
-      const ext = file.name.split('.').pop()
+      const compressed = await compressImage(file)
+      const ext = (compressed.name.split('.').pop() || 'jpg').toLowerCase()
       const path = `student-profiles/${user.id}/avatar.${ext}`
 
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(path, file, { upsert: true })
+        .upload(path, compressed, { upsert: true, contentType: compressed.type })
 
       if (uploadError) {
         setError('Upload failed. Please try again.')

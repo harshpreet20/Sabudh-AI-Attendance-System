@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { Logo } from '@/components/ui/logo'
+import Image from 'next/image'
 import { Avatar } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { InstallAppButton } from '@/components/pwa/install-app-button'
@@ -241,12 +241,15 @@ export function Sidebar({
   const sidebarContent = (
     <div className="flex h-full flex-col">
       {/* Logo */}
-      <div className="flex h-16 items-center gap-3 px-4">
-        <Logo size="md" />
-        <div className="flex flex-col min-w-0">
-          <span className="text-lg font-bold text-gray-900 leading-tight">Sabudh AI</span>
-          <span className="text-[9px] font-medium text-gray-400 tracking-wide truncate">Powered by HotBot Studios</span>
-        </div>
+      <div className="flex h-16 items-center px-4">
+        <Image
+          src="/sabudh-logo-transparent.png"
+          alt="Sabudh AI"
+          width={240}
+          height={80}
+          priority
+          className="h-12 w-auto object-contain"
+        />
       </div>
 
       {/* Navigation */}
