@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Button } from '@/components/ui/button'
 import { Download, Share, Plus, X, Check } from 'lucide-react'
 import { isIos, isStandalone } from '@/lib/pwa'
@@ -86,61 +87,67 @@ export function InstallAppButton({
         {label}
       </Button>
 
-      {showIosSheet && (
-        <div className="fixed inset-0 z-[110] flex items-end justify-center p-4 sm:items-center">
-          <div
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-            onClick={() => setShowIosSheet(false)}
-          />
-          <div className="relative w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-300">
-            <button
+      {showIosSheet &&
+        mounted &&
+        createPortal(
+          <div className="fixed inset-0 z-[200] flex items-end justify-center p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:items-center sm:pb-4">
+            <div
+              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
               onClick={() => setShowIosSheet(false)}
-              className="absolute right-4 top-4 rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-              aria-label="Close"
-            >
-              <X className="h-4 w-4" />
-            </button>
+            />
+            <div className="relative max-h-[85vh] w-full max-w-sm overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-300">
+              <button
+                onClick={() => setShowIosSheet(false)}
+                className="absolute right-4 top-4 rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                aria-label="Close"
+              >
+                <X className="h-4 w-4" />
+              </button>
 
-            <div className="mb-4 inline-flex rounded-2xl bg-indigo-100 p-3">
-              <Download className="h-6 w-6 text-indigo-600" />
+              <div className="mb-4 inline-flex rounded-2xl bg-indigo-100 p-3">
+                <Download className="h-6 w-6 text-indigo-600" />
+              </div>
+              <h3 className="text-base font-bold text-gray-900">
+                Add to Home Screen
+              </h3>
+              <p className="mt-1 text-sm text-gray-600">
+                Install Sabudh AI on your iPhone or iPad in two quick steps:
+              </p>
+
+              <ol className="mt-4 space-y-3">
+                <li className="flex items-start gap-3">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-600">
+                    1
+                  </span>
+                  <span className="text-sm text-gray-700">
+                    Tap the{' '}
+                    <Share className="inline h-4 w-4 -mt-0.5 text-blue-500" />{' '}
+                    <strong>Share</strong>{' '}
+                    button in Safari&apos;s toolbar.
+                  </span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-600">
+                    2
+                  </span>
+                  <span className="text-sm text-gray-700">
+                    Choose{' '}
+                    <Plus className="inline h-4 w-4 -mt-0.5 text-gray-500" />{' '}
+                    <strong>Add to Home Screen</strong>, then tap{' '}
+                    <strong>Add</strong>.
+                  </span>
+                </li>
+              </ol>
+
+              <div className="mt-5 flex items-center gap-2 rounded-xl bg-green-50 px-3 py-2.5 text-xs text-green-700">
+                <Check className="h-4 w-4 shrink-0" />
+                Once added, launch Sabudh AI from your home screen like a native
+                app.
+              </div>
             </div>
-            <h3 className="text-base font-bold text-gray-900">
-              Add to Home Screen
-            </h3>
-            <p className="mt-1 text-sm text-gray-600">
-              Install Sabudh AI on your iPhone or iPad in two quick steps:
-            </p>
-
-            <ol className="mt-4 space-y-3">
-              <li className="flex items-start gap-3">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-600">
-                  1
-                </span>
-                <span className="text-sm text-gray-700">
-                  Tap the <Share className="inline h-4 w-4 -mt-0.5 text-blue-500" />{' '}
-                  <strong>Share</strong> button in Safari&apos;s toolbar.
-                </span>
-              </li>
-              <li className="flex items-start gap-3">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-600">
-                  2
-                </span>
-                <span className="text-sm text-gray-700">
-                  Choose{' '}
-                  <Plus className="inline h-4 w-4 -mt-0.5 text-gray-500" />{' '}
-                  <strong>Add to Home Screen</strong>, then tap{' '}
-                  <strong>Add</strong>.
-                </span>
-              </li>
-            </ol>
-
-            <div className="mt-5 flex items-center gap-2 rounded-xl bg-green-50 px-3 py-2.5 text-xs text-green-700">
-              <Check className="h-4 w-4 shrink-0" />
-              Once added, launch Sabudh AI from your home screen like a native app.
-            </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
     </>
   )
 }
