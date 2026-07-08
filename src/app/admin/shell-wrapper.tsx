@@ -2,6 +2,7 @@
 
 import { usePathname } from 'next/navigation'
 import { DashboardShell } from '@/components/layout/dashboard-shell'
+import { AdminOnboardingTour } from '@/components/onboarding/admin-onboarding-tour'
 
 interface AdminShellWrapperProps {
   children: React.ReactNode
@@ -27,6 +28,7 @@ export function AdminShellWrapper({
       avatarUrl={avatarUrl}
     >
       {children}
+      <AdminOnboardingTour />
     </DashboardShell>
   )
 }

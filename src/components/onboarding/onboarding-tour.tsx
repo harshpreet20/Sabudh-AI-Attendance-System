@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
+import { ONBOARDING_VERSION } from '@/lib/onboarding'
 import {
   LayoutDashboard,
   CheckSquare,
@@ -15,6 +16,9 @@ import {
   ChevronLeft,
   X,
   Award,
+  QrCode,
+  WifiOff,
+  Bell,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -52,8 +56,35 @@ const STEPS: OnboardingStep[] = [
     iconBg: 'bg-green-100',
     title: 'Attendance',
     description:
-      'When your teacher opens a session, head to "Attendance" to mark your presence. You\'ll enter a verification word provided by your instructor.',
+      'When your teacher opens a session, head to "Attendance" to mark your presence. You\'ll share your location and enter a verification word provided by your instructor.',
     tip: 'Maintain at least 80% attendance — it\'s required for your certificate.',
+  },
+  {
+    icon: QrCode,
+    iconColor: 'text-sky-600',
+    iconBg: 'bg-sky-100',
+    title: 'New: QR Backup Attendance',
+    description:
+      'If the verification word or camera isn\'t working, tap "Scan QR (backup)" on the Attendance page and scan the code your instructor displays. Your GPS location is still verified, so you must be in class.',
+    tip: 'The QR code is time-limited and expires quickly — scan it while it\'s on screen.',
+  },
+  {
+    icon: WifiOff,
+    iconColor: 'text-slate-600',
+    iconBg: 'bg-slate-100',
+    title: 'New: Offline Attendance',
+    description:
+      'Poor signal? Mark attendance as usual — if you\'re offline it\'s securely saved on your device and syncs automatically the moment you reconnect. Your location is captured and re-checked on sync.',
+    tip: 'Watch the sync status indicator on the Attendance page to confirm your record went through.',
+  },
+  {
+    icon: Bell,
+    iconColor: 'text-amber-600',
+    iconBg: 'bg-amber-100',
+    title: 'New: Instant Notifications',
+    description:
+      'Enable notifications to get instant alerts when attendance is marked, a class is cancelled, the attendance window opens, or your attendance drops low — no SMS needed.',
+    tip: 'Tap "Enable notifications" on the Attendance page and allow it in your browser prompt.',
   },
   {
     icon: BookOpen,
@@ -125,7 +156,7 @@ export function OnboardingTour({ studentProfileId }: OnboardingTourProps) {
     const supabase = createClient()
     await supabase
       .from('student_profiles')
-      .update({ onboarding_completed: true })
+      .update({ onboarding_completed: true, onboarding_version: ONBOARDING_VERSION })
       .eq('id', studentProfileId)
     setVisible(false)
   }, [studentProfileId])

@@ -171,6 +171,7 @@ export interface StudentProfile {
   ai_persona: string | null;
   risk_score: number;
   onboarding_completed: boolean;
+  onboarding_version: number;
   created_at: string;
   updated_at: string;
 }

@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
+import { teacherOnboardingKey } from '@/lib/onboarding'
 import {
   LayoutDashboard,
   CalendarClock,
@@ -17,6 +18,7 @@ import {
   ChevronLeft,
   X,
   GraduationCap,
+  QrCode,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -65,6 +67,24 @@ const STEPS: OnboardingStep[] = [
     description:
       'Review detailed attendance records for each student. You can see who was present, absent, or late for every session. Grant grace attendance for students who had valid reasons for missing class.',
     tip: 'Use the grace attendance feature sparingly and document the reason for your records.',
+  },
+  {
+    icon: QrCode,
+    iconColor: 'text-sky-600',
+    iconBg: 'bg-sky-100',
+    title: 'New: QR Backup Attendance',
+    description:
+      'While an attendance window is open, generate a time-limited QR code for the class. Students who can\'t use the verification word or camera can scan it to mark attendance — with GPS still verified. Pick a duration, then Regenerate or Revoke anytime.',
+    tip: 'A fresh QR auto-revokes the previous one, so only the code currently on screen works.',
+  },
+  {
+    icon: BarChart3,
+    iconColor: 'text-fuchsia-600',
+    iconBg: 'bg-fuchsia-100',
+    title: 'New: Smarter Attendance Integrity',
+    description:
+      'Suspicious attempts — the same device used by two students, sudden location jumps or spoofed GPS — are now flagged automatically for admin review, so the attendance you see is more trustworthy.',
+    tip: 'Consistently flagged students are worth a quick check-in — the system surfaces them for you.',
   },
   {
     icon: FileText,
@@ -122,8 +142,6 @@ const STEPS: OnboardingStep[] = [
   },
 ]
 
-const LOCALSTORAGE_PREFIX = 'teacher_onboarding_completed_'
-
 export function TeacherOnboardingTour() {
   const [step, setStep] = useState(0)
   const [visible, setVisible] = useState(false)
@@ -134,7 +152,8 @@ export function TeacherOnboardingTour() {
     const supabase = createClient()
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return
-      const key = `${LOCALSTORAGE_PREFIX}${user.id}`
+      // Versioned key: bumping the tutorial version re-shows the tour once.
+      const key = teacherOnboardingKey(user.id)
       storageKeyRef.current = key
       try {
         if (!localStorage.getItem(key)) {
