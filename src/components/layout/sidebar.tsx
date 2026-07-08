@@ -39,6 +39,8 @@ import {
   Bot,
   MapPin,
   BookOpen,
+  Sparkles,
+  FileSpreadsheet,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -125,6 +127,7 @@ const adminNavItems: NavItem[] = [
     children: [
       { label: 'Overview', icon: LayoutDashboard, href: '/admin' },
       { label: 'Analytics', icon: BarChart3, href: '/admin/analytics' },
+      { label: 'AI Insights', icon: Sparkles, href: '/admin/insights' },
       { label: 'Audit Logs', icon: FileText, href: '/admin/audit-logs' },
     ],
   },
@@ -137,6 +140,7 @@ const adminNavItems: NavItem[] = [
       { label: 'Students', icon: Users, href: '/admin/students' },
       { label: 'Manage Users', icon: UserPlus, href: '/admin/users' },
       { label: 'Import Students', icon: Upload, href: '/admin/import' },
+      { label: 'Bulk Upload', icon: FileSpreadsheet, href: '/admin/bulk-upload' },
     ],
   },
   {

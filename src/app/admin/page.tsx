@@ -28,6 +28,7 @@ import {
 import { format, parseISO } from 'date-fns'
 import Link from 'next/link'
 import { AdminEngagementSection } from '@/components/charts/admin-engagement-section'
+import { AtRiskWidget } from '@/components/dashboard/at-risk-widget'
 
 type AttendanceStatusVariant = 'success' | 'destructive' | 'warning' | 'secondary'
 
@@ -328,6 +329,9 @@ export default async function AdminDashboardPage() {
           href="/admin/sessions"
         />
       </div>
+
+      {/* At-Risk Students */}
+      <AtRiskWidget />
 
       {/* Engagement Charts */}
       <AdminEngagementSection />

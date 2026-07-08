@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { isWithinZones, isWithinAnyZone, type GeofenceZone } from "@/lib/geofence";
+import { createServiceClient } from "@/lib/supabase/service";
+import { detectAnomalies, recordFlags } from "@/lib/attendance-verify";
+import { createNotification } from "@/lib/notifications";
 
 const SUSPICIOUS_ACCURACY_THRESHOLD = 1;
 const MAX_IP_GPS_DISTANCE_KM = 200;
@@ -239,6 +242,36 @@ export async function POST(request: NextRequest) {
         { success: false, error: { code: "INSERT_FAILED", message: "Failed to record attendance" } },
         { status: 500 }
       );
+    }
+
+    // Smart Duplicate Detection: populate the admin review queue with any
+    // anomalies, and notify the student instantly. Both are best-effort and
+    // must never fail the submission itself.
+    try {
+      const service = createServiceClient();
+      const detected = await detectAnomalies({
+        supabase: service,
+        sessionId: session_id,
+        studentId: profile.id,
+        latitude,
+        longitude,
+        locationAccuracy: location_accuracy,
+        deviceFingerprint: device_fingerprint,
+      });
+      if (detected.length > 0) {
+        await recordFlags(service, { attendanceId: attendance.id, studentId: profile.id, sessionId: session_id, flags: detected });
+      }
+      await createNotification({
+        userId: user.id,
+        type: needsReview ? "attendance_marked" : "attendance_accepted",
+        title: needsReview ? "Attendance flagged for review" : "Attendance marked",
+        message: needsReview
+          ? "Your attendance was submitted but flagged for manual review."
+          : "Your attendance was recorded successfully.",
+        metadata: { session_id, method: "selfie" },
+      });
+    } catch (notifyErr) {
+      console.error("[attendance/submit] post-insert hooks failed:", notifyErr instanceof Error ? notifyErr.message : notifyErr);
     }
 
     return NextResponse.json({

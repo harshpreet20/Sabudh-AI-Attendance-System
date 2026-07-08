@@ -26,6 +26,7 @@ import {
   ShieldAlert,
   BookOpen,
 } from 'lucide-react'
+import { AttendanceExtras, queueOfflineCapture } from '@/components/attendance/attendance-extras'
 import type { Session, StudentProfile, Attendance } from '@/types/database'
 
 type PageState =
@@ -277,7 +278,20 @@ export default function AttendancePage() {
         toast.success('Attendance marked successfully!')
       }
     } catch {
-      toast.error('An unexpected error occurred.')
+      // Likely offline — queue the capture (encrypted) to sync when back online.
+      // GPS is captured now and re-verified server-side on sync.
+      try {
+        await queueOfflineCapture({
+          session_id: session.id,
+          latitude: coords.lat,
+          longitude: coords.lng,
+          location_accuracy: coords.accuracy,
+          device_fingerprint: fingerprint,
+        })
+        toast.message('You appear to be offline. Attendance saved and will sync automatically when you reconnect.')
+      } catch {
+        toast.error('An unexpected error occurred.')
+      }
     } finally {
       setSubmitting(false)
     }
@@ -658,6 +672,25 @@ export default function AttendancePage() {
         <p className="text-center text-xs text-gray-500">
           You must be within 500m of the class location and provide the verification word to mark attendance.
         </p>
+      )}
+
+      {/* QR backup, push notifications and offline sync */}
+      {session && (
+        <AttendanceExtras
+          sessionId={session.id}
+          coords={coords}
+          fingerprint={fingerprint}
+          onSuccess={(result) => {
+            setExistingAttendance({
+              id: result.attendance_id,
+              status: result.status,
+              session_id: session.id,
+              student_id: profile?.id ?? '',
+            } as Attendance)
+            stopLocationWatch()
+            setPageState(result.flagged ? 'submitted_review' : 'submitted_success')
+          }}
+        />
       )}
     </div>
   )
