@@ -18,6 +18,11 @@ export const metadata: Metadata = {
   description:
     "Sabudh Foundation's AI-powered post-lecture engagement platform  - attendance verification, discussions, assignments, projects, and certificate management for the GEN AI Course.",
   icons: { icon: "/sabudh-logo.png" },
+  manifest: "/manifest.webmanifest",
+};
+
+export const viewport = {
+  themeColor: "#6366f1",
 };
 
 export default function RootLayout({

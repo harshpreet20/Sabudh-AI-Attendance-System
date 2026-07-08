@@ -59,6 +59,23 @@ export async function subscribeToPush(): Promise<{ ok: boolean; reason?: string 
   return { ok: true }
 }
 
+// Enable browser/PWA notifications with the minimum needed for realtime
+// delivery: permission + a registered service worker. If VAPID is configured
+// it also creates a background push subscription (best-effort).
+export async function ensureNotificationsEnabled(): Promise<boolean> {
+  if (!pushSupported()) return false
+  const permission = await Notification.requestPermission()
+  if (permission !== 'granted') return false
+  try {
+    await navigator.serviceWorker.register('/sw.js')
+  } catch {
+    // SW registration failed — realtime toast fallback still works
+  }
+  // Best-effort true-background push; harmless if VAPID isn't set up.
+  subscribeToPush().catch(() => {})
+  return true
+}
+
 export async function unsubscribeFromPush(): Promise<void> {
   if (!pushSupported()) return
   const registration = await navigator.serviceWorker.getRegistration()

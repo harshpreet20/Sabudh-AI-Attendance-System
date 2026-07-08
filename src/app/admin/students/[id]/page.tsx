@@ -32,6 +32,7 @@ import {
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { LastSeen } from '@/components/students/last-seen'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
@@ -465,6 +466,9 @@ export default function StudentDetailPage() {
                 {student.full_name}
               </h2>
               <p className="mt-0.5 text-sm text-gray-500">{student.email}</p>
+              <div className="mt-1 flex justify-center sm:justify-start">
+                <LastSeen studentId={student.id} />
+              </div>
               <div className="mt-2 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
                 <Badge variant={getStatusBadgeVariant(student.status)}>
                   {student.status.charAt(0).toUpperCase() +

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { LastSeen } from '@/components/students/last-seen'
 import { Badge } from '@/components/ui/badge'
 import { Avatar } from '@/components/ui/avatar'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -245,6 +246,9 @@ export default function StudentPerformancePage() {
         <div className="flex-1 min-w-0">
           <h1 className="text-2xl font-bold text-gray-900 truncate">{student.full_name}</h1>
           <p className="text-sm text-gray-500">{student.email}</p>
+          <div className="mt-1">
+            <LastSeen studentId={studentId} />
+          </div>
         </div>
         <Link href={`/teacher/students/journey?id=${studentId}`}>
           <Button variant="outline" size="sm">

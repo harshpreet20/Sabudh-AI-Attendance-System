@@ -21,7 +21,13 @@ export function useBadgeCounts(pollIntervalMs = 30000) {
   useEffect(() => {
     fetchCounts()
     const interval = setInterval(fetchCounts, pollIntervalMs)
-    return () => clearInterval(interval)
+    // Refresh immediately when a realtime notification arrives.
+    const onRefresh = () => fetchCounts()
+    window.addEventListener('badges:refresh', onRefresh)
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener('badges:refresh', onRefresh)
+    }
   }, [fetchCounts, pollIntervalMs])
 
   return counts

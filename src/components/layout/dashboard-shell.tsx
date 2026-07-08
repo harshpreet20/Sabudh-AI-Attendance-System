@@ -7,6 +7,7 @@ import { Header } from './header'
 import { Footer } from './footer'
 import { MobileNav } from './mobile-nav'
 import { ChatWidget } from '@/components/chatbot/chat-widget'
+import { NotificationsListener } from '@/components/notifications/notifications-listener'
 import { useBadgeCounts } from '@/hooks/use-badge-counts'
 
 interface DashboardShellProps {
@@ -115,6 +116,7 @@ export function DashboardShell({
 
       <MobileNav role={role} currentPath={currentPath} />
       <ChatWidget />
+      <NotificationsListener />
     </div>
   )
 }

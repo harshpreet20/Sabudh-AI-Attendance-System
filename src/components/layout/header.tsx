@@ -24,6 +24,14 @@ import {
   Shield,
   Info,
   CheckCheck,
+  MessagesSquare,
+  ThumbsUp,
+  CheckCircle2,
+  Megaphone,
+  ClipboardList,
+  CalendarOff,
+  Star,
+  Image as ImageIcon,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -44,6 +52,26 @@ const typeIcons: Record<string, { icon: LucideIcon; color: string }> = {
   certificate_eligible: { icon: Award, color: 'text-amber-600' },
   account_suspended: { icon: Shield, color: 'text-red-600' },
   account_restored: { icon: Shield, color: 'text-green-600' },
+  attendance_marked: { icon: CheckCircle, color: 'text-green-600' },
+  attendance_absent: { icon: XCircle, color: 'text-red-600' },
+  attendance_window_open: { icon: Clock, color: 'text-blue-600' },
+  class_cancelled: { icon: CalendarOff, color: 'text-red-600' },
+  schedule_updated: { icon: Clock, color: 'text-blue-600' },
+  discussion_reply: { icon: MessagesSquare, color: 'text-cyan-600' },
+  discussion_upvote: { icon: ThumbsUp, color: 'text-indigo-600' },
+  discussion_answer: { icon: CheckCircle2, color: 'text-green-600' },
+  discussion_thread: { icon: MessagesSquare, color: 'text-cyan-600' },
+  message: { icon: MessageSquare, color: 'text-indigo-600' },
+  leave_submitted: { icon: CalendarOff, color: 'text-amber-600' },
+  leave_reviewed: { icon: CalendarOff, color: 'text-green-600' },
+  announcement: { icon: Megaphone, color: 'text-purple-600' },
+  assignment_new: { icon: ClipboardList, color: 'text-amber-600' },
+  assignment_graded: { icon: CheckCircle2, color: 'text-green-600' },
+  submission_received: { icon: ClipboardList, color: 'text-blue-600' },
+  project_new: { icon: ClipboardList, color: 'text-amber-600' },
+  project_graded: { icon: CheckCircle2, color: 'text-green-600' },
+  photo_reviewed: { icon: ImageIcon, color: 'text-blue-600' },
+  progress_review: { icon: Star, color: 'text-amber-600' },
   system: { icon: Info, color: 'text-gray-600' },
   info: { icon: Info, color: 'text-blue-600' },
 }
@@ -85,7 +113,29 @@ export function Header({
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(notificationCount)
   const [notifOpen, setNotifOpen] = useState(false)
+  const [pushPermission, setPushPermission] = useState<'unsupported' | 'granted' | 'denied' | 'default'>('default')
   const unreadMessages = messageCount
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (!('Notification' in window)) {
+      setPushPermission('unsupported')
+    } else {
+      setPushPermission(window.Notification.permission as 'granted' | 'denied' | 'default')
+    }
+  }, [])
+
+  async function handleEnableAlerts() {
+    const { ensureNotificationsEnabled } = await import('@/lib/push-client')
+    const ok = await ensureNotificationsEnabled()
+    setPushPermission(
+      ok
+        ? 'granted'
+        : 'Notification' in window
+          ? (window.Notification.permission as 'denied' | 'default')
+          : 'unsupported',
+    )
+  }
 
   const initials = userName
     .split(' ')
@@ -220,6 +270,16 @@ export function Header({
                     </button>
                   )}
                 </div>
+
+                {pushPermission === 'default' && (
+                  <button
+                    onClick={handleEnableAlerts}
+                    className="flex w-full items-center gap-2 border-b border-gray-200/50 bg-indigo-50/40 px-4 py-2.5 text-left text-xs font-medium text-indigo-700 hover:bg-indigo-50/70 transition-colors"
+                  >
+                    <Bell className="h-3.5 w-3.5" />
+                    Enable browser notifications for instant alerts
+                  </button>
+                )}
 
                 <div className="max-h-80 overflow-y-auto">
                   {notifications.length === 0 ? (
