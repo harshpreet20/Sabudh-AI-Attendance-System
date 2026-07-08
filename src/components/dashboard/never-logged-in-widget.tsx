@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -43,11 +43,7 @@ export function NeverLoggedInWidget() {
   const [reason, setReason] = useState('')
   const [working, setWorking] = useState(false)
 
-  useEffect(() => {
-    load()
-  }, [])
-
-  function load() {
+  const load = useCallback(() => {
     setLoading(true)
     fetch('/api/admin/inactive-users')
       .then((r) => r.json())
@@ -56,7 +52,11 @@ export function NeverLoggedInWidget() {
       })
       .catch(() => {})
       .finally(() => setLoading(false))
-  }
+  }, [])
+
+  useEffect(() => {
+    load()
+  }, [load])
 
   function toggle(id: string) {
     setSelected((prev) => {
