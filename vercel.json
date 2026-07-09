@@ -1,0 +1,7 @@
+{
+  "crons": [
+    { "path": "/api/cron/engagement-nudges", "schedule": "30 3 * * *" },
+    { "path": "/api/cron/engagement-nudges", "schedule": "30 8 * * *" },
+    { "path": "/api/cron/engagement-nudges", "schedule": "30 14 * * *" }
+  ]
+}

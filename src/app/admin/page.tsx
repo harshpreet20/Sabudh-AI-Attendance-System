@@ -30,6 +30,7 @@ import Link from 'next/link'
 import { AdminEngagementSection } from '@/components/charts/admin-engagement-section'
 import { AtRiskWidget } from '@/components/dashboard/at-risk-widget'
 import { NeverLoggedInWidget } from '@/components/dashboard/never-logged-in-widget'
+import { DormantStudentsWidget } from '@/components/dashboard/dormant-students-widget'
 
 type AttendanceStatusVariant = 'success' | 'destructive' | 'warning' | 'secondary'
 
@@ -335,6 +336,11 @@ export default async function AdminDashboardPage() {
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <AtRiskWidget />
         <NeverLoggedInWidget />
+      </div>
+
+      {/* Inactive 48h+ (dormant) — left side */}
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <DormantStudentsWidget />
       </div>
 
       {/* Engagement Charts */}
