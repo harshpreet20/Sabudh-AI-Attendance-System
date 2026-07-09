@@ -1,13 +1,14 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Dialog } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
-import { UserX, Download, Bell, Ban, Archive, Trash2, CheckSquare, Square } from 'lucide-react'
+import { UserX, Download, Bell, Ban, Archive, Trash2, CheckSquare, Square, Search, Mail } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface InactiveStudent {
@@ -32,12 +33,13 @@ const ACTION_META: Record<BulkAction, { label: string; verb: string; destructive
   delete: { label: 'Delete', verb: 'permanently delete', destructive: true, needsConfirm: true },
 }
 
-// Admin dashboard widget: students who have never signed in even once. Supports
-// per-student reminders, a CSV download, and bulk actions (remind / suspend /
-// archive / delete) over a multi-select list.
+// Admin dashboard widget: students who have never signed in even once. Search
+// the list, select recipients, and re-send their welcome/login email — plus
+// bulk remind / suspend / archive / delete and a CSV download.
 export function NeverLoggedInWidget() {
   const [data, setData] = useState<Data | null>(null)
   const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [confirm, setConfirm] = useState<BulkAction | null>(null)
   const [reason, setReason] = useState('')
@@ -58,6 +60,15 @@ export function NeverLoggedInWidget() {
     load()
   }, [load])
 
+  const filtered = useMemo(() => {
+    if (!data) return []
+    const q = search.trim().toLowerCase()
+    if (!q) return data.students
+    return data.students.filter(
+      (s) => s.full_name.toLowerCase().includes(q) || s.email.toLowerCase().includes(q),
+    )
+  }, [data, search])
+
   function toggle(id: string) {
     setSelected((prev) => {
       const next = new Set(prev)
@@ -68,10 +79,18 @@ export function NeverLoggedInWidget() {
   }
 
   function toggleAll() {
-    if (!data) return
-    setSelected((prev) =>
-      prev.size === data.students.length ? new Set() : new Set(data.students.map((s) => s.id)),
-    )
+    const allSel = filtered.length > 0 && filtered.every((s) => selected.has(s.id))
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (allSel) filtered.forEach((s) => next.delete(s.id))
+      else filtered.forEach((s) => next.add(s.id))
+      return next
+    })
+  }
+
+  function selectedEmails(): string[] {
+    if (!data) return []
+    return data.students.filter((s) => selected.has(s.id)).map((s) => s.email)
   }
 
   async function runBulk(action: BulkAction) {
@@ -99,6 +118,30 @@ export function NeverLoggedInWidget() {
     }
   }
 
+  async function runEmail() {
+    if (selected.size === 0) {
+      toast.error('Select at least one student')
+      return
+    }
+    setWorking(true)
+    try {
+      const res = await fetch('/api/admin/bulk-resend-welcome', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emails: selectedEmails() }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        toast.error(json.error || 'Failed to send emails')
+        return
+      }
+      toast.success(json.message || 'Emails sent')
+      setSelected(new Set())
+    } finally {
+      setWorking(false)
+    }
+  }
+
   function requestAction(action: BulkAction) {
     if (selected.size === 0) {
       toast.error('Select at least one student')
@@ -114,7 +157,7 @@ export function NeverLoggedInWidget() {
   const pct = data.summary.total_students > 0
     ? Math.round((data.summary.never_logged_in / data.summary.total_students) * 100)
     : 0
-  const allSelected = data.students.length > 0 && selected.size === data.students.length
+  const allSelected = filtered.length > 0 && filtered.every((s) => selected.has(s.id))
 
   return (
     <Card>
@@ -141,6 +184,17 @@ export function NeverLoggedInWidget() {
           <p className="text-sm text-gray-500 text-center py-4">Everyone has logged in at least once. 🎉</p>
         ) : (
           <>
+            {/* Search */}
+            <div className="relative mb-2">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Search by name or email…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-8"
+              />
+            </div>
+
             {/* Select-all + bulk action toolbar */}
             <div className="flex items-center justify-between gap-2 flex-wrap mb-2 border-b border-white/20 pb-2">
               <button onClick={toggleAll} className="flex items-center gap-2 text-xs font-medium text-gray-600 hover:text-gray-900">
@@ -148,6 +202,9 @@ export function NeverLoggedInWidget() {
                 {selected.size > 0 ? `${selected.size} selected` : 'Select all'}
               </button>
               <div className="flex items-center gap-1.5 flex-wrap">
+                <Button size="sm" variant="secondary" disabled={selected.size === 0 || working} onClick={runEmail}>
+                  <Mail className="h-3.5 w-3.5 mr-1" /> Send email
+                </Button>
                 <Button size="sm" variant="secondary" disabled={selected.size === 0 || working} onClick={() => requestAction('remind')}>
                   <Bell className="h-3.5 w-3.5 mr-1" /> Remind
                 </Button>
@@ -164,25 +221,29 @@ export function NeverLoggedInWidget() {
             </div>
 
             <div className="space-y-1 max-h-80 overflow-y-auto">
-              {data.students.map((s) => {
-                const isSel = selected.has(s.id)
-                return (
-                  <button
-                    key={s.id}
-                    onClick={() => toggle(s.id)}
-                    className={`w-full flex items-center gap-2 text-left text-sm rounded-lg px-2 py-1.5 transition-colors ${isSel ? 'bg-indigo-50/60' : 'hover:bg-white/40'}`}
-                  >
-                    {isSel ? <CheckSquare className="h-4 w-4 shrink-0 text-indigo-500" /> : <Square className="h-4 w-4 shrink-0 text-gray-300" />}
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium truncate">{s.full_name}</p>
-                      <p className="text-xs text-gray-500 truncate">
-                        {s.email}
-                        {s.batch_name && ` · ${s.batch_name}`}
-                      </p>
-                    </div>
-                  </button>
-                )
-              })}
+              {filtered.length === 0 ? (
+                <p className="text-sm text-gray-500 text-center py-4">No students match &quot;{search}&quot;.</p>
+              ) : (
+                filtered.map((s) => {
+                  const isSel = selected.has(s.id)
+                  return (
+                    <button
+                      key={s.id}
+                      onClick={() => toggle(s.id)}
+                      className={`w-full flex items-center gap-2 text-left text-sm rounded-lg px-2 py-1.5 transition-colors ${isSel ? 'bg-indigo-50/60' : 'hover:bg-white/40'}`}
+                    >
+                      {isSel ? <CheckSquare className="h-4 w-4 shrink-0 text-indigo-500" /> : <Square className="h-4 w-4 shrink-0 text-gray-300" />}
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium truncate">{s.full_name}</p>
+                        <p className="text-xs text-gray-500 truncate">
+                          {s.email}
+                          {s.batch_name && ` · ${s.batch_name}`}
+                        </p>
+                      </div>
+                    </button>
+                  )
+                })
+              )}
             </div>
           </>
         )}
