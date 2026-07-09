@@ -257,7 +257,7 @@ export function Header({
           {notifOpen && (
             <>
               <div className="fixed inset-0 z-30" onClick={() => setNotifOpen(false)} />
-              <div className="absolute right-0 top-full z-40 mt-2 w-80 sm:w-96 rounded-2xl glass shadow-spatial border border-white/30 overflow-hidden">
+              <div className="absolute right-0 top-full z-40 mt-2 w-80 sm:w-96 rounded-2xl bg-white shadow-spatial border border-gray-200 overflow-hidden">
                 <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200/50">
                   <h3 className="text-sm font-semibold text-gray-900">Notifications</h3>
                   {unreadCount > 0 && (

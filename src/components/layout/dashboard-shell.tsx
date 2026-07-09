@@ -8,6 +8,7 @@ import { Footer } from './footer'
 import { MobileNav } from './mobile-nav'
 import { ChatWidget } from '@/components/chatbot/chat-widget'
 import { NotificationsListener } from '@/components/notifications/notifications-listener'
+import { EnableNotificationsPrompt } from '@/components/notifications/enable-notifications-prompt'
 import { useBadgeCounts } from '@/hooks/use-badge-counts'
 
 interface DashboardShellProps {
@@ -110,7 +111,10 @@ export function DashboardShell({
           onMenuClick={() => setMobileOpen(true)}
         />
 
-        <main className="flex-1 p-4 pb-20 lg:p-6 lg:pb-6">{children}</main>
+        <main className="flex-1 p-4 pb-20 lg:p-6 lg:pb-6">
+          <EnableNotificationsPrompt />
+          {children}
+        </main>
         <Footer className="hidden lg:block" />
       </div>
 
