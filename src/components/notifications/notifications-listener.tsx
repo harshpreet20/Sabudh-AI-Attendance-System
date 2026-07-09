@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
-import { pushSupported } from '@/lib/push-client'
+import { pushSupported, registerEngagementSync } from '@/lib/push-client'
 
 interface NotificationRow {
   id: string
@@ -30,7 +30,16 @@ export function NotificationsListener() {
     // available even when the tab is backgrounded (PWA-style delivery).
     if (pushSupported() && !registeredRef.current) {
       registeredRef.current = true
-      navigator.serviceWorker.register('/sw.js').catch(() => {})
+      navigator.serviceWorker
+        .register('/sw.js')
+        .then(() => {
+          // If the user has already granted notifications, (re)register the
+          // PWA self-scheduling engagement nudge.
+          if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+            registerEngagementSync().catch(() => {})
+          }
+        })
+        .catch(() => {})
     }
 
     async function show(n: NotificationRow) {

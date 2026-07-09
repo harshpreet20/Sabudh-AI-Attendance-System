@@ -73,7 +73,48 @@ export async function ensureNotificationsEnabled(): Promise<boolean> {
   }
   // Best-effort true-background push; harmless if VAPID isn't set up.
   subscribeToPush().catch(() => {})
+  // Register the PWA self-scheduling engagement nudge (no server cron needed).
+  registerEngagementSync().catch(() => {})
   return true
+}
+
+// Registers Periodic Background Sync so the installed PWA can wake itself and
+// fire randomized re-engagement nudges without any server cron. Chromium-only
+// and gated by the browser (installed PWA + site engagement); silently no-ops
+// elsewhere. Falls back to a one-off background sync registration.
+export async function registerEngagementSync(): Promise<void> {
+  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return
+  try {
+    const reg = (await navigator.serviceWorker.ready) as ServiceWorkerRegistration & {
+      periodicSync?: { register: (tag: string, opts: { minInterval: number }) => Promise<void> }
+      sync?: { register: (tag: string) => Promise<void> }
+    }
+
+    if (reg.periodicSync) {
+      // Ask for the periodic-background-sync permission if the API is available.
+      let allowed = true
+      try {
+        const status = await (navigator.permissions as unknown as {
+          query: (d: { name: string }) => Promise<{ state: string }>
+        }).query({ name: 'periodic-background-sync' })
+        allowed = status.state === 'granted'
+      } catch {
+        allowed = true // permission API not present — attempt registration anyway
+      }
+      if (allowed) {
+        // Browser controls the true cadence; minInterval is a lower bound (~12h).
+        await reg.periodicSync.register('engagement-nudge', { minInterval: 12 * 60 * 60 * 1000 })
+        return
+      }
+    }
+
+    // Fallback: one-off background sync (fires when connectivity is regained).
+    if (reg.sync) {
+      await reg.sync.register('engagement-nudge')
+    }
+  } catch {
+    // Unsupported browser — the optional server cron still covers delivery.
+  }
 }
 
 export async function unsubscribeFromPush(): Promise<void> {
