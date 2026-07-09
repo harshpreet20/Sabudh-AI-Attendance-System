@@ -6,8 +6,15 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import { MoonStar, Search, Mail, BellRing, CheckSquare, Square, Clock } from 'lucide-react'
+import { Dialog } from '@/components/ui/dialog'
+import { MoonStar, Search, Mail, BellRing, CheckSquare, Square, Clock, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
+
+interface PreviewSample {
+  theme: string
+  title: string
+  body: string
+}
 
 interface DormantStudent {
   id: string
@@ -37,6 +44,30 @@ export function DormantStudentsWidget() {
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [working, setWorking] = useState<'nudge' | 'email' | null>(null)
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const [previewLoading, setPreviewLoading] = useState(false)
+  const [previewAi, setPreviewAi] = useState(true)
+  const [samples, setSamples] = useState<PreviewSample[]>([])
+
+  async function loadPreview() {
+    setPreviewOpen(true)
+    setPreviewLoading(true)
+    setSamples([])
+    try {
+      const res = await fetch('/api/admin/engagement-preview')
+      const json = await res.json()
+      if (json.success) {
+        setSamples(json.data.samples)
+        setPreviewAi(json.data.ai)
+      } else {
+        toast.error('Failed to generate preview')
+      }
+    } catch {
+      toast.error('Failed to generate preview')
+    } finally {
+      setPreviewLoading(false)
+    }
+  }
 
   const load = useCallback(() => {
     setLoading(true)
@@ -113,10 +144,15 @@ export function DormantStudentsWidget() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <MoonStar className="h-5 w-5 text-amber-500" />
-          Inactive 48h+
-          <Badge variant="warning">{data.summary.dormant}</Badge>
+        <CardTitle className="flex items-center justify-between flex-wrap gap-2">
+          <span className="flex items-center gap-2">
+            <MoonStar className="h-5 w-5 text-amber-500" />
+            Inactive 48h+
+            <Badge variant="warning">{data.summary.dormant}</Badge>
+          </span>
+          <Button size="sm" variant="secondary" onClick={loadPreview}>
+            <Sparkles className="h-3.5 w-3.5 mr-1" /> Preview AI nudge
+          </Button>
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -185,6 +221,38 @@ export function DormantStudentsWidget() {
           </>
         )}
       </CardContent>
+
+      <Dialog open={previewOpen} onClose={() => setPreviewOpen(false)} title="AI nudge preview">
+        <div className="space-y-3">
+          <p className="text-sm text-gray-500">
+            Sample re-engagement notifications {previewAi ? 'generated live by AI' : '(templated — set OPENAI_API_KEY for AI copy)'}.
+            Tone and language vary every send.
+          </p>
+          {previewLoading ? (
+            <div className="space-y-2">
+              <Skeleton className="h-16 w-full" />
+              <Skeleton className="h-16 w-full" />
+              <Skeleton className="h-16 w-full" />
+            </div>
+          ) : (
+            samples.map((s, i) => (
+              <div key={i} className="rounded-xl border border-white/30 bg-white/50 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="font-semibold text-sm">{s.title}</p>
+                  <Badge variant="secondary">{s.theme.replace(/_/g, ' ')}</Badge>
+                </div>
+                <p className="text-sm text-gray-700 mt-1">{s.body}</p>
+              </div>
+            ))
+          )}
+          <div className="flex justify-between items-center pt-1">
+            <Button size="sm" variant="secondary" onClick={loadPreview} loading={previewLoading} disabled={previewLoading}>
+              <Sparkles className="h-3.5 w-3.5 mr-1" /> Regenerate
+            </Button>
+            <Button size="sm" onClick={() => setPreviewOpen(false)}>Close</Button>
+          </div>
+        </div>
+      </Dialog>
     </Card>
   )
 }
