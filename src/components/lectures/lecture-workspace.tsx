@@ -15,6 +15,7 @@ import { format, parseISO } from 'date-fns'
 import { ArrowLeft, FileText, Sparkles, ListChecks, HelpCircle, StickyNote, User, MessagesSquare, RefreshCw, Save } from 'lucide-react'
 import { SecureMaterialViewer } from './secure-material-viewer'
 import { AgentsPanel } from './agents-panel'
+import { Whiteboard } from './whiteboard'
 
 interface Material { id: string; title?: string; file_name: string | null; file_type: string | null }
 interface Bundle {
@@ -35,6 +36,7 @@ const TABS = [
   { value: 'summary', label: 'AI Summary' },
   { value: 'takeaways', label: 'Key Takeaways' },
   { value: 'quiz', label: 'Practice Quiz' },
+  { value: 'whiteboard', label: 'Whiteboard' },
   { value: 'teacher', label: 'Teacher Notes' },
   { value: 'personal', label: 'My Notes' },
   { value: 'discussion', label: 'Discussion' },
@@ -129,6 +131,10 @@ export function LectureWorkspace({ lectureId, basePath }: { lectureId: string; b
       </TabPanel>
       <TabPanel value="quiz" activeTab={tab}>
         <QuizPanel lectureId={lectureId} initial={data.ai.quiz} />
+      </TabPanel>
+
+      <TabPanel value="whiteboard" activeTab={tab}>
+        <Whiteboard lectureId={lectureId} canObserve={data.is_staff} />
       </TabPanel>
 
       <TabPanel value="teacher" activeTab={tab}>
