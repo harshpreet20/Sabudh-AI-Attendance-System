@@ -84,6 +84,8 @@ export function DashboardShell({
 
   const pageTitle = pageTitles[currentPath]
     || (currentPath.startsWith('/teacher/projects/') ? 'Project Details' : null)
+    || (/\/lectures\/[^/]+$/.test(currentPath) ? 'Lecture Workspace' : null)
+    || (/\/lectures$/.test(currentPath) ? 'Previous Classes' : null)
     || 'Dashboard'
 
   return (

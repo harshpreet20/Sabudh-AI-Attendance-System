@@ -702,6 +702,45 @@ export interface PushSubscriptionRecord {
   last_used_at: string
 }
 
+export interface LectureNote {
+  id: string
+  session_id: string
+  content: string
+  updated_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface LecturePersonalNote {
+  id: string
+  session_id: string
+  user_id: string
+  content: string
+  created_at: string
+  updated_at: string
+}
+
+export interface LectureAiContent {
+  id: string
+  session_id: string
+  kind: 'summary' | 'takeaways' | 'quiz'
+  difficulty: 'easy' | 'standard' | 'hard'
+  payload: Record<string, unknown>
+  model: string | null
+  generated_by: string | null
+  created_at: string
+}
+
+export interface LectureQuizAttempt {
+  id: string
+  session_id: string
+  user_id: string
+  answers: Record<string, string>
+  score: number
+  total: number
+  created_at: string
+}
+
 export interface Subject {
   id: string
   organization_id: string

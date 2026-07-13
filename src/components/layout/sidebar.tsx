@@ -62,6 +62,7 @@ const studentNavItems: NavItem[] = [
     href: '/dashboard/curriculum',
     children: [
       { label: 'Curriculum', icon: BookOpen, href: '/dashboard/curriculum' },
+      { label: 'Previous Classes', icon: History, href: '/dashboard/lectures' },
       { label: 'Assignments', icon: ClipboardList, href: '/dashboard/assignments', badgeKey: 'assignments' },
       { label: 'Projects', icon: FolderKanban, href: '/dashboard/projects' },
     ],
@@ -101,6 +102,7 @@ const teacherNavItems: NavItem[] = [
     href: '/teacher/curriculum',
     children: [
       { label: 'Curriculum', icon: BookOpen, href: '/teacher/curriculum' },
+      { label: 'Previous Classes', icon: History, href: '/teacher/lectures' },
       { label: 'Assignments', icon: ClipboardList, href: '/teacher/assignments', badgeKey: 'assignments' },
       { label: 'Projects', icon: FolderKanban, href: '/teacher/projects', badgeKey: 'projects' },
       { label: 'Progress', icon: TrendingUp, href: '/teacher/progress' },
@@ -161,6 +163,7 @@ const adminNavItems: NavItem[] = [
     href: '/admin/curriculum',
     children: [
       { label: 'Curriculum', icon: GraduationCap, href: '/admin/curriculum' },
+      { label: 'Previous Classes', icon: History, href: '/admin/lectures' },
       { label: 'Courses', icon: BookOpen, href: '/admin/courses' },
       { label: 'Certificates', icon: Award, href: '/admin/certificates' },
     ],
