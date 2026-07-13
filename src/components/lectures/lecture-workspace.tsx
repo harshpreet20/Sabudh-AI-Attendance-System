@@ -14,6 +14,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { format, parseISO } from 'date-fns'
 import { ArrowLeft, FileText, Sparkles, ListChecks, HelpCircle, StickyNote, User, MessagesSquare, RefreshCw, Save } from 'lucide-react'
 import { SecureMaterialViewer } from './secure-material-viewer'
+import { AgentsPanel } from './agents-panel'
 
 interface Material { id: string; title?: string; file_name: string | null; file_type: string | null }
 interface Bundle {
@@ -30,6 +31,7 @@ const DIFFICULTIES = ['easy', 'standard', 'hard'] as const
 
 const TABS = [
   { value: 'materials', label: 'Materials' },
+  { value: 'agents', label: 'AI Team' },
   { value: 'summary', label: 'AI Summary' },
   { value: 'takeaways', label: 'Key Takeaways' },
   { value: 'quiz', label: 'Practice Quiz' },
@@ -113,6 +115,10 @@ export function LectureWorkspace({ lectureId, basePath }: { lectureId: string; b
             </Card>
           </div>
         )}
+      </TabPanel>
+
+      <TabPanel value="agents" activeTab={tab}>
+        <AgentsPanel lectureId={lectureId} />
       </TabPanel>
 
       <TabPanel value="summary" activeTab={tab}>
