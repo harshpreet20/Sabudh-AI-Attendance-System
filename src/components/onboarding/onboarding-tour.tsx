@@ -19,6 +19,7 @@ import {
   QrCode,
   WifiOff,
   Bell,
+  History,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -94,6 +95,15 @@ const STEPS: OnboardingStep[] = [
     description:
       'Access course materials like PDFs, slides, and documents uploaded by your teacher. Track your progress as you work through each resource.',
     tip: 'Mark materials as "Complete" to track your learning journey.',
+  },
+  {
+    icon: History,
+    iconColor: 'text-indigo-600',
+    iconBg: 'bg-indigo-100',
+    title: 'New: Previous Class Workspace',
+    description:
+      'Revisit any past class under "Previous Classes". Each one has an AI summary and key takeaways, a practice quiz that grades itself, an AI Team you can ask about the lecture, a collaborative whiteboard, and your own private notes — everything you need to revise what you learned.',
+    tip: 'Missed a class or need a refresher? Open it from Previous Classes and take the practice quiz to test yourself.',
   },
   {
     icon: ClipboardList,

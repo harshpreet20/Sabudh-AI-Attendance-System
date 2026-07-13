@@ -19,6 +19,8 @@ import {
   X,
   GraduationCap,
   QrCode,
+  History,
+  PenTool,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -101,8 +103,26 @@ const STEPS: OnboardingStep[] = [
     iconBg: 'bg-purple-100',
     title: 'Curriculum',
     description:
-      'Upload and organize course materials such as PDFs, slides, and documents. Students can access these resources and track their progress through the material you provide.',
-    tip: 'Organize materials in a logical order so students can follow along with the course flow.',
+      'Upload PDFs, slides, and documents for your batch. When you choose a file, the system suggests which lecture it belongs to so students find it in the right place — you can always override the "Lecture" dropdown before uploading. PowerPoint and Word files are auto-converted to a secure, interactive in-browser format.',
+    tip: 'The AI lecture match is only a suggestion — the "Lecture" dropdown is always yours to change. Tie a file to a lecture and it appears in that lecture\'s workspace.',
+  },
+  {
+    icon: History,
+    iconColor: 'text-indigo-600',
+    iconBg: 'bg-indigo-100',
+    title: 'New: Previous Class Workspace',
+    description:
+      'Every completed class becomes an interactive workspace under "Previous Classes". Each one gives you and your students a secure material viewer (no downloads), an AI Team you can ask questions, an AI summary, key takeaways, an auto-graded practice quiz, a collaborative whiteboard, and teacher & personal notes.',
+    tip: 'Attach materials and add Teacher Notes to make each lecture a rich revision hub. Use "Manage materials" inside a lecture to attach files you already uploaded.',
+  },
+  {
+    icon: PenTool,
+    iconColor: 'text-rose-600',
+    iconBg: 'bg-rose-100',
+    title: 'New: Collaborative Whiteboard',
+    description:
+      'Inside each lecture workspace is a live whiteboard for sticky notes, shapes, text and freehand drawing — synced in real time with everyone viewing it. Generate an AI mind map of the lecture in one click, and replay the whole board from start to finish.',
+    tip: 'Use "Silent" to observe students working on the board without appearing in the participant list. Only staff can clear the board.',
   },
   {
     icon: Users,

@@ -17,6 +17,7 @@ import {
   ChevronRight,
   ChevronLeft,
   X,
+  History,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -101,6 +102,15 @@ const STEPS: OnboardingStep[] = [
     description:
       'Manage students, users, approvals, sessions, campuses, courses and certificates from the sidebar. Campus geofencing and attendance thresholds are configured here too.',
     tip: 'Keep campus coordinates and geofence radius accurate — attendance verification depends on them.',
+  },
+  {
+    icon: History,
+    iconColor: 'text-indigo-600',
+    iconBg: 'bg-indigo-100',
+    title: 'New: Previous Class Workspace',
+    description:
+      'Every completed class now has an interactive workspace under "Previous Classes" — a secure material viewer, an AI Team, AI summary, key takeaways, a self-grading quiz, a collaborative whiteboard, and teacher notes. When staff upload a file, the system suggests the right lecture and auto-converts PowerPoint/Word to a secure interactive format.',
+    tip: 'You can open any batch\'s lectures the same way instructors do — useful for spot-checking material quality.',
   },
   {
     icon: ShieldCheck,
