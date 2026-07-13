@@ -72,6 +72,8 @@ export default function TeacherCurriculumPage() {
 
   const [batches, setBatches] = useState<Batch[]>([])
   const [selectedBatch, setSelectedBatch] = useState('')
+  const [lectures, setLectures] = useState<{ id: string; label: string }[]>([])
+  const [selectedLecture, setSelectedLecture] = useState('')
   const [materials, setMaterials] = useState<CourseMaterial[]>([])
   const [progressMap, setProgressMap] = useState<Record<string, { viewed: number; completed: number }>>({})
   const [loading, setLoading] = useState(true)
@@ -157,6 +159,32 @@ export default function TeacherCurriculumPage() {
   useEffect(() => { fetchBatches() }, [fetchBatches])
   useEffect(() => { fetchMaterials() }, [fetchMaterials])
 
+  // Load this batch's lectures so uploads can auto-associate to a lecture.
+  useEffect(() => {
+    setSelectedLecture('')
+    if (!selectedBatch) { setLectures([]); return }
+    let cancelled = false
+    ;(async () => {
+      const { data } = await supabase
+        .from('sessions')
+        .select('id, session_date, topic_taught, status')
+        .eq('batch_id', selectedBatch)
+        .in('status', ['attendance_open', 'attendance_closed', 'completed'])
+        .order('session_date', { ascending: false })
+        .limit(200)
+      if (cancelled) return
+      const ordered = [...(data || [])].sort((a, b) => a.session_date.localeCompare(b.session_date))
+      const numberById = new Map(ordered.map((s, i) => [s.id, i + 1]))
+      setLectures(
+        (data || []).map((s) => ({
+          id: s.id,
+          label: `Lecture ${String(numberById.get(s.id)).padStart(2, '0')} · ${new Date(s.session_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}${s.topic_taught ? ` · ${s.topic_taught}` : ''}`,
+        })),
+      )
+    })()
+    return () => { cancelled = true }
+  }, [selectedBatch, supabase])
+
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -210,10 +238,11 @@ export default function TeacherCurriculumPage() {
       ? Math.max(...materials.map(m => m.sort_order)) + 1
       : 0
 
-    const { error: insertError } = await supabase
+    const { data: inserted, error: insertError } = await supabase
       .from('course_materials')
       .insert({
         batch_id: selectedBatch,
+        session_id: selectedLecture || null,
         title: titleFromName,
         description: null,
         file_url: publicUrl,
@@ -224,14 +253,24 @@ export default function TeacherCurriculumPage() {
         sort_order: maxSortOrder,
         uploaded_by: user.id,
       })
+      .select('id')
+      .single()
 
     setUploadProgress(100)
 
-    if (insertError) {
-      toast.error(`Failed to save material: ${insertError.message}`)
+    if (insertError || !inserted) {
+      toast.error(`Failed to save material: ${insertError?.message || 'unknown error'}`)
       await supabase.storage.from('uploads').remove([storagePath])
     } else {
-      toast.success('Material uploaded successfully')
+      // Auto-convert office documents (PPT/DOC) to an interactive PDF in the
+      // background. Harmless no-op if the conversion worker isn't configured.
+      const isOffice = /\.(pptx?|docx?)$/i.test(file.name) || /(powerpoint|presentation|msword|officedocument)/i.test(file.type || '')
+      if (isOffice) {
+        toast.success('Material uploaded — converting to interactive format…')
+        fetch(`/api/materials/${inserted.id}/convert`, { method: 'POST' }).then(() => fetchMaterials()).catch(() => {})
+      } else {
+        toast.success('Material uploaded successfully')
+      }
       fetchMaterials()
     }
 
@@ -267,6 +306,7 @@ export default function TeacherCurriculumPage() {
       .from('course_materials')
       .insert({
         batch_id: selectedBatch,
+        session_id: selectedLecture || null,
         title: addForm.title.trim(),
         description: addForm.description.trim() || null,
         file_url: '',
@@ -372,6 +412,18 @@ export default function TeacherCurriculumPage() {
           >
             <option value="">Choose a batch</option>
             {batches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+          </Select>
+        </div>
+
+        <div className="flex-1">
+          <Select
+            label="Lecture (optional)"
+            value={selectedLecture}
+            onChange={(e) => setSelectedLecture(e.target.value)}
+            disabled={!selectedBatch}
+          >
+            <option value="">Not tied to a lecture</option>
+            {lectures.map(l => <option key={l.id} value={l.id}>{l.label}</option>)}
           </Select>
         </div>
 

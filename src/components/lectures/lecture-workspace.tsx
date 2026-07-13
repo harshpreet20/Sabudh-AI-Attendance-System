@@ -153,7 +153,7 @@ export function LectureWorkspace({ lectureId, basePath }: { lectureId: string; b
 
 // --- Staff: attach/detach batch materials to this lecture ------------------
 function ManageMaterialsDialog({ lectureId, open, onClose, onChanged }: { lectureId: string; open: boolean; onClose: () => void; onChanged: () => void }) {
-  const [items, setItems] = useState<Array<{ id: string; title?: string; file_name: string | null; session_id: string | null }>>([])
+  const [items, setItems] = useState<Array<{ id: string; title?: string; file_name: string | null; file_type?: string | null; session_id: string | null }>>([])
   const [loading, setLoading] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
 
@@ -179,6 +179,12 @@ function ManageMaterialsDialog({ lectureId, open, onClose, onChanged }: { lectur
       })
       if (!res.ok) { toast.error('Update failed'); return }
       setItems((prev) => prev.map((m) => (m.id === materialId ? { ...m, session_id: attach ? lectureId : null } : m)))
+      // Auto-convert office docs to interactive PDF when attached.
+      if (attach) {
+        const it = items.find((m) => m.id === materialId)
+        const isOffice = /\.(pptx?|docx?)$/i.test(it?.file_name || '') || /(powerpoint|presentation|msword|officedocument)/i.test(it?.file_type || '')
+        if (isOffice) fetch(`/api/materials/${materialId}/convert`, { method: 'POST' }).catch(() => {})
+      }
       onChanged()
     } finally {
       setBusyId(null)

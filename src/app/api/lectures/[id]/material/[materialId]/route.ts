@@ -24,16 +24,23 @@ export async function GET(
 
     const { data: material } = await service
       .from('course_materials')
-      .select('id, session_id, bucket, storage_path, file_type, file_name')
+      .select('id, session_id, bucket, storage_path, file_type, file_name, converted_pdf_path, converted_bucket, conversion_status')
       .eq('id', materialId)
       .maybeSingle()
 
-    if (!material || material.session_id !== id || !material.storage_path) {
+    if (!material || material.session_id !== id) {
       return NextResponse.json({ success: false, error: { code: 'NOT_FOUND' } }, { status: 404 })
     }
 
-    const bucket = material.bucket || 'uploads'
-    const { data: signed, error } = await service.storage.from(bucket).createSignedUrl(material.storage_path, 300)
+    // Prefer the converted interactive PDF (the original office file is never
+    // served to students).
+    const useConverted = material.conversion_status === 'done' && material.converted_pdf_path
+    const bucket = useConverted ? material.converted_bucket || 'lecture-content' : material.bucket || 'uploads'
+    const objectPath = useConverted ? material.converted_pdf_path! : material.storage_path
+    if (!objectPath) {
+      return NextResponse.json({ success: false, error: { code: 'NOT_FOUND' } }, { status: 404 })
+    }
+    const { data: signed, error } = await service.storage.from(bucket).createSignedUrl(objectPath, 300)
     if (error || !signed) {
       return NextResponse.json({ success: false, error: { code: 'SIGN_FAILED', message: 'Could not prepare content' } }, { status: 500 })
     }
@@ -48,7 +55,15 @@ export async function GET(
 
     return NextResponse.json({
       success: true,
-      data: { url: signed.signedUrl, file_type: material.file_type, file_name: material.file_name, expires_in: 300 },
+      data: {
+        url: signed.signedUrl,
+        // When serving the converted copy, advertise it as a PDF so the viewer
+        // renders it interactively regardless of the original office format.
+        file_type: useConverted ? 'application/pdf' : material.file_type,
+        file_name: material.file_name,
+        converted: useConverted,
+        expires_in: 300,
+      },
     })
   } catch (error) {
     console.error('[lectures material] error:', error)
