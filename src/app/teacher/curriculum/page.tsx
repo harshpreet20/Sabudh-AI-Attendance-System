@@ -80,6 +80,11 @@ export default function TeacherCurriculumPage() {
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
 
+  // Staged file + AI lecture suggestion (teacher confirms/overrides before upload).
+  const [pendingFile, setPendingFile] = useState<File | null>(null)
+  const [suggesting, setSuggesting] = useState(false)
+  const [suggestion, setSuggestion] = useState<{ session_id: string | null; label?: string; confidence?: string; via?: string } | null>(null)
+
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [editingMaterial, setEditingMaterial] = useState<CourseMaterial | null>(null)
   const [editForm, setEditForm] = useState({ title: '', description: '' })
@@ -162,6 +167,8 @@ export default function TeacherCurriculumPage() {
   // Load this batch's lectures so uploads can auto-associate to a lecture.
   useEffect(() => {
     setSelectedLecture('')
+    setPendingFile(null)
+    setSuggestion(null)
     if (!selectedBatch) { setLectures([]); return }
     let cancelled = false
     ;(async () => {
@@ -185,19 +192,62 @@ export default function TeacherCurriculumPage() {
     return () => { cancelled = true }
   }, [selectedBatch, supabase])
 
-  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  // Ask the (cost-optimized) suggester which lecture this file belongs to.
+  // Only pre-fills the dropdown when the teacher hasn't already chosen one.
+  const suggestLecture = useCallback(async (fileName: string) => {
+    if (!selectedBatch) return
+    setSuggesting(true)
+    setSuggestion(null)
+    try {
+      const res = await fetch('/api/materials/suggest-lecture', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ batch_id: selectedBatch, file_name: fileName }),
+      })
+      const json = await res.json()
+      if (json.success && json.data?.session_id) {
+        setSuggestion(json.data)
+        setSelectedLecture((cur) => cur || json.data.session_id) // never override a manual choice
+      } else {
+        setSuggestion({ session_id: null })
+      }
+    } catch {
+      setSuggestion({ session_id: null })
+    } finally {
+      setSuggesting(false)
+    }
+  }, [selectedBatch])
+
+  // File chosen -> stage it and auto-suggest a lecture (teacher can still override).
+  function handleFilePicked(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
+    if (fileInputRef.current) fileInputRef.current.value = ''
     if (!file) return
 
     if (file.size > MAX_FILE_SIZE) {
       toast.error('File size exceeds 50MB limit')
-      if (fileInputRef.current) fileInputRef.current.value = ''
+      return
+    }
+    if (!selectedBatch) {
+      toast.error('Please select a batch first')
       return
     }
 
+    setPendingFile(file)
+    suggestLecture(file.name)
+  }
+
+  function cancelPending() {
+    setPendingFile(null)
+    setSuggestion(null)
+  }
+
+  async function handleFileUpload() {
+    const file = pendingFile
+    if (!file) return
+
     if (!selectedBatch) {
       toast.error('Please select a batch first')
-      if (fileInputRef.current) fileInputRef.current.value = ''
       return
     }
 
@@ -222,7 +272,6 @@ export default function TeacherCurriculumPage() {
       toast.error(`Failed to upload file: ${uploadError.message}`)
       setUploading(false)
       setUploadProgress(0)
-      if (fileInputRef.current) fileInputRef.current.value = ''
       return
     }
 
@@ -272,11 +321,12 @@ export default function TeacherCurriculumPage() {
         toast.success('Material uploaded successfully')
       }
       fetchMaterials()
+      setPendingFile(null)
+      setSuggestion(null)
     }
 
     setUploading(false)
     setUploadProgress(0)
-    if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
   async function handleManualAdd() {
@@ -441,21 +491,80 @@ export default function TeacherCurriculumPage() {
             ref={fileInputRef}
             type="file"
             accept={ACCEPTED_TYPES}
-            onChange={handleFileUpload}
+            onChange={handleFilePicked}
             className="hidden"
-            disabled={uploading || !selectedBatch}
+            disabled={uploading || !!pendingFile || !selectedBatch}
           />
           <Button
             onClick={() => fileInputRef.current?.click()}
-            disabled={uploading || !selectedBatch}
-            loading={uploading}
+            disabled={uploading || !!pendingFile || !selectedBatch}
             className="w-full sm:w-auto"
           >
             <Upload className="mr-2 h-4 w-4" />
-            Upload Material
+            Choose File
           </Button>
         </div>
       </div>
+
+      {pendingFile && !uploading && (
+        <Card>
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-2 min-w-0">
+                <FileText className="h-5 w-5 shrink-0 text-indigo-500" />
+                <div className="min-w-0">
+                  <p className="font-medium text-gray-900 truncate">{pendingFile.name}</p>
+                  <p className="text-xs text-gray-500">{formatFileSize(pendingFile.size)} · ready to upload</p>
+                </div>
+              </div>
+              <Button variant="ghost" size="sm" onClick={cancelPending} disabled={uploading}>Cancel</Button>
+            </div>
+
+            <div className="rounded-lg border border-indigo-100 bg-indigo-50/50 p-3">
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <span className="text-xs font-medium text-indigo-700">AI lecture match</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-xs"
+                  onClick={() => suggestLecture(pendingFile.name)}
+                  loading={suggesting}
+                  disabled={suggesting}
+                >
+                  Re-suggest
+                </Button>
+              </div>
+              {suggesting ? (
+                <p className="text-sm text-gray-500">Matching this file to a lecture…</p>
+              ) : suggestion?.session_id ? (
+                <p className="text-sm text-gray-700">
+                  Suggested <span className="font-medium">{suggestion.label}</span>
+                  {suggestion.confidence && (
+                    <Badge variant="secondary" className="ml-2 align-middle">
+                      {suggestion.confidence} · {suggestion.via === 'ai' ? 'AI' : 'auto'}
+                    </Badge>
+                  )}
+                  <span className="block text-xs text-gray-500 mt-0.5">
+                    Pre-selected above — change the “Lecture” dropdown to override.
+                  </span>
+                </p>
+              ) : (
+                <p className="text-sm text-gray-500">
+                  No confident match — pick a lecture above, or leave it untied.
+                </p>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={cancelPending} disabled={uploading}>Cancel</Button>
+              <Button onClick={handleFileUpload} loading={uploading}>
+                <Upload className="mr-2 h-4 w-4" />
+                Upload{selectedLecture ? ' to selected lecture' : ''}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {uploading && (
         <Card>
