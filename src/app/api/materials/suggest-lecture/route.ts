@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
+import { heuristicMatch, type LectureCandidate } from '@/lib/lecture-match'
 
 // Suggests which lecture an uploaded material belongs to. Cost-optimized:
 // a local heuristic resolves the common cases (explicit "Lecture 3", "week5",
@@ -8,25 +9,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 // filename + topic list only — never file contents) is used only when the
 // heuristic is inconclusive. The teacher can always override the result.
 
-interface Candidate { id: string; number: number; date: string; topic: string }
-
-const STOP = new Set(['the', 'and', 'for', 'with', 'intro', 'introduction', 'to', 'of', 'a', 'an', 'lecture', 'class', 'session', 'notes', 'slides', 'ppt', 'pptx', 'pdf', 'doc', 'docx', 'part', 'final', 'copy', 'v1', 'v2'])
-
-function tokens(s: string): string[] {
-  return s
-    .toLowerCase()
-    .replace(/\.[a-z0-9]+$/i, '')
-    .replace(/[^a-z0-9]+/g, ' ')
-    .split(' ')
-    .filter((t) => t.length > 2 && !STOP.has(t))
-}
-
-// Pull an explicit lecture/week/day number out of a filename, e.g.
-// "Lecture 03", "L2", "week-5", "class 7", "session2".
-function explicitNumber(name: string): number | null {
-  const m = name.toLowerCase().match(/(?:lecture|lec|class|week|day|session|unit|module|chapter|ch|[lw])\s*[-_# ]?\s*(\d{1,2})\b/)
-  return m ? parseInt(m[1], 10) : null
-}
+interface Candidate extends LectureCandidate { date: string }
 
 export async function POST(request: NextRequest) {
   try {
@@ -61,33 +44,15 @@ export async function POST(request: NextRequest) {
     // Number lectures oldest-first so "Lecture N" is stable (matches the list view).
     const ordered = [...list].sort((a, b) => a.session_date.localeCompare(b.session_date))
     const candidates: Candidate[] = ordered.map((s, i) => ({ id: s.id, number: i + 1, date: s.session_date, topic: s.topic_taught || '' }))
+    const byId = new Map(candidates.map((c) => [c.id, c]))
     const labelFor = (c: Candidate) =>
       `Lecture ${String(c.number).padStart(2, '0')}${c.topic ? ` · ${c.topic}` : ''}`
 
-    // 1) Heuristic — explicit number in the filename wins.
-    const n = explicitNumber(fileName)
-    if (n !== null) {
-      const hit = candidates.find((c) => c.number === n)
-      if (hit) return NextResponse.json({ success: true, data: { session_id: hit.id, label: labelFor(hit), confidence: 'high', via: 'heuristic' } })
-    }
-
-    // 2) Heuristic — filename <-> topic word overlap.
-    const fileTokens = new Set(tokens(fileName))
-    if (fileTokens.size > 0) {
-      let best: Candidate | null = null, bestScore = 0, second = 0
-      for (const c of candidates) {
-        if (!c.topic) continue
-        const tt = tokens(c.topic)
-        if (tt.length === 0) continue
-        const overlap = tt.filter((t) => fileTokens.has(t)).length
-        const score = overlap / Math.max(2, tt.length) // normalize by topic length
-        if (score > bestScore) { second = bestScore; bestScore = score; best = c }
-        else if (score > second) { second = score }
-      }
-      // Confident only when the match is strong and clearly beats the runner-up.
-      if (best && bestScore >= 0.5 && bestScore - second >= 0.25) {
-        return NextResponse.json({ success: true, data: { session_id: best.id, label: labelFor(best), confidence: 'medium', via: 'heuristic' } })
-      }
+    // 1+2) Free heuristic (explicit number, then filename<->topic overlap).
+    const heuristic = heuristicMatch(fileName, candidates)
+    if (heuristic) {
+      const hit = byId.get(heuristic.session_id)!
+      return NextResponse.json({ success: true, data: { session_id: hit.id, label: labelFor(hit), confidence: heuristic.confidence, via: 'heuristic' } })
     }
 
     // 3) AI fallback — only when the heuristic couldn't decide. Tiny prompt:
