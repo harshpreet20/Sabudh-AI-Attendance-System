@@ -74,10 +74,10 @@ const STEPS: OnboardingStep[] = [
     icon: QrCode,
     iconColor: 'text-sky-600',
     iconBg: 'bg-sky-100',
-    title: 'New: QR Backup Attendance',
+    title: 'New: Dynamic QR Attendance',
     description:
-      'While an attendance window is open, generate a time-limited QR code for the class. Students who can\'t use the verification word or camera can scan it to mark attendance — with GPS still verified. Pick a duration, then Regenerate or Revoke anytime.',
-    tip: 'A fresh QR auto-revokes the previous one, so only the code currently on screen works.',
+      'While an attendance window is open, start a live QR for the class. It refreshes every 15 seconds, so a photographed or forwarded code is useless within moments. Attendance is either/or — a student marks presence with the verification word OR by scanning this QR (GPS is verified either way). Keep the QR on screen for the whole window; Stop it anytime.',
+    tip: 'Because the code rotates every 15s, you can leave it up for the full session without worrying about screenshots being shared.',
   },
   {
     icon: BarChart3,

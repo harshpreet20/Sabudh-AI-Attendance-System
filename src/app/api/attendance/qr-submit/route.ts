@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
-import { validateQrToken, qrValidationMessage, type QrTokenRow } from '@/lib/qr-token'
+import { validateQrToken, qrValidationMessage, parseQrContent, verifyRotatingQrCode, type QrTokenRow } from '@/lib/qr-token'
 import { resolveGeofence, detectAnomalies, recordFlags } from '@/lib/attendance-verify'
 import { createNotification } from '@/lib/notifications'
 
@@ -28,11 +28,15 @@ export async function POST(request: NextRequest) {
 
     const service = createServiceClient()
 
+    // The scanned QR encodes `${token}.${rotatingCode}`; split it so the token
+    // locates the session and the code proves the QR was current when scanned.
+    const { token: tokenId, code } = parseQrContent(token)
+
     // 1. Validate the token (existence, expiry, revocation, usage cap).
     const { data: tokenRow } = await service
       .from('attendance_qr_tokens')
-      .select('id, session_id, expires_at, max_uses, use_count, revoked_at')
-      .eq('token', token)
+      .select('id, session_id, expires_at, max_uses, use_count, revoked_at, secret')
+      .eq('token', tokenId)
       .maybeSingle()
 
     const validation = validateQrToken(tokenRow as QrTokenRow | null)
@@ -43,6 +47,18 @@ export async function POST(request: NextRequest) {
       )
     }
     const activeToken = validation.token
+
+    // 1b. Dynamic QR: the rotating code must match the current 15s window.
+    // (Legacy tokens without a secret skip this and stay valid until expiry.)
+    const secret = (tokenRow as QrTokenRow & { secret?: string | null }).secret
+    if (secret) {
+      if (!verifyRotatingQrCode(secret, code || '')) {
+        return NextResponse.json(
+          { success: false, error: { code: 'STALE_QR', message: 'This QR code just refreshed. Point your camera at the latest code on screen.' } },
+          { status: 400 },
+        )
+      }
+    }
 
     // 2. Student must be active and belong to the session's batch.
     const { data: profile } = await supabase

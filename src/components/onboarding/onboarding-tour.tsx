@@ -64,10 +64,10 @@ const STEPS: OnboardingStep[] = [
     icon: QrCode,
     iconColor: 'text-sky-600',
     iconBg: 'bg-sky-100',
-    title: 'New: QR Backup Attendance',
+    title: 'New: Dynamic QR Attendance',
     description:
-      'If the verification word or camera isn\'t working, tap "Scan QR (backup)" on the Attendance page and scan the code your instructor displays. Your GPS location is still verified, so you must be in class.',
-    tip: 'The QR code is time-limited and expires quickly — scan it while it\'s on screen.',
+      'Instead of the verification word, you can tap "Scan QR (backup)" on the Attendance page and scan the live code your instructor displays. Your GPS is still verified. The code refreshes every 15 seconds, so just point your camera at whatever is on screen right now.',
+    tip: 'A screenshot won\'t work — the code changes every 15 seconds, so you must scan the live one in class.',
   },
   {
     icon: WifiOff,

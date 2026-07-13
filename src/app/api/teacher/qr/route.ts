@@ -1,10 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
-import { generateQrToken } from '@/lib/qr-token'
+import {
+  generateQrToken,
+  generateQrSecret,
+  rotatingQrCode,
+  currentQrStep,
+  msUntilNextStep,
+  buildQrContent,
+  QR_STEP_SECONDS,
+} from '@/lib/qr-token'
 
-const DEFAULT_TTL_SECONDS = 300 // 5 minutes
+const DEFAULT_TTL_SECONDS = 900 // 15 minutes — safe now that the code rotates
 const MAX_TTL_SECONDS = 3600
+
+// Build the live rotating-code fields for a token row (staff-only response).
+function rotationFields(row: { token: string; secret: string | null }) {
+  if (!row.secret) return { rotating: false as const }
+  const now = Date.now()
+  const code = rotatingQrCode(row.secret, currentQrStep(now))
+  return {
+    rotating: true as const,
+    step_seconds: QR_STEP_SECONDS,
+    current_code: code,
+    content: buildQrContent(row.token, code),
+    next_rotation_ms: msUntilNextStep(now),
+  }
+}
 
 async function requireStaff() {
   const supabase = await createClient()
@@ -31,7 +53,7 @@ export async function GET(request: NextRequest) {
   const supabase = createServiceClient()
   const { data: token } = await supabase
     .from('attendance_qr_tokens')
-    .select('id, token, session_id, expires_at, max_uses, use_count, revoked_at, created_at')
+    .select('id, token, secret, session_id, expires_at, max_uses, use_count, revoked_at, created_at')
     .eq('session_id', sessionId)
     .is('revoked_at', null)
     .gt('expires_at', new Date().toISOString())
@@ -39,7 +61,12 @@ export async function GET(request: NextRequest) {
     .limit(1)
     .maybeSingle()
 
-  return NextResponse.json({ success: true, data: token || null })
+  if (!token) return NextResponse.json({ success: true, data: null })
+
+  // Never leak the secret; expose only the current rotating code + timing.
+  const { secret, ...safe } = token
+  void secret
+  return NextResponse.json({ success: true, data: { ...safe, ...rotationFields(token) } })
 }
 
 // POST: generate a fresh, time-limited QR token for a session. Any previous
@@ -79,6 +106,7 @@ export async function POST(request: NextRequest) {
     .is('revoked_at', null)
 
   const token = generateQrToken()
+  const secret = generateQrSecret()
   const expiresAt = new Date(Date.now() + ttl * 1000).toISOString()
 
   const { data: inserted, error } = await supabase
@@ -86,6 +114,7 @@ export async function POST(request: NextRequest) {
     .insert({
       session_id: sessionId,
       token,
+      secret,
       created_by: user.id,
       expires_at: expiresAt,
       max_uses: maxUses,
@@ -98,7 +127,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, error: { code: 'INSERT_FAILED', message: 'Failed to create QR token' } }, { status: 500 })
   }
 
-  return NextResponse.json({ success: true, data: inserted })
+  return NextResponse.json({ success: true, data: { ...inserted, ...rotationFields({ token, secret }) } })
 }
 
 // DELETE: revoke the active token for a session.
