@@ -151,13 +151,13 @@ export function SlideStage({ compact = false }: { compact?: boolean }) {
 
   return (
     <div className="relative min-h-0 flex-1 overflow-hidden rounded-xl border border-gray-200 bg-white">
-      <div className={`flex h-full flex-col gap-4 overflow-y-auto ${compact ? 'p-3' : 'p-4 sm:p-8'}`}>
+      <div className={`flex h-full flex-col gap-3 overflow-y-auto overflow-x-hidden ${compact ? 'p-3' : 'p-4 sm:p-6'}`}>
         {slide.images.length > 0 && (
           <div className={`grid gap-3 ${slide.images.length > 1 && !compact ? 'sm:grid-cols-2' : ''}`}>
             {slide.images.map((src, k) => (
               // eslint-disable-next-line @next/next/no-img-element
               <img key={k} src={src} alt="" draggable={false}
-                className={`mx-auto max-w-full rounded-lg object-contain ${compact ? 'max-h-24' : 'max-h-[38vh] sm:max-h-[46vh]'}`} />
+                className={`mx-auto block h-auto w-auto max-w-full rounded-lg object-contain ${compact ? 'max-h-20' : 'max-h-[26vh] sm:max-h-[32vh]'}`} />
             ))}
           </div>
         )}

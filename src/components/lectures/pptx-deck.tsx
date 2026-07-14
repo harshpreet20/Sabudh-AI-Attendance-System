@@ -39,7 +39,7 @@ export function PptxDeck({ lectureId, materialId, title }: Props) {
     return (
       <div className="space-y-3">
         <div className="flex items-center gap-2 text-sm text-gray-500"><Presentation className="h-4 w-4 animate-pulse" /> Building interactive slides…</div>
-        <Skeleton className="h-[42vh] sm:h-[55vh] w-full" />
+        <Skeleton className="mx-auto h-[38vh] w-full max-w-3xl sm:h-[46vh]" />
       </div>
     )
   }
@@ -75,7 +75,7 @@ export function PptxDeck({ lectureId, materialId, title }: Props) {
           </div>
         </div>
       )}
-      <div className="flex h-[44vh] flex-col sm:h-[56vh]"><SlideStage /></div>
+      <div className="mx-auto flex h-[38vh] w-full max-w-3xl flex-col sm:h-[46vh] sm:max-h-[460px]"><SlideStage /></div>
       <Counter />
       <ThumbStrip />
       <p className="text-center text-[11px] text-gray-400">← → to move · Fullscreen or pop out to a floating window · streamed securely.</p>
