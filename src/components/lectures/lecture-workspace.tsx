@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { diffWords, applyDecisions } from '@/lib/text-diff'
 import { cacheGet, cacheSet } from '@/lib/device-cache'
+import { SlidePlayerProvider } from './slide-player'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -117,6 +118,7 @@ export function LectureWorkspace({ lectureId, basePath }: { lectureId: string; b
   if (!data) return <EmptyState title="Lecture unavailable" description="You may not have access to this lecture." icon={FileText} />
 
   return (
+    <SlidePlayerProvider>
     <div className="space-y-4">
       <Link href={basePath} className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800">
         <ArrowLeft className="h-4 w-4" /> Previous Classes
@@ -207,6 +209,7 @@ export function LectureWorkspace({ lectureId, basePath }: { lectureId: string; b
         <ManageMaterialsDialog lectureId={lectureId} open={manageOpen} onClose={() => setManageOpen(false)} onChanged={load} />
       )}
     </div>
+    </SlidePlayerProvider>
   )
 }
 
