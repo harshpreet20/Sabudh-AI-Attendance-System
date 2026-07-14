@@ -30,6 +30,7 @@ import {
   EngagementLineChart,
   EngagementRadarChart,
 } from '@/components/charts/engagement-charts'
+import { TeacherInactiveWidget } from '@/components/dashboard/teacher-inactive-widget'
 
 interface EngagementData {
   radial: { name: string; value: number; fill: string }[]
@@ -366,6 +367,9 @@ export default function TeacherDashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Students who never logged in */}
+      <TeacherInactiveWidget />
 
       {/* Engagement Charts */}
       {engagement && (

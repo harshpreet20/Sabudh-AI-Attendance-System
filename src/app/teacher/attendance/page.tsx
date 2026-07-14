@@ -16,6 +16,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
 import { CheckCircle, XCircle, ClipboardList, Clock, Gift, BookOpen, Save, Play, Square } from 'lucide-react'
 import { ElectricBorder } from '@/components/ui/electric-border'
+import { QrBackupPanel } from '@/components/attendance/qr-backup-panel'
 import type { Batch } from '@/types/database'
 
 interface SessionRecord {
@@ -569,7 +570,10 @@ export default function TeacherAttendancePage() {
         )
         // Highlight with an animated electric border only while attendance is live.
         return isOpen ? (
-          <ElectricBorder borderRadius={16}>{windowCard}</ElectricBorder>
+          <div className="space-y-4">
+            <ElectricBorder borderRadius={16}>{windowCard}</ElectricBorder>
+            <QrBackupPanel sessionId={activeSession.id} />
+          </div>
         ) : (
           windowCard
         )

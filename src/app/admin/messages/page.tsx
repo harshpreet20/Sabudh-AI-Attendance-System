@@ -10,6 +10,7 @@ import { Avatar } from '@/components/ui/avatar'
 import { ProfilePopover } from '@/components/ui/profile-popover'
 import { Dialog } from '@/components/ui/dialog'
 import { EmptyState } from '@/components/ui/empty-state'
+import { LastSeen } from '@/components/students/last-seen'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -432,7 +433,11 @@ export default function AdminMessagesPage() {
           </ProfilePopover>
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-gray-900 truncate">{activeChannel.other_name}</p>
-            <p className="text-xs text-gray-500 capitalize">{activeChannel.other_role}</p>
+            {activeChannel.other_role === 'student' ? (
+              <LastSeen authUserId={activeChannel.other_id} />
+            ) : (
+              <p className="text-xs text-gray-500 capitalize">{activeChannel.other_role}</p>
+            )}
           </div>
         </div>
 

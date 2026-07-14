@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
+import { teacherOnboardingKey } from '@/lib/onboarding'
 import {
   LayoutDashboard,
   CalendarClock,
@@ -17,6 +18,9 @@ import {
   ChevronLeft,
   X,
   GraduationCap,
+  QrCode,
+  History,
+  PenTool,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -67,6 +71,24 @@ const STEPS: OnboardingStep[] = [
     tip: 'Use the grace attendance feature sparingly and document the reason for your records.',
   },
   {
+    icon: QrCode,
+    iconColor: 'text-sky-600',
+    iconBg: 'bg-sky-100',
+    title: 'New: Dynamic QR Attendance',
+    description:
+      'While an attendance window is open, start a live QR for the class. It refreshes every 15 seconds, so a photographed or forwarded code is useless within moments. Attendance is either/or — a student marks presence with the verification word OR by scanning this QR (GPS is verified either way). Keep the QR on screen for the whole window; Stop it anytime.',
+    tip: 'Because the code rotates every 15s, you can leave it up for the full session without worrying about screenshots being shared.',
+  },
+  {
+    icon: BarChart3,
+    iconColor: 'text-fuchsia-600',
+    iconBg: 'bg-fuchsia-100',
+    title: 'New: Smarter Attendance Integrity',
+    description:
+      'Suspicious attempts — the same device used by two students, sudden location jumps or spoofed GPS — are now flagged automatically for admin review, so the attendance you see is more trustworthy.',
+    tip: 'Consistently flagged students are worth a quick check-in — the system surfaces them for you.',
+  },
+  {
     icon: FileText,
     iconColor: 'text-amber-600',
     iconBg: 'bg-amber-100',
@@ -81,8 +103,26 @@ const STEPS: OnboardingStep[] = [
     iconBg: 'bg-purple-100',
     title: 'Curriculum',
     description:
-      'Upload and organize course materials such as PDFs, slides, and documents. Students can access these resources and track their progress through the material you provide.',
-    tip: 'Organize materials in a logical order so students can follow along with the course flow.',
+      'Upload PDFs, slides, and documents for your batch. When you choose a file, the system suggests which lecture it belongs to so students find it in the right place — you can always override the "Lecture" dropdown before uploading. PowerPoint and Word files are auto-converted to a secure, interactive in-browser format.',
+    tip: 'The AI lecture match is only a suggestion — the "Lecture" dropdown is always yours to change. Tie a file to a lecture and it appears in that lecture\'s workspace.',
+  },
+  {
+    icon: History,
+    iconColor: 'text-indigo-600',
+    iconBg: 'bg-indigo-100',
+    title: 'New: Previous Class Workspace',
+    description:
+      'Every completed class becomes an interactive workspace under "Previous Classes". Each one gives you and your students a secure material viewer (no downloads), an AI Team you can ask questions, an AI summary, key takeaways, an auto-graded practice quiz, a collaborative whiteboard, and teacher & personal notes.',
+    tip: 'Attach materials and add Teacher Notes to make each lecture a rich revision hub. Use "Manage materials" inside a lecture to attach files you already uploaded.',
+  },
+  {
+    icon: PenTool,
+    iconColor: 'text-rose-600',
+    iconBg: 'bg-rose-100',
+    title: 'New: Collaborative Whiteboard',
+    description:
+      'Inside each lecture workspace is a live whiteboard for sticky notes, shapes, text and freehand drawing — synced in real time with everyone viewing it. Generate an AI mind map of the lecture in one click, and replay the whole board from start to finish.',
+    tip: 'Use "Silent" to observe students working on the board without appearing in the participant list. Only staff can clear the board.',
   },
   {
     icon: Users,
@@ -122,8 +162,6 @@ const STEPS: OnboardingStep[] = [
   },
 ]
 
-const LOCALSTORAGE_PREFIX = 'teacher_onboarding_completed_'
-
 export function TeacherOnboardingTour() {
   const [step, setStep] = useState(0)
   const [visible, setVisible] = useState(false)
@@ -134,7 +172,8 @@ export function TeacherOnboardingTour() {
     const supabase = createClient()
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return
-      const key = `${LOCALSTORAGE_PREFIX}${user.id}`
+      // Versioned key: bumping the tutorial version re-shows the tour once.
+      const key = teacherOnboardingKey(user.id)
       storageKeyRef.current = key
       try {
         if (!localStorage.getItem(key)) {

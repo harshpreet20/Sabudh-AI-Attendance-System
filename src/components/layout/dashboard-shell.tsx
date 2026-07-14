@@ -7,6 +7,8 @@ import { Header } from './header'
 import { Footer } from './footer'
 import { MobileNav } from './mobile-nav'
 import { ChatWidget } from '@/components/chatbot/chat-widget'
+import { NotificationsListener } from '@/components/notifications/notifications-listener'
+import { EnableNotificationsPrompt } from '@/components/notifications/enable-notifications-prompt'
 import { useBadgeCounts } from '@/hooks/use-badge-counts'
 
 interface DashboardShellProps {
@@ -82,6 +84,8 @@ export function DashboardShell({
 
   const pageTitle = pageTitles[currentPath]
     || (currentPath.startsWith('/teacher/projects/') ? 'Project Details' : null)
+    || (/\/lectures\/[^/]+$/.test(currentPath) ? 'Lecture Workspace' : null)
+    || (/\/lectures$/.test(currentPath) ? 'Previous Classes' : null)
     || 'Dashboard'
 
   return (
@@ -109,12 +113,16 @@ export function DashboardShell({
           onMenuClick={() => setMobileOpen(true)}
         />
 
-        <main className="flex-1 p-4 pb-20 lg:p-6 lg:pb-6">{children}</main>
+        <main className="flex-1 p-4 pb-20 lg:p-6 lg:pb-6">
+          <EnableNotificationsPrompt />
+          {children}
+        </main>
         <Footer className="hidden lg:block" />
       </div>
 
       <MobileNav role={role} currentPath={currentPath} />
       <ChatWidget />
+      <NotificationsListener />
     </div>
   )
 }

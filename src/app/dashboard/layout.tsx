@@ -30,7 +30,7 @@ export default async function DashboardLayout({
   const userEmail = profile?.email || user.email || ''
   const avatarUrl = profile?.profile_image_url || null
   const profileComplete = !!profile?.profile_image_url
-  const onboardingCompleted = profile?.onboarding_completed ?? false
+  const onboardingVersion = profile?.onboarding_version ?? 0
   const studentProfileId = profile?.id ?? null
 
   return (
@@ -39,7 +39,7 @@ export default async function DashboardLayout({
       userEmail={userEmail}
       avatarUrl={avatarUrl}
       profileComplete={profileComplete}
-      onboardingCompleted={onboardingCompleted}
+      onboardingVersion={onboardingVersion}
       studentProfileId={studentProfileId}
     >
       {children}

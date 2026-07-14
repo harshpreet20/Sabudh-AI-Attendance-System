@@ -31,6 +31,8 @@ import {
   Eye,
   CheckCircle2,
   Plus,
+  Lock,
+  Unlock,
 } from 'lucide-react'
 import type { Batch } from '@/types/database'
 
@@ -84,6 +86,28 @@ export default function AdminCurriculumPage() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [deletingMaterial, setDeletingMaterial] = useState<CourseMaterial | null>(null)
   const [deleting, setDeleting] = useState(false)
+
+  const [lockBusy, setLockBusy] = useState(false)
+  const currentBatch = batches.find((b) => b.id === selectedBatch)
+  const uploadsLocked = !!currentBatch?.uploads_locked
+
+  async function toggleUploadsLock() {
+    if (!selectedBatch) return
+    setLockBusy(true)
+    try {
+      const res = await fetch('/api/admin/batch-lock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ batch_id: selectedBatch, locked: !uploadsLocked }),
+      })
+      const json = await res.json()
+      if (!json.success) { toast.error(json.error?.message || 'Failed to update lock'); return }
+      setBatches((prev) => prev.map((b) => (b.id === selectedBatch ? { ...b, uploads_locked: !uploadsLocked } : b)))
+      toast.success(!uploadsLocked ? 'Uploads locked for this batch' : 'Uploads unlocked')
+    } finally {
+      setLockBusy(false)
+    }
+  }
 
   const fetchBatches = useCallback(async () => {
     const { data } = await supabase
@@ -370,6 +394,17 @@ export default function AdminCurriculumPage() {
 
         <div className="flex gap-2">
           <Button
+            variant={uploadsLocked ? 'default' : 'outline'}
+            onClick={toggleUploadsLock}
+            disabled={!selectedBatch}
+            loading={lockBusy}
+            className="w-full sm:w-auto"
+            title={uploadsLocked ? 'Uploads are locked for teachers — click to unlock' : 'Stop teachers from uploading to this batch'}
+          >
+            {uploadsLocked ? <Unlock className="mr-2 h-4 w-4" /> : <Lock className="mr-2 h-4 w-4" />}
+            {uploadsLocked ? 'Unlock uploads' : 'Stop uploads'}
+          </Button>
+          <Button
             variant="outline"
             onClick={() => setShowAddDialog(true)}
             disabled={!selectedBatch}
@@ -397,6 +432,13 @@ export default function AdminCurriculumPage() {
           </Button>
         </div>
       </div>
+
+      {selectedBatch && uploadsLocked && (
+        <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
+          <Lock className="h-4 w-4 shrink-0" />
+          <span>Uploads are <strong>locked</strong> for this batch — instructors can’t add materials. As an admin you can still upload, add topics, and delete.</span>
+        </div>
+      )}
 
       {uploading && (
         <Card>

@@ -31,6 +31,7 @@ import {
   Eye,
   CheckCircle2,
   Plus,
+  Lock,
 } from 'lucide-react'
 import type { Batch } from '@/types/database'
 
@@ -72,11 +73,18 @@ export default function TeacherCurriculumPage() {
 
   const [batches, setBatches] = useState<Batch[]>([])
   const [selectedBatch, setSelectedBatch] = useState('')
+  const [lectures, setLectures] = useState<{ id: string; label: string }[]>([])
+  const [selectedLecture, setSelectedLecture] = useState('')
   const [materials, setMaterials] = useState<CourseMaterial[]>([])
   const [progressMap, setProgressMap] = useState<Record<string, { viewed: number; completed: number }>>({})
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
+
+  // Staged file + AI lecture suggestion (teacher confirms/overrides before upload).
+  const [pendingFile, setPendingFile] = useState<File | null>(null)
+  const [suggesting, setSuggesting] = useState(false)
+  const [suggestion, setSuggestion] = useState<{ session_id: string | null; label?: string; confidence?: string; via?: string } | null>(null)
 
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [editingMaterial, setEditingMaterial] = useState<CourseMaterial | null>(null)
@@ -157,19 +165,92 @@ export default function TeacherCurriculumPage() {
   useEffect(() => { fetchBatches() }, [fetchBatches])
   useEffect(() => { fetchMaterials() }, [fetchMaterials])
 
-  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  // Load this batch's lectures so uploads can auto-associate to a lecture.
+  useEffect(() => {
+    setSelectedLecture('')
+    setPendingFile(null)
+    setSuggestion(null)
+    if (!selectedBatch) { setLectures([]); return }
+    let cancelled = false
+    ;(async () => {
+      const { data } = await supabase
+        .from('sessions')
+        .select('id, session_date, topic_taught, status')
+        .eq('batch_id', selectedBatch)
+        // Upcoming (scheduled) lectures included so material can be attached
+        // before a class is held.
+        .in('status', ['scheduled', 'attendance_open', 'attendance_closed', 'completed'])
+        .order('session_date', { ascending: false })
+        .limit(200)
+      if (cancelled) return
+      const ordered = [...(data || [])].sort((a, b) => a.session_date.localeCompare(b.session_date))
+      const numberById = new Map(ordered.map((s, i) => [s.id, i + 1]))
+      setLectures(
+        (data || []).map((s) => ({
+          id: s.id,
+          label: `Lecture ${String(numberById.get(s.id)).padStart(2, '0')} · ${new Date(s.session_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}${s.topic_taught ? ` · ${s.topic_taught}` : ''}`,
+        })),
+      )
+    })()
+    return () => { cancelled = true }
+  }, [selectedBatch, supabase])
+
+  // Ask the (cost-optimized) suggester which lecture this file belongs to.
+  // Only pre-fills the dropdown when the teacher hasn't already chosen one.
+  const suggestLecture = useCallback(async (fileName: string) => {
+    if (!selectedBatch) return
+    setSuggesting(true)
+    setSuggestion(null)
+    try {
+      const res = await fetch('/api/materials/suggest-lecture', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ batch_id: selectedBatch, file_name: fileName }),
+      })
+      const json = await res.json()
+      if (json.success && json.data?.session_id) {
+        setSuggestion(json.data)
+        setSelectedLecture((cur) => cur || json.data.session_id) // never override a manual choice
+      } else {
+        setSuggestion({ session_id: null })
+      }
+    } catch {
+      setSuggestion({ session_id: null })
+    } finally {
+      setSuggesting(false)
+    }
+  }, [selectedBatch])
+
+  // File chosen -> stage it and auto-suggest a lecture (teacher can still override).
+  function handleFilePicked(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
+    if (fileInputRef.current) fileInputRef.current.value = ''
     if (!file) return
 
     if (file.size > MAX_FILE_SIZE) {
       toast.error('File size exceeds 50MB limit')
-      if (fileInputRef.current) fileInputRef.current.value = ''
+      return
+    }
+    if (!selectedBatch) {
+      toast.error('Please select a batch first')
       return
     }
 
+    setPendingFile(file)
+    suggestLecture(file.name)
+  }
+
+  function cancelPending() {
+    setPendingFile(null)
+    setSuggestion(null)
+  }
+
+  async function handleFileUpload() {
+    const file = pendingFile
+    if (!file) return
+
     if (!selectedBatch) {
       toast.error('Please select a batch first')
-      if (fileInputRef.current) fileInputRef.current.value = ''
       return
     }
 
@@ -194,7 +275,6 @@ export default function TeacherCurriculumPage() {
       toast.error(`Failed to upload file: ${uploadError.message}`)
       setUploading(false)
       setUploadProgress(0)
-      if (fileInputRef.current) fileInputRef.current.value = ''
       return
     }
 
@@ -210,10 +290,11 @@ export default function TeacherCurriculumPage() {
       ? Math.max(...materials.map(m => m.sort_order)) + 1
       : 0
 
-    const { error: insertError } = await supabase
+    const { data: inserted, error: insertError } = await supabase
       .from('course_materials')
       .insert({
         batch_id: selectedBatch,
+        session_id: selectedLecture || null,
         title: titleFromName,
         description: null,
         file_url: publicUrl,
@@ -224,20 +305,35 @@ export default function TeacherCurriculumPage() {
         sort_order: maxSortOrder,
         uploaded_by: user.id,
       })
+      .select('id')
+      .single()
 
     setUploadProgress(100)
 
-    if (insertError) {
-      toast.error(`Failed to save material: ${insertError.message}`)
+    if (insertError || !inserted) {
+      toast.error(`Failed to save material: ${insertError?.message || 'unknown error'}`)
       await supabase.storage.from('uploads').remove([storagePath])
     } else {
-      toast.success('Material uploaded successfully')
+      // Auto-convert office documents (PPT/DOC) to an interactive PDF in the
+      // background. Harmless no-op if the conversion worker isn't configured.
+      const isOffice = /\.(pptx?|docx?)$/i.test(file.name) || /(powerpoint|presentation|msword|officedocument)/i.test(file.type || '')
+      if (isOffice) {
+        toast.success('Material uploaded — building interactive study material…')
+        // Conversion completion auto-prepares the interactive content server-side.
+        fetch(`/api/materials/${inserted.id}/convert`, { method: 'POST' }).then(() => fetchMaterials()).catch(() => {})
+      } else {
+        toast.success('Material uploaded successfully')
+        // PDFs are readable immediately — pre-build the lecture's study content
+        // so students find it ready and instant.
+        if (selectedLecture) fetch(`/api/lectures/${selectedLecture}/prepare`, { method: 'POST' }).catch(() => {})
+      }
       fetchMaterials()
+      setPendingFile(null)
+      setSuggestion(null)
     }
 
     setUploading(false)
     setUploadProgress(0)
-    if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
   async function handleManualAdd() {
@@ -267,6 +363,7 @@ export default function TeacherCurriculumPage() {
       .from('course_materials')
       .insert({
         batch_id: selectedBatch,
+        session_id: selectedLecture || null,
         title: addForm.title.trim(),
         description: addForm.description.trim() || null,
         file_url: '',
@@ -354,6 +451,8 @@ export default function TeacherCurriculumPage() {
     setDeleting(false)
   }
 
+  const uploadsLocked = !!batches.find((b) => b.id === selectedBatch)?.uploads_locked
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -362,6 +461,13 @@ export default function TeacherCurriculumPage() {
           <p className="mt-1 text-sm text-gray-500">Upload and manage course materials for your batches</p>
         </div>
       </div>
+
+      {selectedBatch && uploadsLocked && (
+        <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
+          <Lock className="h-4 w-4 shrink-0" />
+          <span>An administrator has <strong>locked uploads</strong> for this batch. You can’t add new materials right now — contact your admin if you need to.</span>
+        </div>
+      )}
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
         <div className="flex-1">
@@ -375,11 +481,23 @@ export default function TeacherCurriculumPage() {
           </Select>
         </div>
 
+        <div className="flex-1">
+          <Select
+            label="Lecture (optional)"
+            value={selectedLecture}
+            onChange={(e) => setSelectedLecture(e.target.value)}
+            disabled={!selectedBatch}
+          >
+            <option value="">Not tied to a lecture</option>
+            {lectures.map(l => <option key={l.id} value={l.id}>{l.label}</option>)}
+          </Select>
+        </div>
+
         <div className="flex gap-2">
           <Button
             variant="outline"
             onClick={() => setShowAddDialog(true)}
-            disabled={!selectedBatch}
+            disabled={!selectedBatch || uploadsLocked}
             className="w-full sm:w-auto"
           >
             <Plus className="mr-2 h-4 w-4" />
@@ -389,21 +507,80 @@ export default function TeacherCurriculumPage() {
             ref={fileInputRef}
             type="file"
             accept={ACCEPTED_TYPES}
-            onChange={handleFileUpload}
+            onChange={handleFilePicked}
             className="hidden"
-            disabled={uploading || !selectedBatch}
+            disabled={uploading || !!pendingFile || !selectedBatch || uploadsLocked}
           />
           <Button
             onClick={() => fileInputRef.current?.click()}
-            disabled={uploading || !selectedBatch}
-            loading={uploading}
+            disabled={uploading || !!pendingFile || !selectedBatch || uploadsLocked}
             className="w-full sm:w-auto"
           >
             <Upload className="mr-2 h-4 w-4" />
-            Upload Material
+            Choose File
           </Button>
         </div>
       </div>
+
+      {pendingFile && !uploading && (
+        <Card>
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-2 min-w-0">
+                <FileText className="h-5 w-5 shrink-0 text-indigo-500" />
+                <div className="min-w-0">
+                  <p className="font-medium text-gray-900 truncate">{pendingFile.name}</p>
+                  <p className="text-xs text-gray-500">{formatFileSize(pendingFile.size)} · ready to upload</p>
+                </div>
+              </div>
+              <Button variant="ghost" size="sm" onClick={cancelPending} disabled={uploading}>Cancel</Button>
+            </div>
+
+            <div className="rounded-lg border border-indigo-100 bg-indigo-50/50 p-3">
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <span className="text-xs font-medium text-indigo-700">AI lecture match</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-xs"
+                  onClick={() => suggestLecture(pendingFile.name)}
+                  loading={suggesting}
+                  disabled={suggesting}
+                >
+                  Re-suggest
+                </Button>
+              </div>
+              {suggesting ? (
+                <p className="text-sm text-gray-500">Matching this file to a lecture…</p>
+              ) : suggestion?.session_id ? (
+                <p className="text-sm text-gray-700">
+                  Suggested <span className="font-medium">{suggestion.label}</span>
+                  {suggestion.confidence && (
+                    <Badge variant="secondary" className="ml-2 align-middle">
+                      {suggestion.confidence} · {suggestion.via === 'ai' ? 'AI' : 'auto'}
+                    </Badge>
+                  )}
+                  <span className="block text-xs text-gray-500 mt-0.5">
+                    Pre-selected above — change the “Lecture” dropdown to override.
+                  </span>
+                </p>
+              ) : (
+                <p className="text-sm text-gray-500">
+                  No confident match — pick a lecture above, or leave it untied.
+                </p>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={cancelPending} disabled={uploading}>Cancel</Button>
+              <Button onClick={handleFileUpload} loading={uploading}>
+                <Upload className="mr-2 h-4 w-4" />
+                Upload{selectedLecture ? ' to selected lecture' : ''}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {uploading && (
         <Card>

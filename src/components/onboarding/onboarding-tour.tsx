@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
+import { ONBOARDING_VERSION } from '@/lib/onboarding'
 import {
   LayoutDashboard,
   CheckSquare,
@@ -15,6 +16,10 @@ import {
   ChevronLeft,
   X,
   Award,
+  QrCode,
+  WifiOff,
+  Bell,
+  History,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -52,8 +57,35 @@ const STEPS: OnboardingStep[] = [
     iconBg: 'bg-green-100',
     title: 'Attendance',
     description:
-      'When your teacher opens a session, head to "Attendance" to mark your presence. You\'ll enter a verification word provided by your instructor.',
+      'When your teacher opens a session, head to "Attendance" to mark your presence. You\'ll share your location and enter a verification word provided by your instructor.',
     tip: 'Maintain at least 80% attendance — it\'s required for your certificate.',
+  },
+  {
+    icon: QrCode,
+    iconColor: 'text-sky-600',
+    iconBg: 'bg-sky-100',
+    title: 'New: Dynamic QR Attendance',
+    description:
+      'Instead of the verification word, you can tap "Scan QR (backup)" on the Attendance page and scan the live code your instructor displays. Your GPS is still verified. The code refreshes every 15 seconds, so just point your camera at whatever is on screen right now.',
+    tip: 'A screenshot won\'t work — the code changes every 15 seconds, so you must scan the live one in class.',
+  },
+  {
+    icon: WifiOff,
+    iconColor: 'text-slate-600',
+    iconBg: 'bg-slate-100',
+    title: 'New: Offline Attendance',
+    description:
+      'Poor signal? Mark attendance as usual — if you\'re offline it\'s securely saved on your device and syncs automatically the moment you reconnect. Your location is captured and re-checked on sync.',
+    tip: 'Watch the sync status indicator on the Attendance page to confirm your record went through.',
+  },
+  {
+    icon: Bell,
+    iconColor: 'text-amber-600',
+    iconBg: 'bg-amber-100',
+    title: 'New: Instant Notifications',
+    description:
+      'Enable notifications to get instant alerts when attendance is marked, a class is cancelled, the attendance window opens, or your attendance drops low — no SMS needed.',
+    tip: 'Tap "Enable notifications" on the Attendance page and allow it in your browser prompt.',
   },
   {
     icon: BookOpen,
@@ -63,6 +95,15 @@ const STEPS: OnboardingStep[] = [
     description:
       'Access course materials like PDFs, slides, and documents uploaded by your teacher. Track your progress as you work through each resource.',
     tip: 'Mark materials as "Complete" to track your learning journey.',
+  },
+  {
+    icon: History,
+    iconColor: 'text-indigo-600',
+    iconBg: 'bg-indigo-100',
+    title: 'New: Previous Class Workspace',
+    description:
+      'Revisit any past class under "Previous Classes". Each one has an AI summary and key takeaways, a practice quiz that grades itself, an AI Team you can ask about the lecture, a collaborative whiteboard, and your own private notes — everything you need to revise what you learned.',
+    tip: 'Missed a class or need a refresher? Open it from Previous Classes and take the practice quiz to test yourself.',
   },
   {
     icon: ClipboardList,
@@ -125,7 +166,7 @@ export function OnboardingTour({ studentProfileId }: OnboardingTourProps) {
     const supabase = createClient()
     await supabase
       .from('student_profiles')
-      .update({ onboarding_completed: true })
+      .update({ onboarding_completed: true, onboarding_version: ONBOARDING_VERSION })
       .eq('id', studentProfileId)
     setVisible(false)
   }, [studentProfileId])

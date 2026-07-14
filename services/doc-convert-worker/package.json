@@ -1,0 +1,16 @@
+{
+  "name": "doc-convert-worker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Headless LibreOffice PPT/DOC -> PDF conversion worker for Sabudh AI",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}

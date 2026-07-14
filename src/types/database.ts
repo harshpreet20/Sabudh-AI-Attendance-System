@@ -108,6 +108,7 @@ export interface Batch {
   status: "active" | "completed" | "archived";
   total_planned_sessions: number;
   attendance_threshold_pct: number;
+  uploads_locked?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -171,6 +172,7 @@ export interface StudentProfile {
   ai_persona: string | null;
   risk_score: number;
   onboarding_completed: boolean;
+  onboarding_version: number;
   created_at: string;
   updated_at: string;
 }
@@ -633,6 +635,123 @@ export interface MaterialProgress {
   status: MaterialProgressStatus
   last_viewed_at: string | null
   completed_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+// --- Feature enhancement tables (migration 014) ---------------------------
+
+export interface AttendanceQrToken {
+  id: string
+  session_id: string
+  token: string
+  created_by: string | null
+  expires_at: string
+  max_uses: number | null
+  use_count: number
+  revoked_at: string | null
+  created_at: string
+}
+
+export type AttendanceFlagType =
+  | 'multiple_devices'
+  | 'duplicate_device'
+  | 'location_change'
+  | 'multiple_locations'
+  | 'duplicate_session'
+  | 'suspicious_accuracy'
+  | 'ip_mismatch'
+  | 'rapid_resubmission'
+  | 'other'
+
+export interface AttendanceFlag {
+  id: string
+  attendance_id: string | null
+  student_id: string
+  session_id: string | null
+  flag_type: AttendanceFlagType
+  severity: 'low' | 'medium' | 'high'
+  details: Record<string, unknown>
+  status: 'open' | 'reviewed' | 'dismissed' | 'confirmed'
+  reviewed_by: string | null
+  reviewed_at: string | null
+  created_at: string
+}
+
+export interface RiskAssessmentRecord {
+  id: string
+  student_id: string
+  batch_id: string | null
+  risk_level: 'low' | 'medium' | 'high' | 'critical'
+  risk_score: number
+  projected_pct: number | null
+  threshold_pct: number | null
+  consecutive_absences: number
+  factors: string[]
+  recommendation: string | null
+  created_at: string
+}
+
+export interface PushSubscriptionRecord {
+  id: string
+  user_id: string
+  endpoint: string
+  p256dh: string
+  auth: string
+  user_agent: string | null
+  created_at: string
+  last_used_at: string
+}
+
+export interface LectureNote {
+  id: string
+  session_id: string
+  content: string
+  updated_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface LecturePersonalNote {
+  id: string
+  session_id: string
+  user_id: string
+  content: string
+  created_at: string
+  updated_at: string
+}
+
+export interface LectureAiContent {
+  id: string
+  session_id: string
+  kind: 'summary' | 'takeaways' | 'quiz'
+  difficulty: 'easy' | 'standard' | 'hard'
+  payload: Record<string, unknown>
+  model: string | null
+  generated_by: string | null
+  created_at: string
+}
+
+export interface LectureQuizAttempt {
+  id: string
+  session_id: string
+  user_id: string
+  answers: Record<string, string>
+  score: number
+  total: number
+  created_at: string
+}
+
+export interface Subject {
+  id: string
+  organization_id: string
+  course_id: string | null
+  code: string | null
+  name: string
+  description: string | null
+  credits: number | null
+  faculty_id: string | null
+  status: 'active' | 'archived'
   created_at: string
   updated_at: string
 }

@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { DashboardShell } from '@/components/layout/dashboard-shell'
 import { OnboardingTour } from '@/components/onboarding/onboarding-tour'
+import { ONBOARDING_VERSION } from '@/lib/onboarding'
 
 interface StudentShellWrapperProps {
   children: React.ReactNode
@@ -11,7 +12,7 @@ interface StudentShellWrapperProps {
   userEmail: string
   avatarUrl: string | null
   profileComplete: boolean
-  onboardingCompleted: boolean
+  onboardingVersion: number
   studentProfileId: string | null
 }
 
@@ -23,7 +24,7 @@ export function StudentShellWrapper({
   userEmail,
   avatarUrl,
   profileComplete,
-  onboardingCompleted,
+  onboardingVersion,
   studentProfileId,
 }: StudentShellWrapperProps) {
   const pathname = usePathname()
@@ -39,7 +40,10 @@ export function StudentShellWrapper({
     }
   }, [profileComplete, isAllowedPath, router])
 
-  const showOnboarding = profileComplete && !onboardingCompleted && studentProfileId
+  // Show the tour to new users and to returning users whose completed tour is
+  // older than the current tutorial version (so content updates re-trigger it).
+  const showOnboarding =
+    profileComplete && onboardingVersion < ONBOARDING_VERSION && studentProfileId
 
   return (
     <DashboardShell

@@ -1,0 +1,13 @@
+{
+  "name": "Sabudh AI Attendance",
+  "short_name": "Sabudh AI",
+  "description": "AI-powered attendance, discussions, assignments and certificates for the Sabudh Foundation GEN AI course.",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#6366f1",
+  "icons": [
+    { "src": "/sabudh-logo.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/sabudh-logo.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

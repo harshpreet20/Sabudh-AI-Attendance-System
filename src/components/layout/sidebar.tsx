@@ -39,6 +39,8 @@ import {
   Bot,
   MapPin,
   BookOpen,
+  Sparkles,
+  FileSpreadsheet,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -60,6 +62,7 @@ const studentNavItems: NavItem[] = [
     href: '/dashboard/curriculum',
     children: [
       { label: 'Curriculum', icon: BookOpen, href: '/dashboard/curriculum' },
+      { label: 'Previous Classes', icon: History, href: '/dashboard/lectures' },
       { label: 'Assignments', icon: ClipboardList, href: '/dashboard/assignments', badgeKey: 'assignments' },
       { label: 'Projects', icon: FolderKanban, href: '/dashboard/projects' },
     ],
@@ -99,6 +102,7 @@ const teacherNavItems: NavItem[] = [
     href: '/teacher/curriculum',
     children: [
       { label: 'Curriculum', icon: BookOpen, href: '/teacher/curriculum' },
+      { label: 'Previous Classes', icon: History, href: '/teacher/lectures' },
       { label: 'Assignments', icon: ClipboardList, href: '/teacher/assignments', badgeKey: 'assignments' },
       { label: 'Projects', icon: FolderKanban, href: '/teacher/projects', badgeKey: 'projects' },
       { label: 'Progress', icon: TrendingUp, href: '/teacher/progress' },
@@ -125,6 +129,7 @@ const adminNavItems: NavItem[] = [
     children: [
       { label: 'Overview', icon: LayoutDashboard, href: '/admin' },
       { label: 'Analytics', icon: BarChart3, href: '/admin/analytics' },
+      { label: 'AI Insights', icon: Sparkles, href: '/admin/insights' },
       { label: 'Audit Logs', icon: FileText, href: '/admin/audit-logs' },
     ],
   },
@@ -137,6 +142,7 @@ const adminNavItems: NavItem[] = [
       { label: 'Students', icon: Users, href: '/admin/students' },
       { label: 'Manage Users', icon: UserPlus, href: '/admin/users' },
       { label: 'Import Students', icon: Upload, href: '/admin/import' },
+      { label: 'Bulk Upload', icon: FileSpreadsheet, href: '/admin/bulk-upload' },
     ],
   },
   {
@@ -157,6 +163,7 @@ const adminNavItems: NavItem[] = [
     href: '/admin/curriculum',
     children: [
       { label: 'Curriculum', icon: GraduationCap, href: '/admin/curriculum' },
+      { label: 'Previous Classes', icon: History, href: '/admin/lectures' },
       { label: 'Courses', icon: BookOpen, href: '/admin/courses' },
       { label: 'Certificates', icon: Award, href: '/admin/certificates' },
     ],
@@ -240,12 +247,8 @@ export function Sidebar({
   const sidebarContent = (
     <div className="flex h-full flex-col">
       {/* Logo */}
-      <div className="flex h-16 items-center gap-3 px-4">
+      <div className="flex h-16 items-center px-4">
         <Logo size="md" />
-        <div className="flex flex-col min-w-0">
-          <span className="text-lg font-bold text-gray-900 leading-tight">Sabudh AI</span>
-          <span className="text-[9px] font-medium text-gray-400 tracking-wide truncate">Powered by HotBot Studios</span>
-        </div>
       </div>
 
       {/* Navigation */}
