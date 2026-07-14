@@ -1,11 +1,16 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { getLectureAccess } from '@/lib/lecture-access'
 import { prepareLectureContent } from '@/lib/lecture-prepare'
 
+// Allow up to a minute for the (backgrounded) AI generation.
+export const maxDuration = 60
+
 // Staff-triggered (typically fire-and-forget after an upload): pre-build the
 // lecture's interactive study content so students find it ready and instant.
+// The response returns immediately; generation runs in the background via
+// after() so it never blocks the upload or times out the client.
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
@@ -20,8 +25,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     const body = await request.json().catch(() => ({}))
-    const result = await prepareLectureContent(service, id, { force: !!body.force, generatedBy: user.id })
-    return NextResponse.json({ success: true, data: result })
+    const force = !!body.force
+
+    after(async () => {
+      try {
+        await prepareLectureContent(service, id, { force, generatedBy: user.id })
+      } catch (e) {
+        console.error('[lectures/:id/prepare] background error:', e)
+      }
+    })
+
+    return NextResponse.json({ success: true, data: { queued: true } }, { status: 202 })
   } catch (error) {
     console.error('[lectures/:id/prepare] error:', error)
     return NextResponse.json({ success: false, error: { code: 'INTERNAL_ERROR' } }, { status: 500 })

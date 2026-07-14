@@ -1,7 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { isConvertible, conversionConfigured, convertToPdf } from '@/lib/doc-convert'
+
+export const maxDuration = 60
 
 // Converts a PPT/DOC material to a secure interactive PDF via the LibreOffice
 // worker and stores the result in the private lecture-content bucket. Staff only.
@@ -59,14 +61,21 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
         .eq('id', id)
 
       // Now that the office file is readable, auto-build the interactive study
-      // content so the lecture is immersive the moment a student opens it.
-      if (material.session_id) {
-        try {
-          const { prepareLectureContent } = await import('@/lib/lecture-prepare')
-          await prepareLectureContent(service, material.session_id, { force: true, generatedBy: user.id })
-        } catch (e) {
-          console.error('[convert] prepare error:', e)
-        }
+      // content in the BACKGROUND (after the response) so it's cached before any
+      // student opens the lecture, without slowing the conversion response.
+      // Staleness (material now newer than any cached content) drives it — no
+      // force, so parallel triggers don't double-spend tokens.
+      const sessionId = material.session_id
+      const uid = user.id
+      if (sessionId) {
+        after(async () => {
+          try {
+            const { prepareLectureContent } = await import('@/lib/lecture-prepare')
+            await prepareLectureContent(service, sessionId, { generatedBy: uid })
+          } catch (e) {
+            console.error('[convert] background prepare error:', e)
+          }
+        })
       }
 
       return NextResponse.json({ success: true, data: { status: 'done' } })
