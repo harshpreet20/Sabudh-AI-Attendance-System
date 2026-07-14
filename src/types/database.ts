@@ -108,6 +108,7 @@ export interface Batch {
   status: "active" | "completed" | "archived";
   total_planned_sessions: number;
   attendance_threshold_pct: number;
+  uploads_locked?: boolean;
   created_at: string;
   updated_at: string;
 }

@@ -31,6 +31,7 @@ import {
   Eye,
   CheckCircle2,
   Plus,
+  Lock,
 } from 'lucide-react'
 import type { Batch } from '@/types/database'
 
@@ -444,6 +445,8 @@ export default function TeacherCurriculumPage() {
     setDeleting(false)
   }
 
+  const uploadsLocked = !!batches.find((b) => b.id === selectedBatch)?.uploads_locked
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -452,6 +455,13 @@ export default function TeacherCurriculumPage() {
           <p className="mt-1 text-sm text-gray-500">Upload and manage course materials for your batches</p>
         </div>
       </div>
+
+      {selectedBatch && uploadsLocked && (
+        <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
+          <Lock className="h-4 w-4 shrink-0" />
+          <span>An administrator has <strong>locked uploads</strong> for this batch. You can’t add new materials right now — contact your admin if you need to.</span>
+        </div>
+      )}
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
         <div className="flex-1">
@@ -481,7 +491,7 @@ export default function TeacherCurriculumPage() {
           <Button
             variant="outline"
             onClick={() => setShowAddDialog(true)}
-            disabled={!selectedBatch}
+            disabled={!selectedBatch || uploadsLocked}
             className="w-full sm:w-auto"
           >
             <Plus className="mr-2 h-4 w-4" />
@@ -493,11 +503,11 @@ export default function TeacherCurriculumPage() {
             accept={ACCEPTED_TYPES}
             onChange={handleFilePicked}
             className="hidden"
-            disabled={uploading || !!pendingFile || !selectedBatch}
+            disabled={uploading || !!pendingFile || !selectedBatch || uploadsLocked}
           />
           <Button
             onClick={() => fileInputRef.current?.click()}
-            disabled={uploading || !!pendingFile || !selectedBatch}
+            disabled={uploading || !!pendingFile || !selectedBatch || uploadsLocked}
             className="w-full sm:w-auto"
           >
             <Upload className="mr-2 h-4 w-4" />
