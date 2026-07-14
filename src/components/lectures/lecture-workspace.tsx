@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { diffWords, applyDecisions } from '@/lib/text-diff'
 import { cacheGet, cacheSet } from '@/lib/device-cache'
 import { SlidePlayerProvider } from './slide-player'
+import { AssessmentPanel } from './assessment-panel'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -72,7 +73,7 @@ const TABS = [
   { value: 'agents', label: 'AI Team' },
   { value: 'summary', label: 'AI Summary' },
   { value: 'takeaways', label: 'Key Takeaways' },
-  { value: 'quiz', label: 'Practice Quiz' },
+  { value: 'quiz', label: 'Assessment' },
   { value: 'whiteboard', label: 'Whiteboard' },
   { value: 'teacher', label: 'Teacher Notes' },
   { value: 'personal', label: 'My Notes' },
@@ -179,7 +180,7 @@ export function LectureWorkspace({ lectureId, basePath }: { lectureId: string; b
         <AiPanel lectureId={lectureId} kind="takeaways" initial={data.ai.takeaways} render={renderTakeaways} icon={ListChecks} label="Key Takeaways" isStaff={data.is_staff} />
       </TabPanel>
       <TabPanel value="quiz" activeTab={tab}>
-        <QuizPanel lectureId={lectureId} initial={data.ai.quiz} isStaff={data.is_staff} />
+        <AssessmentPanel lectureId={lectureId} isStaff={data.is_staff} />
       </TabPanel>
 
       <TabPanel value="whiteboard" activeTab={tab}>
@@ -405,105 +406,6 @@ function renderTakeaways(p: Record<string, unknown>) {
       {section('Formulas', bullets(p.formulas))}
       {section('Definitions', defs(p.definitions))}
       {section('Revision Checklist', bullets(p.checklist))}
-    </div>
-  )
-}
-
-// --- Quiz panel ------------------------------------------------------------
-interface QuizQ { id: string; type: string; question: string; options?: string[] }
-function QuizPanel({ lectureId, initial, isStaff }: { lectureId: string; initial?: { difficulty: string; payload: unknown }; isStaff: boolean }) {
-  const [payload, setPayload] = useState<{ questions?: QuizQ[] } | null>((initial?.payload as { questions?: QuizQ[] }) ?? null)
-  const [difficulty, setDifficulty] = useState(initial?.difficulty || 'standard')
-  const [answers, setAnswers] = useState<Record<string, string>>({})
-  const [busy, setBusy] = useState(false)
-  const [result, setResult] = useState<{ score: number; total: number; review: Array<{ id: string; correct: boolean; answer: string; explanation: string }> } | null>(null)
-
-  const broadcast = useAiSync(lectureId, (m) => {
-    if (m.kind === 'quiz' && m.difficulty === difficulty) { setPayload(m.payload as { questions?: QuizQ[] }); setResult(null); setAnswers({}) }
-  })
-
-  async function generate(force: boolean) {
-    setBusy(true); setResult(null); setAnswers({})
-    try {
-      const res = await fetch(`/api/lectures/${lectureId}/ai`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'quiz', difficulty, force }) })
-      const json = await res.json()
-      if (!res.ok || !json.success) { toast.error(json.error?.message || 'Generation failed'); return }
-      setPayload(json.data.payload)
-      if (!json.data.cached) broadcast({ kind: 'quiz', difficulty, payload: json.data.payload })
-    } finally { setBusy(false) }
-  }
-
-  async function submit() {
-    setBusy(true)
-    try {
-      const res = await fetch(`/api/lectures/${lectureId}/quiz`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ answers, difficulty }) })
-      const json = await res.json()
-      if (!res.ok || !json.success) { toast.error(json.error?.message || 'Submit failed'); return }
-      setResult(json.data)
-      toast.success(`You scored ${json.data.score}/${json.data.total}`)
-    } finally { setBusy(false) }
-  }
-
-  const reviewById = new Map((result?.review || []).map((r) => [r.id, r]))
-
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <span className="flex items-center gap-2 text-sm font-medium text-gray-700"><HelpCircle className="h-4 w-4 text-indigo-500" /> Practice Quiz</span>
-        <div className="flex items-center gap-1.5">
-          <div className="flex rounded-lg bg-gray-100 p-0.5">
-            {DIFFICULTIES.map((d) => <button key={d} onClick={() => setDifficulty(d)} className={`rounded-md px-2.5 py-1 text-xs capitalize ${difficulty === d ? 'bg-white shadow-sm text-indigo-600 font-medium' : 'text-gray-500'}`}>{d}</button>)}
-          </div>
-          {(!payload || isStaff) && (
-            <Button size="sm" onClick={() => generate(!!payload)} loading={busy} disabled={busy}>{payload ? 'Regenerate' : 'Generate'}</Button>
-          )}
-        </div>
-      </div>
-
-      {!payload ? (
-        <EmptyState title="No quiz yet" description="Generate a practice quiz from this lecture." icon={HelpCircle} />
-      ) : (
-        <Card><CardContent className="p-4 space-y-4">
-          {(payload.questions || []).map((q, idx) => {
-            const rev = reviewById.get(q.id)
-            return (
-              <div key={q.id} className={`rounded-lg border p-3 ${rev ? (rev.correct ? 'border-emerald-200 bg-emerald-50/40' : 'border-red-200 bg-red-50/40') : 'border-gray-200'}`}>
-                <p className="text-sm font-medium text-gray-900">{idx + 1}. {q.question}</p>
-                <div className="mt-2 space-y-1">
-                  {q.type === 'mcq' && (q.options || []).map((opt) => (
-                    <label key={opt} className="flex items-center gap-2 text-sm text-gray-700">
-                      <input type="radio" name={q.id} value={opt} checked={answers[q.id] === opt} disabled={!!result} onChange={(e) => setAnswers((a) => ({ ...a, [q.id]: e.target.value }))} />
-                      {opt}
-                    </label>
-                  ))}
-                  {q.type === 'true_false' && ['True', 'False'].map((opt) => (
-                    <label key={opt} className="flex items-center gap-2 text-sm text-gray-700">
-                      <input type="radio" name={q.id} value={opt.toLowerCase()} checked={answers[q.id] === opt.toLowerCase()} disabled={!!result} onChange={(e) => setAnswers((a) => ({ ...a, [q.id]: e.target.value }))} />
-                      {opt}
-                    </label>
-                  ))}
-                  {q.type === 'fill_blank' && (
-                    <input type="text" placeholder="Your answer" value={answers[q.id] || ''} disabled={!!result} onChange={(e) => setAnswers((a) => ({ ...a, [q.id]: e.target.value }))} className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm" />
-                  )}
-                </div>
-                {rev && (
-                  <p className={`mt-2 text-xs ${rev.correct ? 'text-emerald-700' : 'text-red-700'}`}>
-                    {rev.correct ? '✓ Correct.' : `✗ Correct answer: ${rev.answer}.`} {rev.explanation}
-                  </p>
-                )}
-              </div>
-            )
-          })}
-          {!result ? (
-            <Button onClick={submit} loading={busy} disabled={busy}>Submit answers</Button>
-          ) : (
-            <div className="flex items-center gap-3">
-              <Badge variant={result.score / result.total >= 0.6 ? 'success' : 'warning'}>Score: {result.score}/{result.total}</Badge>
-              <Button variant="secondary" size="sm" onClick={() => { setResult(null); setAnswers({}) }}>Retry</Button>
-            </div>
-          )}
-        </CardContent></Card>
-      )}
     </div>
   )
 }

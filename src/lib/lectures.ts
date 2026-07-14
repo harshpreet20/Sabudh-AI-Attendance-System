@@ -167,8 +167,9 @@ export async function generateQuiz(openai: OpenAI, context: string, difficulty: 
   return askJson(
     openai,
     `Create a practice quiz from the lecture material below. ${DIFFICULTY_HINT[difficulty] || ''}
-Return JSON: {"questions": [ {"id": "q1", "type": "mcq"|"true_false"|"fill_blank", "question": "...", "options": ["A","B","C","D"] (mcq only), "answer": "the correct option text / true|false / the exact blank answer", "explanation": "why"} ] }.
-Make 6-8 questions, mixed types, each with a clear single correct answer for auto-grading.
+Return JSON: {"questions": [ {"id": "q1", "type": "mcq"|"true_false"|"fill_blank", "question": "...", "options": ["A","B","C","D"] (mcq only), "answer": "the correct option text / true|false / the exact blank answer", "explanation": "why", "topic": "the section/topic this question tests"} ] }.
+Make 6-10 questions, mixed types, each with a clear single correct answer for auto-grading.
+IMPORTANT: cover EVERY major topic/section of the material — distribute the questions across the whole lecture so no key topic is missed, and set each question's "topic" field accordingly.
 
 LECTURE MATERIAL:
 ${context}`,
