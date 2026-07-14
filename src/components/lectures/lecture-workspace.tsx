@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
+import { diffWords, applyDecisions } from '@/lib/text-diff'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -13,10 +14,21 @@ import { Dialog } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/ui/empty-state'
 import { format, parseISO } from 'date-fns'
-import { ArrowLeft, FileText, Sparkles, ListChecks, HelpCircle, StickyNote, User, MessagesSquare, RefreshCw, Save } from 'lucide-react'
-import { SecureMaterialViewer } from './secure-material-viewer'
-import { AgentsPanel } from './agents-panel'
-import { Whiteboard } from './whiteboard'
+import { ArrowLeft, FileText, Sparkles, ListChecks, HelpCircle, StickyNote, User, MessagesSquare, RefreshCw, Save, GitCompare } from 'lucide-react'
+import dynamic from 'next/dynamic'
+
+// Heavy, tab-scoped components are code-split so the workspace opens fast: the
+// PDF/office viewer (pdfjs), the AI Team panel, and the collaborative whiteboard
+// only download when their tab is actually opened.
+const SecureMaterialViewer = dynamic(() => import('./secure-material-viewer').then((m) => m.SecureMaterialViewer), {
+  ssr: false, loading: () => <Skeleton className="h-96 w-full" />,
+})
+const AgentsPanel = dynamic(() => import('./agents-panel').then((m) => m.AgentsPanel), {
+  ssr: false, loading: () => <Skeleton className="h-64 w-full" />,
+})
+const Whiteboard = dynamic(() => import('./whiteboard').then((m) => m.Whiteboard), {
+  ssr: false, loading: () => <Skeleton className="h-[60vh] w-full" />,
+})
 
 interface Material { id: string; title?: string; file_name: string | null; file_type: string | null }
 interface Bundle {
@@ -40,7 +52,7 @@ interface AiBroadcast { kind: string; difficulty: string; payload: unknown }
 function useAiSync(lectureId: string, onRemote: (m: AiBroadcast) => void) {
   const chanRef = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null)
   const cbRef = useRef(onRemote)
-  cbRef.current = onRemote
+  useEffect(() => { cbRef.current = onRemote })
   useEffect(() => {
     const supabase = createClient()
     const ch = supabase.channel(`lec-ai:${lectureId}`)
@@ -480,31 +492,105 @@ function QuizPanel({ lectureId, initial, isStaff }: { lectureId: string; initial
 
 // --- Notes panel (teacher / personal) --------------------------------------
 function NotesPanel({ lectureId, scope, initial, canEdit, icon: Icon, label }: { lectureId: string; scope: 'teacher' | 'personal'; initial: string; canEdit: boolean; icon: typeof User; label: string }) {
-  const [content, setContent] = useState(initial)
+  const [baseline, setBaseline] = useState(initial) // last saved version
+  const [draft, setDraft] = useState(initial)       // working copy in the textarea
   const [saving, setSaving] = useState(false)
+  const [track, setTrack] = useState(false)
+  const [reviewing, setReviewing] = useState(false)
 
-  async function save() {
+  async function persist(content: string) {
     setSaving(true)
     try {
       const res = await fetch(`/api/lectures/${lectureId}/notes`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ scope, content }) })
-      if (!res.ok) { toast.error('Save failed'); return }
+      if (!res.ok) { toast.error('Save failed'); return false }
+      setBaseline(content)
+      setDraft(content)
+      setReviewing(false)
       toast.success('Saved')
+      return true
     } finally { setSaving(false) }
   }
 
   if (!canEdit) {
-    return content ? (
-      <Card><CardContent className="p-4 whitespace-pre-line text-sm text-gray-700">{content}</CardContent></Card>
+    return baseline ? (
+      <Card><CardContent className="p-4 whitespace-pre-line text-sm text-gray-700">{baseline}</CardContent></Card>
     ) : (
       <EmptyState title={`No ${label.toLowerCase()} yet`} description={scope === 'teacher' ? 'Your instructor hasn\'t added notes for this lecture.' : ''} icon={Icon} />
     )
   }
 
+  const hasChanges = draft !== baseline
+
+  if (reviewing) {
+    return <NotesReview baseline={baseline} draft={draft} saving={saving} onCancel={() => setReviewing(false)} onSave={persist} />
+  }
+
   return (
     <div className="space-y-2">
-      <Textarea value={content} onChange={(e) => setContent(e.target.value)} rows={12} placeholder={scope === 'teacher' ? 'Add notes, reading resources, homework, announcements…' : 'Your private notes for this lecture (Markdown supported)…'} className="font-mono text-sm" />
-      <div className="flex justify-end">
-        <Button onClick={save} loading={saving} disabled={saving}><Save className="h-3.5 w-3.5 mr-1" /> Save</Button>
+      <Textarea value={draft} onChange={(e) => setDraft(e.target.value)} rows={12} placeholder={scope === 'teacher' ? 'Add notes, reading resources, homework, announcements…' : 'Your private notes for this lecture (Markdown supported)…'} className="font-mono text-sm" />
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer select-none">
+          <input type="checkbox" checked={track} onChange={(e) => setTrack(e.target.checked)} className="rounded border-gray-300" />
+          Track changes
+          <span className="text-gray-400">— review each edit before saving</span>
+        </label>
+        {track ? (
+          <Button onClick={() => setReviewing(true)} disabled={!hasChanges} title={hasChanges ? '' : 'No changes to review'}>
+            <GitCompare className="h-3.5 w-3.5 mr-1" /> Review changes
+          </Button>
+        ) : (
+          <Button onClick={() => persist(draft)} loading={saving} disabled={saving || !hasChanges}><Save className="h-3.5 w-3.5 mr-1" /> Save</Button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// Track-changes review: shows the word-level diff between the saved note and the
+// draft; each insertion/deletion can be accepted or rejected before saving.
+function NotesReview({ baseline, draft, saving, onCancel, onSave }: { baseline: string; draft: string; saving: boolean; onCancel: () => void; onSave: (content: string) => Promise<boolean> }) {
+  const ops = useMemo(() => diffWords(baseline, draft), [baseline, draft])
+  const [decisions, setDecisions] = useState<Record<number, 'accept' | 'reject'>>({})
+  const changeIdx = ops.map((o, i) => (o.type === 'equal' ? -1 : i)).filter((i) => i >= 0)
+  const pending = changeIdx.length
+
+  const decide = (i: number, d: 'accept' | 'reject') => setDecisions((p) => ({ ...p, [i]: d }))
+  const setAll = (d: 'accept' | 'reject') => setDecisions(Object.fromEntries(changeIdx.map((i) => [i, d])))
+  const result = applyDecisions(ops, decisions)
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <span className="flex items-center gap-2 text-sm font-medium text-gray-700"><GitCompare className="h-4 w-4 text-indigo-500" /> Review changes <Badge variant="secondary">{pending} change{pending === 1 ? '' : 's'}</Badge></span>
+        <div className="flex items-center gap-1.5">
+          <Button size="sm" variant="secondary" onClick={() => setAll('accept')}>Accept all</Button>
+          <Button size="sm" variant="secondary" onClick={() => setAll('reject')}>Reject all</Button>
+        </div>
+      </div>
+
+      <Card><CardContent className="p-4">
+        <p className="whitespace-pre-wrap font-mono text-sm leading-relaxed">
+          {ops.map((op, i) => {
+            if (op.type === 'equal') return <span key={i} className="text-gray-700">{op.text}</span>
+            const d = decisions[i] ?? 'accept'
+            if (op.type === 'insert') {
+              const kept = d === 'accept'
+              return <span key={i} onClick={() => decide(i, kept ? 'reject' : 'accept')} title={kept ? 'Added — click to reject' : 'Rejected addition — click to accept'}
+                className={`cursor-pointer rounded px-0.5 ${kept ? 'bg-emerald-100 text-emerald-800 underline decoration-emerald-400' : 'bg-gray-100 text-gray-400 line-through'}`}>{op.text}</span>
+            }
+            const removed = d === 'accept'
+            return <span key={i} onClick={() => decide(i, removed ? 'reject' : 'accept')} title={removed ? 'Removed — click to keep' : 'Kept — click to remove'}
+              className={`cursor-pointer rounded px-0.5 ${removed ? 'bg-red-100 text-red-700 line-through' : 'bg-amber-100 text-amber-800'}`}>{op.text}</span>
+          })}
+        </p>
+      </CardContent></Card>
+
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <p className="text-[11px] text-gray-400">Green = added · red = removed · click any change to flip accept/reject.</p>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" onClick={onCancel} disabled={saving}>Back to edit</Button>
+          <Button size="sm" onClick={() => onSave(result)} loading={saving} disabled={saving}><Save className="h-3.5 w-3.5 mr-1" /> Save reviewed</Button>
+        </div>
       </div>
     </div>
   )
