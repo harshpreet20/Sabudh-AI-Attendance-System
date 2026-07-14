@@ -107,8 +107,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       const aid = body.assessment_id as string
       const eventType = String(body.event_type || 'other').slice(0, 40)
       const severity = ['low', 'medium', 'high'].includes(body.severity) ? body.severity : 'low'
-      const { data: a } = await service.from('quiz_assessments').select('id, user_id, status').eq('id', aid).maybeSingle()
-      if (!a || a.user_id !== user.id) return NextResponse.json({ success: false, error: { code: 'NOT_FOUND' } }, { status: 404 })
+      const { data: a } = await service.from('quiz_assessments').select('id, user_id, status, session_id').eq('id', aid).maybeSingle()
+      if (!a || a.user_id !== user.id || a.session_id !== id) return NextResponse.json({ success: false, error: { code: 'NOT_FOUND' } }, { status: 404 })
       if (a.status === 'in_progress') {
         await service.from('quiz_proctor_events').insert({ assessment_id: aid, event_type: eventType, severity, details: body.details || {} })
         const { data: cur } = await service.from('quiz_assessments').select('flags').eq('id', aid).maybeSingle()
@@ -122,8 +122,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       const aid = body.assessment_id as string
       const answers: Record<string, string> = body.answers && typeof body.answers === 'object' ? body.answers : {}
       const auto = !!body.auto
-      const { data: a } = await service.from('quiz_assessments').select('id, user_id, difficulty, status').eq('id', aid).maybeSingle()
-      if (!a || a.user_id !== user.id) return NextResponse.json({ success: false, error: { code: 'NOT_FOUND' } }, { status: 404 })
+      const { data: a } = await service.from('quiz_assessments').select('id, user_id, difficulty, status, session_id').eq('id', aid).maybeSingle()
+      if (!a || a.user_id !== user.id || a.session_id !== id) return NextResponse.json({ success: false, error: { code: 'NOT_FOUND' } }, { status: 404 })
       if (a.status !== 'in_progress') return NextResponse.json({ success: false, error: { code: 'ALREADY_SUBMITTED' } }, { status: 409 })
 
       const questions = await loadQuiz(service, id, a.difficulty)

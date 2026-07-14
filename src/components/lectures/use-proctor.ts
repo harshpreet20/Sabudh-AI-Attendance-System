@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 export type FlagSeverity = 'low' | 'medium' | 'high'
 export interface ProctorFlag { type: string; severity: FlagSeverity; details?: Record<string, unknown> }
@@ -94,6 +94,11 @@ export function useProctor(onFlag: (f: ProctorFlag) => void) {
       }
     }
   }, [flag])
+
+  // Guarantee teardown if the consumer unmounts while proctoring is active
+  // (route change, back button, error boundary) — never leave camera/mic on.
+  // stop is a stable useCallback([]), so this cleanup runs on unmount.
+  useEffect(() => () => stop(), [stop])
 
   return { containerRef, videoRef, cameraOn, micOn, active, start, stop }
 }

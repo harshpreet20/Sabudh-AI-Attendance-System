@@ -42,6 +42,7 @@ export function AssessmentPanel({ lectureId, isStaff }: { lectureId: string; isS
 
   const aidRef = useRef<string | null>(null)
   useEffect(() => { aidRef.current = aid }, [aid])
+  const submittingRef = useRef(false)
 
   const onFlag = useCallback((f: ProctorFlag) => {
     setFlagCount((c) => c + 1)
@@ -74,18 +75,27 @@ export function AssessmentPanel({ lectureId, isStaff }: { lectureId: string; isS
   const submit = useCallback(async (auto: boolean) => {
     const id = aidRef.current
     if (!id) return
+    // Guard against the auto-submit (time-up) and a manual click racing.
+    if (submittingRef.current) return
+    submittingRef.current = true
     setBusy(true)
     try {
-      const j = await fetch(`/api/lectures/${lectureId}/assessment`, {
+      const res = await fetch(`/api/lectures/${lectureId}/assessment`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'submit', assessment_id: id, answers, auto }),
-      }).then((r) => r.json())
+      })
+      const j = await res.json()
       if (!j.success) { toast.error(j.error?.message || 'Submit failed'); return }
       stopProctor()
       setResult(j.data); setPhase('done')
       toast[auto ? 'message' : 'success'](auto ? 'Time up — submitted automatically.' : `Scored ${j.data.score}/${j.data.total}`)
       loadPerf()
-    } finally { setBusy(false) }
+    } catch {
+      toast.error('Could not submit — check your connection and try again.')
+    } finally {
+      submittingRef.current = false
+      setBusy(false)
+    }
   }, [answers, lectureId, stopProctor, loadPerf])
 
   // Countdown.
@@ -99,29 +109,36 @@ export function AssessmentPanel({ lectureId, isStaff }: { lectureId: string; isS
   async function generateQuiz() {
     setBusy(true)
     try {
-      const j = await fetch(`/api/lectures/${lectureId}/ai`, {
+      const res = await fetch(`/api/lectures/${lectureId}/ai`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ kind: 'quiz', difficulty, force: true }),
-      }).then((r) => r.json())
+      })
+      const j = await res.json()
       if (!j.success) { toast.error(j.error?.message || 'Generation failed'); return }
       toast.success('Quiz ready')
+    } catch {
+      toast.error('Could not generate the quiz — check your connection.')
     } finally { setBusy(false) }
   }
 
   async function start() {
     setBusy(true)
     try {
-      const j = await fetch(`/api/lectures/${lectureId}/assessment`, {
+      const res = await fetch(`/api/lectures/${lectureId}/assessment`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'start', difficulty, camera: useCam, mic: useMic }),
-      }).then((r) => r.json())
+      })
+      const j = await res.json()
       if (!j.success) { toast.error(j.error?.message || 'Could not start'); return }
+      submittingRef.current = false
       setAid(j.data.assessment_id); aidRef.current = j.data.assessment_id
       setQuestions(j.data.questions || [])
       setAnswers({}); setResult(null); setFlagCount(0); setLastFlag('')
       setDuration(j.data.duration_seconds); setTimeLeft(j.data.duration_seconds)
       setPhase('running')
       await startProctor({ camera: useCam, mic: useMic })
+    } catch {
+      toast.error('Could not start the assessment — check your connection.')
     } finally { setBusy(false) }
   }
 
