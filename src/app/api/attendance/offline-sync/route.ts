@@ -101,12 +101,29 @@ async function syncOne(
 
     const { data: session } = await service
       .from('sessions')
-      .select('id, batch_id')
+      .select('id, batch_id, status, attendance_open, attendance_close')
       .eq('id', item.session_id)
       .maybeSingle()
     if (!session) return { client_dedup_key: key, status: 'rejected', reason: 'Session not found' }
     if (session.batch_id !== profile.batch_id) {
       return { client_dedup_key: key, status: 'rejected', reason: 'Session is not for your batch' }
+    }
+
+    // Enforce the attendance window at the captured time, so an offline item
+    // can't backfill attendance for a session whose window never opened, was
+    // cancelled, or that was captured outside the open/close window.
+    if (session.status === 'cancelled' || session.status === 'scheduled') {
+      return { client_dedup_key: key, status: 'rejected', reason: 'Attendance was not open for this session' }
+    }
+    if (!session.attendance_open) {
+      return { client_dedup_key: key, status: 'rejected', reason: 'Attendance was not open for this session' }
+    }
+    const capturedAt = item.captured_at ? new Date(item.captured_at) : new Date()
+    if (isNaN(capturedAt.getTime()) || capturedAt < new Date(session.attendance_open)) {
+      return { client_dedup_key: key, status: 'rejected', reason: 'Captured before attendance opened' }
+    }
+    if (session.attendance_close && capturedAt > new Date(session.attendance_close)) {
+      return { client_dedup_key: key, status: 'rejected', reason: 'Captured after attendance closed' }
     }
 
     // Already have a live (non-offline) row for this session?

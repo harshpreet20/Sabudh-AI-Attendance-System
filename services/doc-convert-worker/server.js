@@ -20,10 +20,17 @@ const SECRET = process.env.CONVERT_SECRET || ''
 const PORT = process.env.PORT || 8080
 const CONVERT_TIMEOUT_MS = 120000
 
+// Fail closed: without a shared secret the worker would accept unauthenticated
+// convert requests, so refuse to start.
+if (!SECRET) {
+  console.error('[doc-convert-worker] CONVERT_SECRET must be set; refusing to start without auth.')
+  process.exit(1)
+}
+
 app.get('/health', (_req, res) => res.json({ ok: true }))
 
 app.post('/convert', async (req, res) => {
-  if (SECRET && req.headers['x-convert-secret'] !== SECRET) {
+  if (req.headers['x-convert-secret'] !== SECRET) {
     return res.status(401).json({ error: 'unauthorized' })
   }
   const { url, filename } = req.body || {}

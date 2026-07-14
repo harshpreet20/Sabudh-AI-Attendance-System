@@ -68,13 +68,10 @@ export async function POST(request: NextRequest) {
           continue
         }
 
+        // Send the credential email FIRST — only persist the new password if the
+        // email actually went out, so a delivery failure can't silently lock the
+        // account to a password nobody received.
         const newPassword = generatePassword()
-        const { error: pwErr } = await admin.auth.admin.updateUserById(profile.auth_user_id, { password: newPassword })
-        if (pwErr) {
-          results.push({ email, name: profile.full_name, status: 'error', error: pwErr.message })
-          continue
-        }
-
         const emailResult = await resend.emails.send({
           from: FROM_EMAIL,
           to: email,
@@ -88,12 +85,15 @@ export async function POST(request: NextRequest) {
             loginUrl,
           }),
         })
-
         if (emailResult.error) {
           results.push({ email, name: profile.full_name, status: 'error', error: emailResult.error.message })
-        } else {
-          results.push({ email, name: profile.full_name, status: 'sent' })
+          continue
         }
+
+        const { error: pwErr } = await admin.auth.admin.updateUserById(profile.auth_user_id, { password: newPassword })
+        results.push(pwErr
+          ? { email, name: profile.full_name, status: 'error', error: pwErr.message }
+          : { email, name: profile.full_name, status: 'sent' })
       } catch (err) {
         results.push({ email, name: '', status: 'error', error: err instanceof Error ? err.message : 'Unknown error' })
       }

@@ -27,8 +27,24 @@ export async function getLectureAccess(
   const { data: roleRow } = await service.from('user_roles').select('role').eq('user_id', userId).maybeSingle()
   const role = roleRow?.role ?? null
 
-  if (role && ['instructor', 'admin', 'super_admin'].includes(role)) {
+  // Admins/super-admins may access any lecture.
+  if (role && ['admin', 'super_admin'].includes(role)) {
     return { ok: true, isStaff: true, role, studentProfileId: null, session }
+  }
+
+  // Instructors are staff only for lectures they actually teach — the session's
+  // own instructor, or the instructor assigned to that session's batch. This
+  // prevents one instructor reading/editing another's lecture content.
+  if (role === 'instructor') {
+    let teaches = session.instructor_id === userId
+    if (!teaches && session.batch_id) {
+      const { data: batch } = await service.from('batches').select('instructor_id').eq('id', session.batch_id).maybeSingle()
+      teaches = batch?.instructor_id === userId
+    }
+    if (teaches) {
+      return { ok: true, isStaff: true, role, studentProfileId: null, session }
+    }
+    return { ...deny, session }
   }
 
   const { data: profile } = await service

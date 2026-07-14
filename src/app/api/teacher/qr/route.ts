@@ -38,6 +38,22 @@ async function requireStaff() {
   return { user, role: role?.role ?? null }
 }
 
+// An instructor may only manage QR for sessions they teach (their own session or
+// their batch); admins/super-admins may manage any session.
+async function canManageSession(userId: string, role: string, sessionId: string): Promise<boolean> {
+  if (['admin', 'super_admin'].includes(role)) return true
+  if (role !== 'instructor') return false
+  const service = createServiceClient()
+  const { data: s } = await service.from('sessions').select('instructor_id, batch_id').eq('id', sessionId).maybeSingle()
+  if (!s) return false
+  if (s.instructor_id === userId) return true
+  if (s.batch_id) {
+    const { data: b } = await service.from('batches').select('instructor_id').eq('id', s.batch_id).maybeSingle()
+    if (b?.instructor_id === userId) return true
+  }
+  return false
+}
+
 // GET: return the currently active QR token for a session (if any).
 export async function GET(request: NextRequest) {
   const { user, role } = await requireStaff()
@@ -84,6 +100,9 @@ export async function POST(request: NextRequest) {
 
   if (!sessionId) {
     return NextResponse.json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'session_id required' } }, { status: 400 })
+  }
+  if (!(await canManageSession(user.id, role || '', sessionId))) {
+    return NextResponse.json({ success: false, error: { code: 'FORBIDDEN', message: 'You do not manage this class' } }, { status: 403 })
   }
 
   const supabase = createServiceClient()
@@ -140,6 +159,9 @@ export async function DELETE(request: NextRequest) {
   const sessionId = new URL(request.url).searchParams.get('session_id')
   if (!sessionId) {
     return NextResponse.json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'session_id required' } }, { status: 400 })
+  }
+  if (!(await canManageSession(user.id, role || '', sessionId))) {
+    return NextResponse.json({ success: false, error: { code: 'FORBIDDEN', message: 'You do not manage this class' } }, { status: 403 })
   }
 
   const supabase = createServiceClient()

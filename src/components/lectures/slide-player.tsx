@@ -49,15 +49,22 @@ export function SlidePlayerProvider({ children }: { children: React.ReactNode })
 
   const slides = active ? cache[keyOf(active)] ?? null : null
 
+  // Keep the updater pure: same deck keeps view/index (but adopts a new title);
+  // a different deck replaces it. Side-effect resets happen in the effect below.
   const open = useCallback((d: Deck) => {
-    setActive((prev) => {
-      if (prev && keyOf(prev) === keyOf(d)) return prev // same deck — keep view/index
-      setView('inline')
-      setIndexState(0)
-      setError('')
-      return d
-    })
+    setActive((prev) => (prev && keyOf(prev) === keyOf(d) ? { ...prev, title: d.title ?? prev.title } : d))
   }, [])
+
+  // Reset navigation/view state only when the active deck's identity changes.
+  const prevKeyRef = useRef<string | null>(null)
+  useEffect(() => {
+    const k = active ? keyOf(active) : null
+    if (k === prevKeyRef.current) return
+    prevKeyRef.current = k
+    setView('inline')
+    setIndexState(0)
+    setError('')
+  }, [active])
 
   // Load slides for the active deck (cached per material).
   useEffect(() => {
@@ -237,6 +244,9 @@ function GlobalSlideLayer() {
   // Esc exits fullscreen / floating back to inline.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
+      const t = e.target as HTMLElement | null
+      const typing = !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)
+      if (typing && e.key !== 'Escape') return
       if (e.key === 'Escape' && p.view !== 'inline') p.setView('inline')
       else if (e.key === 'ArrowRight') p.next()
       else if (e.key === 'ArrowLeft') p.prev()

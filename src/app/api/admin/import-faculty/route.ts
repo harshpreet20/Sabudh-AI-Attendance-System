@@ -141,10 +141,14 @@ export async function POST(request: NextRequest) {
           .eq('role', 'instructor')
           .maybeSingle()
         if (!existingRole) {
-          await admin.from('user_roles').insert({ user_id: userId, role: 'instructor', organization_id: ORG_ID })
+          const { error: roleError } = await admin.from('user_roles').insert({ user_id: userId, role: 'instructor', organization_id: ORG_ID })
+          if (roleError) {
+            results.push({ email: row.email, name: row.full_name, status: 'error', error: `Role assignment failed: ${roleError.message}` })
+            continue
+          }
         }
 
-        await admin.from('teacher_profiles').insert({
+        const { error: profileError } = await admin.from('teacher_profiles').insert({
           auth_user_id: userId,
           organization_id: ORG_ID,
           full_name: row.full_name,
@@ -154,6 +158,10 @@ export async function POST(request: NextRequest) {
           qualification: row.qualification || null,
           status: 'active',
         })
+        if (profileError) {
+          results.push({ email: row.email, name: row.full_name, status: 'error', error: `Profile creation failed: ${profileError.message}` })
+          continue
+        }
 
         let emailSent = false
         if (process.env.RESEND_API_KEY) {
