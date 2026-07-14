@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { diffWords, applyDecisions } from '@/lib/text-diff'
+import { cacheGet, cacheSet } from '@/lib/device-cache'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -78,27 +79,38 @@ const TABS = [
 ]
 
 export function LectureWorkspace({ lectureId, basePath }: { lectureId: string; basePath: string }) {
+  const supabase = useRef(createClient()).current
   const [data, setData] = useState<Bundle | null>(null)
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('materials')
   const [activeMaterial, setActiveMaterial] = useState<Material | null>(null)
   const [manageOpen, setManageOpen] = useState(false)
 
-  const load = useCallback(() => {
-    setLoading(true)
-    fetch(`/api/lectures/${lectureId}`)
-      .then((r) => r.json())
-      .then((j) => {
-        if (j.success) {
-          setData(j.data)
-          if (j.data.materials.length > 0) setActiveMaterial(j.data.materials[0])
-        }
-      })
-      .finally(() => setLoading(false))
-  }, [lectureId])
+  const applyBundle = useCallback((bundle: Bundle) => {
+    setData(bundle)
+    // Keep the current selection on background refresh; only default on first load.
+    setActiveMaterial((prev) => prev ?? (bundle.materials.length > 0 ? bundle.materials[0] : null))
+  }, [])
+
+  // Stale-while-revalidate: paint the last-seen version instantly from the
+  // device cache, then refresh from the network. Makes revisits feel instant.
+  const load = useCallback(async (cacheFirst = false) => {
+    const { data: { user } } = await supabase.auth.getUser()
+    const cacheId = `lecture:${user?.id || 'anon'}:${lectureId}`
+    if (cacheFirst) {
+      const cached = cacheGet<Bundle>(cacheId)
+      if (cached) { applyBundle(cached); setLoading(false) }
+    }
+    try {
+      const j = await fetch(`/api/lectures/${lectureId}`).then((r) => r.json())
+      if (j.success) { applyBundle(j.data); cacheSet(cacheId, j.data) }
+    } finally {
+      setLoading(false)
+    }
+  }, [lectureId, supabase, applyBundle])
 
   useEffect(() => {
-    load()
+    load(true)
   }, [load])
 
   if (loading) return <div className="space-y-4"><Skeleton className="h-20 w-full" /><Skeleton className="h-96 w-full" /></div>
@@ -226,11 +238,14 @@ function ManageMaterialsDialog({ lectureId, open, onClose, onChanged }: { lectur
       })
       if (!res.ok) { toast.error('Update failed'); return }
       setItems((prev) => prev.map((m) => (m.id === materialId ? { ...m, session_id: attach ? lectureId : null } : m)))
-      // Auto-convert office docs to interactive PDF when attached.
+      // Auto-convert office docs to interactive PDF when attached, then build
+      // the interactive study content (office prepares after conversion;
+      // PDFs/others can prepare right away).
       if (attach) {
         const it = items.find((m) => m.id === materialId)
         const isOffice = /\.(pptx?|docx?)$/i.test(it?.file_name || '') || /(powerpoint|presentation|msword|officedocument)/i.test(it?.file_type || '')
         if (isOffice) fetch(`/api/materials/${materialId}/convert`, { method: 'POST' }).catch(() => {})
+        else fetch(`/api/lectures/${lectureId}/prepare`, { method: 'POST' }).catch(() => {})
       }
       onChanged()
     } finally {

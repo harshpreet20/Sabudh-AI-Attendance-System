@@ -23,7 +23,7 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
     const service = createServiceClient()
     const { data: material } = await service
       .from('course_materials')
-      .select('id, bucket, storage_path, file_type, file_name, conversion_status')
+      .select('id, bucket, storage_path, file_type, file_name, conversion_status, session_id')
       .eq('id', id)
       .maybeSingle()
 
@@ -57,6 +57,17 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
         .from('course_materials')
         .update({ converted_pdf_path: outPath, converted_bucket: 'lecture-content', conversion_status: 'done', conversion_error: null })
         .eq('id', id)
+
+      // Now that the office file is readable, auto-build the interactive study
+      // content so the lecture is immersive the moment a student opens it.
+      if (material.session_id) {
+        try {
+          const { prepareLectureContent } = await import('@/lib/lecture-prepare')
+          await prepareLectureContent(service, material.session_id, { force: true, generatedBy: user.id })
+        } catch (e) {
+          console.error('[convert] prepare error:', e)
+        }
+      }
 
       return NextResponse.json({ success: true, data: { status: 'done' } })
     } catch (err) {

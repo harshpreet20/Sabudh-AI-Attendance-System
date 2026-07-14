@@ -318,10 +318,14 @@ export default function TeacherCurriculumPage() {
       // background. Harmless no-op if the conversion worker isn't configured.
       const isOffice = /\.(pptx?|docx?)$/i.test(file.name) || /(powerpoint|presentation|msword|officedocument)/i.test(file.type || '')
       if (isOffice) {
-        toast.success('Material uploaded — converting to interactive format…')
+        toast.success('Material uploaded — building interactive study material…')
+        // Conversion completion auto-prepares the interactive content server-side.
         fetch(`/api/materials/${inserted.id}/convert`, { method: 'POST' }).then(() => fetchMaterials()).catch(() => {})
       } else {
         toast.success('Material uploaded successfully')
+        // PDFs are readable immediately — pre-build the lecture's study content
+        // so students find it ready and instant.
+        if (selectedLecture) fetch(`/api/lectures/${selectedLecture}/prepare`, { method: 'POST' }).catch(() => {})
       }
       fetchMaterials()
       setPendingFile(null)

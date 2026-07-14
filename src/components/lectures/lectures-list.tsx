@@ -9,6 +9,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/ui/empty-state'
 import { format, parseISO } from 'date-fns'
 import { BookOpen, Search, FileText, Sparkles, CheckCircle2, XCircle } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
+import { cacheGet, cacheSet } from '@/lib/device-cache'
 
 interface Lecture {
   id: string
@@ -29,15 +31,21 @@ export function LecturesList({ basePath }: { basePath: string }) {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
 
-  const load = useCallback(() => {
-    setLoading(true)
-    fetch('/api/lectures')
-      .then((r) => r.json())
-      .then((j) => {
-        if (j.success) setLectures(j.data.lectures)
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false))
+  const load = useCallback(async () => {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    const cacheId = `lectures-list:${user?.id || 'anon'}`
+    // Instant paint from the device cache, then revalidate.
+    const cached = cacheGet<Lecture[]>(cacheId)
+    if (cached) { setLectures(cached); setLoading(false) }
+    try {
+      const j = await fetch('/api/lectures').then((r) => r.json())
+      if (j.success) { setLectures(j.data.lectures); cacheSet(cacheId, j.data.lectures) }
+    } catch {
+      // keep whatever we painted from cache
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
   useEffect(() => {
