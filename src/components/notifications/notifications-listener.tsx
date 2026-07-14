@@ -26,20 +26,28 @@ export function NotificationsListener() {
     let channel: ReturnType<typeof supabase.channel> | null = null
     let cancelled = false
 
-    // Register the service worker up front so registration.showNotification is
-    // available even when the tab is backgrounded (PWA-style delivery).
-    if (pushSupported() && !registeredRef.current) {
+    // Register the service worker up front. This powers BOTH background
+    // notification delivery AND local asset caching, so it must run on every
+    // platform that supports service workers — not only where Push is available.
+    // (iOS Safari tabs, for example, support SW caching but not the Push API, so
+    // gating on push capability would leave them with no cache at all.)
+    if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator && !registeredRef.current) {
       registeredRef.current = true
       navigator.serviceWorker
         .register('/sw.js')
         .then(() => {
-          // If the user has already granted notifications, (re)register the
-          // PWA self-scheduling engagement nudge.
-          if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+          // Push-only extras remain gated on push support + permission.
+          if (pushSupported() && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
             registerEngagementSync().catch(() => {})
           }
         })
         .catch(() => {})
+
+      // Best-effort durable storage so the cache survives eviction longer
+      // (honoured on Chromium/Firefox/Android; iOS ignores it but still caches).
+      if (navigator.storage && typeof navigator.storage.persist === 'function') {
+        navigator.storage.persist().catch(() => {})
+      }
     }
 
     async function show(n: NotificationRow) {
