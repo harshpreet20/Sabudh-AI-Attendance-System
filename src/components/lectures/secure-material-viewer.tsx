@@ -3,10 +3,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { FileText, AlertCircle } from 'lucide-react'
+import { PptxDeck } from './pptx-deck'
 
 interface Props {
   lectureId: string
   material: { id: string; title?: string; file_name: string | null; file_type: string | null }
+}
+
+function isPptx(fileName: string | null, fileType: string | null): boolean {
+  return /\.pptx?$/i.test(fileName || '') || /presentationml|powerpoint/i.test(fileType || '')
 }
 
 interface PdfPage {
@@ -15,11 +20,12 @@ interface PdfPage {
 }
 interface PdfDoc { numPages: number; getPage: (n: number) => Promise<PdfPage> }
 
-type Kind = 'pdf' | 'image' | 'text' | 'other'
+type Kind = 'pdf' | 'image' | 'text' | 'pptx' | 'other'
 
 function kindOf(fileType: string | null, fileName: string | null): Kind {
   const t = `${fileType || ''} ${fileName || ''}`.toLowerCase()
   if (/pdf/.test(t)) return 'pdf'
+  if (isPptx(fileName, fileType)) return 'pptx'
   if (/(png|jpe?g|gif|webp|svg|image)/.test(t)) return 'image'
   if (/(txt|md|markdown|text|plain)/.test(t)) return 'text'
   return 'other'
@@ -59,6 +65,8 @@ export function SecureMaterialViewer({ lectureId, material }: Props) {
         if (vk === 'text') {
           const t = await fetch(json.data.url).then((r) => r.text())
           if (!cancelled) setText(t)
+        } else if (vk === 'pptx') {
+          // PptxDeck loads slides via its own endpoint — no signed URL needed.
         } else if (!cancelled) {
           setUrl(json.data.url)
         }
@@ -101,11 +109,15 @@ export function SecureMaterialViewer({ lectureId, material }: Props) {
     }
   }, [])
 
-  // Render the PDF once the container is actually mounted.
+  // Render the PDF once the container is actually mounted. Surface failures
+  // instead of leaving a blank box.
   useEffect(() => {
     if (viewKind !== 'pdf' || !url) return
     let cancelled = false
-    renderPdf(url, () => cancelled).catch(() => {})
+    renderPdf(url, () => cancelled).catch((e) => {
+      console.error('[secure-viewer] pdf render failed:', e)
+      if (!cancelled) setError('This document could not be displayed. Please try again.')
+    })
     return () => {
       cancelled = true
     }
@@ -123,6 +135,9 @@ export function SecureMaterialViewer({ lectureId, material }: Props) {
     )
   }
 
+  if (viewKind === 'pptx') {
+    return <PptxDeck lectureId={lectureId} materialId={material.id} title={material.title} />
+  }
   if (viewKind === 'pdf') {
     return <div ref={containerRef} className="max-h-[70vh] overflow-y-auto rounded-lg bg-gray-100 p-3" onContextMenu={noContext} />
   }
