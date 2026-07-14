@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
+import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -29,6 +30,28 @@ interface Bundle {
 }
 
 const DIFFICULTIES = ['easy', 'standard', 'hard'] as const
+
+interface AiBroadcast { kind: string; difficulty: string; payload: unknown }
+
+// AI content is cached lecture-wide (per kind+difficulty) on the server, so it
+// is generated once and shared. This hook adds LIVE sync: when any viewer
+// generates content, everyone else watching the lecture receives it immediately
+// — no reload, and no one else spends tokens regenerating the same thing.
+function useAiSync(lectureId: string, onRemote: (m: AiBroadcast) => void) {
+  const chanRef = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null)
+  const cbRef = useRef(onRemote)
+  cbRef.current = onRemote
+  useEffect(() => {
+    const supabase = createClient()
+    const ch = supabase.channel(`lec-ai:${lectureId}`)
+    ch.on('broadcast', { event: 'ai' }, ({ payload }) => cbRef.current(payload as AiBroadcast)).subscribe()
+    chanRef.current = ch
+    return () => { supabase.removeChannel(ch) }
+  }, [lectureId])
+  return useCallback((m: AiBroadcast) => {
+    chanRef.current?.send({ type: 'broadcast', event: 'ai', payload: m })
+  }, [])
+}
 
 const TABS = [
   { value: 'materials', label: 'Materials' },
@@ -124,13 +147,13 @@ export function LectureWorkspace({ lectureId, basePath }: { lectureId: string; b
       </TabPanel>
 
       <TabPanel value="summary" activeTab={tab}>
-        <AiPanel lectureId={lectureId} kind="summary" initial={data.ai.summary} render={renderSummary} icon={Sparkles} label="AI Summary" />
+        <AiPanel lectureId={lectureId} kind="summary" initial={data.ai.summary} render={renderSummary} icon={Sparkles} label="AI Summary" isStaff={data.is_staff} />
       </TabPanel>
       <TabPanel value="takeaways" activeTab={tab}>
-        <AiPanel lectureId={lectureId} kind="takeaways" initial={data.ai.takeaways} render={renderTakeaways} icon={ListChecks} label="Key Takeaways" />
+        <AiPanel lectureId={lectureId} kind="takeaways" initial={data.ai.takeaways} render={renderTakeaways} icon={ListChecks} label="Key Takeaways" isStaff={data.is_staff} />
       </TabPanel>
       <TabPanel value="quiz" activeTab={tab}>
-        <QuizPanel lectureId={lectureId} initial={data.ai.quiz} />
+        <QuizPanel lectureId={lectureId} initial={data.ai.quiz} isStaff={data.is_staff} />
       </TabPanel>
 
       <TabPanel value="whiteboard" activeTab={tab}>
@@ -244,6 +267,7 @@ function AiPanel({
   render,
   icon: Icon,
   label,
+  isStaff,
 }: {
   lectureId: string
   kind: 'summary' | 'takeaways'
@@ -251,10 +275,15 @@ function AiPanel({
   render: (payload: Record<string, unknown>) => React.ReactNode
   icon: typeof Sparkles
   label: string
+  isStaff: boolean
 }) {
   const [payload, setPayload] = useState<unknown>(initial?.payload ?? null)
   const [difficulty, setDifficulty] = useState(initial?.difficulty || 'standard')
   const [busy, setBusy] = useState(false)
+
+  const broadcast = useAiSync(lectureId, (m) => {
+    if (m.kind === kind && m.difficulty === difficulty) setPayload(m.payload)
+  })
 
   async function generate(force: boolean) {
     setBusy(true)
@@ -270,10 +299,16 @@ function AiPanel({
         return
       }
       setPayload(json.data.payload)
+      // Share the freshly generated content with everyone viewing this lecture.
+      if (!json.data.cached) broadcast({ kind, difficulty, payload: json.data.payload })
     } finally {
       setBusy(false)
     }
   }
+
+  // Only staff may regenerate (it re-spends tokens); students consume the
+  // shared copy. Anyone can trigger the first generation when none exists yet.
+  const canRegenerate = isStaff
 
   return (
     <div className="space-y-3">
@@ -285,9 +320,11 @@ function AiPanel({
               <button key={d} onClick={() => setDifficulty(d)} className={`rounded-md px-2.5 py-1 text-xs capitalize ${difficulty === d ? 'bg-white shadow-sm text-indigo-600 font-medium' : 'text-gray-500'}`}>{d}</button>
             ))}
           </div>
-          <Button size="sm" onClick={() => generate(!!payload)} loading={busy} disabled={busy}>
-            {payload ? <><RefreshCw className="h-3.5 w-3.5 mr-1" /> Regenerate</> : <><Sparkles className="h-3.5 w-3.5 mr-1" /> Generate</>}
-          </Button>
+          {(!payload || canRegenerate) && (
+            <Button size="sm" onClick={() => generate(!!payload)} loading={busy} disabled={busy}>
+              {payload ? <><RefreshCw className="h-3.5 w-3.5 mr-1" /> Regenerate</> : <><Sparkles className="h-3.5 w-3.5 mr-1" /> Generate</>}
+            </Button>
+          )}
         </div>
       </div>
       {payload ? (
@@ -344,12 +381,16 @@ function renderTakeaways(p: Record<string, unknown>) {
 
 // --- Quiz panel ------------------------------------------------------------
 interface QuizQ { id: string; type: string; question: string; options?: string[] }
-function QuizPanel({ lectureId, initial }: { lectureId: string; initial?: { difficulty: string; payload: unknown } }) {
+function QuizPanel({ lectureId, initial, isStaff }: { lectureId: string; initial?: { difficulty: string; payload: unknown }; isStaff: boolean }) {
   const [payload, setPayload] = useState<{ questions?: QuizQ[] } | null>((initial?.payload as { questions?: QuizQ[] }) ?? null)
   const [difficulty, setDifficulty] = useState(initial?.difficulty || 'standard')
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<{ score: number; total: number; review: Array<{ id: string; correct: boolean; answer: string; explanation: string }> } | null>(null)
+
+  const broadcast = useAiSync(lectureId, (m) => {
+    if (m.kind === 'quiz' && m.difficulty === difficulty) { setPayload(m.payload as { questions?: QuizQ[] }); setResult(null); setAnswers({}) }
+  })
 
   async function generate(force: boolean) {
     setBusy(true); setResult(null); setAnswers({})
@@ -358,6 +399,7 @@ function QuizPanel({ lectureId, initial }: { lectureId: string; initial?: { diff
       const json = await res.json()
       if (!res.ok || !json.success) { toast.error(json.error?.message || 'Generation failed'); return }
       setPayload(json.data.payload)
+      if (!json.data.cached) broadcast({ kind: 'quiz', difficulty, payload: json.data.payload })
     } finally { setBusy(false) }
   }
 
@@ -382,7 +424,9 @@ function QuizPanel({ lectureId, initial }: { lectureId: string; initial?: { diff
           <div className="flex rounded-lg bg-gray-100 p-0.5">
             {DIFFICULTIES.map((d) => <button key={d} onClick={() => setDifficulty(d)} className={`rounded-md px-2.5 py-1 text-xs capitalize ${difficulty === d ? 'bg-white shadow-sm text-indigo-600 font-medium' : 'text-gray-500'}`}>{d}</button>)}
           </div>
-          <Button size="sm" onClick={() => generate(!!payload)} loading={busy} disabled={busy}>{payload ? 'Regenerate' : 'Generate'}</Button>
+          {(!payload || isStaff) && (
+            <Button size="sm" onClick={() => generate(!!payload)} loading={busy} disabled={busy}>{payload ? 'Regenerate' : 'Generate'}</Button>
+          )}
         </div>
       </div>
 

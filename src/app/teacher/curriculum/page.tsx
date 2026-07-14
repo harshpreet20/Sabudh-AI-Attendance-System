@@ -177,7 +177,9 @@ export default function TeacherCurriculumPage() {
         .from('sessions')
         .select('id, session_date, topic_taught, status')
         .eq('batch_id', selectedBatch)
-        .in('status', ['attendance_open', 'attendance_closed', 'completed'])
+        // Upcoming (scheduled) lectures included so material can be attached
+        // before a class is held.
+        .in('status', ['scheduled', 'attendance_open', 'attendance_closed', 'completed'])
         .order('session_date', { ascending: false })
         .limit(200)
       if (cancelled) return

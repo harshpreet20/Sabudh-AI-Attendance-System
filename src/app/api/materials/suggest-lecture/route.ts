@@ -34,7 +34,9 @@ export async function POST(request: NextRequest) {
       .from('sessions')
       .select('id, session_date, topic_taught, status')
       .eq('batch_id', batchId)
-      .in('status', ['attendance_open', 'attendance_closed', 'completed'])
+      // Include upcoming (scheduled) lectures too — teachers commonly attach
+      // material to a class before it is held.
+      .in('status', ['scheduled', 'attendance_open', 'attendance_closed', 'completed'])
       .order('session_date', { ascending: false })
       .limit(200)
 
