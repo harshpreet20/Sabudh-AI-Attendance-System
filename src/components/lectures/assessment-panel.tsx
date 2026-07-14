@@ -38,6 +38,7 @@ export function AssessmentPanel({ lectureId, isStaff }: { lectureId: string; isS
   const [best, setBest] = useState(0)
   const [attempts, setAttempts] = useState<Attempt[]>([])
   const [roster, setRoster] = useState<RosterRow[]>([])
+  const [coverage, setCoverage] = useState<number | null>(null)
 
   const aidRef = useRef<string | null>(null)
   useEffect(() => { aidRef.current = aid }, [aid])
@@ -63,6 +64,12 @@ export function AssessmentPanel({ lectureId, isStaff }: { lectureId: string; isS
   }, [lectureId])
 
   useEffect(() => { loadPerf() }, [loadPerf])
+
+  useEffect(() => {
+    fetch(`/api/lectures/${lectureId}/coverage`).then((r) => r.json())
+      .then((j) => { if (j.success) setCoverage(j.data.total > 0 ? j.data.pct : null) })
+      .catch(() => {})
+  }, [lectureId])
 
   const submit = useCallback(async (auto: boolean) => {
     const id = aidRef.current
@@ -140,6 +147,19 @@ export function AssessmentPanel({ lectureId, isStaff }: { lectureId: string; isS
 
         <Card><CardContent className="p-4 space-y-3">
           <p className="text-sm text-gray-600">This assessment covers all topics of the lecture. Once you start, a timer begins and questions are locked in — you can’t pause. Please review the material first.</p>
+
+          {coverage !== null && (
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-gray-500">Topics covered (slides you’ve read)</span>
+                <span className={`font-medium tabular-nums ${coverage >= 80 ? 'text-emerald-600' : coverage >= 40 ? 'text-amber-600' : 'text-red-600'}`}>{coverage}%</span>
+              </div>
+              <div className="h-2 w-full rounded-full bg-gray-200">
+                <div className={`h-2 rounded-full transition-all duration-500 ${coverage >= 80 ? 'bg-emerald-500' : coverage >= 40 ? 'bg-amber-500' : 'bg-red-500'}`} style={{ width: `${coverage}%` }} />
+              </div>
+              {coverage < 80 && <p className="text-[11px] text-amber-600">You’ve covered {coverage}% of the material — consider finishing the slides before you start.</p>}
+            </div>
+          )}
 
           <label className="flex items-start gap-2 text-sm text-gray-700">
             <input type="checkbox" checked={reviewed} onChange={(e) => setReviewed(e.target.checked)} className="mt-0.5 rounded border-gray-300" />

@@ -64,6 +64,17 @@ export function PptxDeck({ lectureId, materialId, title }: Props) {
         <span className="flex items-center gap-1.5 text-sm font-medium text-gray-700"><Presentation className="h-4 w-4 text-indigo-500" /> Interactive slides</span>
         <ModeButtons />
       </div>
+      {p.coveragePct !== null && (
+        <div className="space-y-1">
+          <div className="flex items-center justify-between text-xs text-gray-500">
+            <span>Topic coverage</span>
+            <span className="font-medium text-gray-700 tabular-nums">{p.coveragePct}%</span>
+          </div>
+          <div className="h-1.5 w-full rounded-full bg-gray-200">
+            <div className="h-1.5 rounded-full bg-emerald-500 transition-all duration-500" style={{ width: `${p.coveragePct}%` }} />
+          </div>
+        </div>
+      )}
       <div className="flex h-[44vh] flex-col sm:h-[56vh]"><SlideStage /></div>
       <Counter />
       <ThumbStrip />

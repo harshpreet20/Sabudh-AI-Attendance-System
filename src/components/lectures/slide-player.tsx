@@ -26,6 +26,7 @@ interface PlayerCtx {
   prev: () => void
   setView: (v: PlayerView) => void
   dock: () => void
+  coveragePct: number | null
 }
 
 const Ctx = createContext<PlayerCtx | null>(null)
@@ -81,6 +82,36 @@ export function SlidePlayerProvider({ children }: { children: React.ReactNode })
     return () => { cancelled = true }
   }, [active, cache])
 
+  // --- coverage (slide-view progress) ------------------------------------
+  const [coverage, setCoverage] = useState<Record<string, number>>({})
+  const coveragePct = active ? coverage[keyOf(active)] ?? null : null
+
+  // Seed coverage when the active deck changes.
+  useEffect(() => {
+    if (!active) return
+    let cancelled = false
+    fetch(`/api/lectures/${active.lectureId}/material/${active.materialId}/progress`)
+      .then((r) => r.json())
+      .then((j) => { if (!cancelled && j.success) setCoverage((c) => ({ ...c, [keyOf(active)]: j.data.pct })) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [active])
+
+  // Mark a slide viewed after a short dwell (debounced), and update coverage.
+  useEffect(() => {
+    if (!active || !slides || slides.length === 0) return
+    const deck = active
+    const t = setTimeout(() => {
+      fetch(`/api/lectures/${deck.lectureId}/material/${deck.materialId}/progress`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slide: index + 1, total: slides.length }),
+      }).then((r) => r.json())
+        .then((j) => { if (j.success) setCoverage((c) => ({ ...c, [keyOf(deck)]: j.data.pct })) })
+        .catch(() => {})
+    }, 1200)
+    return () => clearTimeout(t)
+  }, [active, slides, index])
+
   const total = slides?.length || 0
   const setIndex = useCallback((i: number) => setIndexState(Math.max(0, Math.min((total || 1) - 1, i))), [total])
   const next = useCallback(() => setIndexState((c) => Math.min((total || 1) - 1, c + 1)), [total])
@@ -90,8 +121,8 @@ export function SlidePlayerProvider({ children }: { children: React.ReactNode })
   const value = useMemo<PlayerCtx>(() => ({
     active, slides, loading, error, index, view,
     keyOf, isActive: (d) => !!active && keyOf(active) === keyOf(d),
-    open, setIndex, next, prev, setView, dock,
-  }), [active, slides, loading, error, index, view, open, setIndex, next, prev, dock])
+    open, setIndex, next, prev, setView, dock, coveragePct,
+  }), [active, slides, loading, error, index, view, open, setIndex, next, prev, dock, coveragePct])
 
   return (
     <Ctx.Provider value={value}>
