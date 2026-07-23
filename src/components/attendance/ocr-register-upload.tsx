@@ -4,6 +4,7 @@ import { useRef, useState } from 'react'
 import { Dialog } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { compressImage } from '@/lib/image-compress'
+import { runLocalOcr } from '@/lib/ocr-local'
 import { toast } from 'sonner'
 import { ScanLine, Upload, Check, X, Loader2 } from 'lucide-react'
 
@@ -39,7 +40,8 @@ export function OcrRegisterUpload({ sessionId, disabled, onApplied }: OcrRegiste
   const [reading, setReading] = useState(false)
   const [applying, setApplying] = useState(false)
   const [marks, setMarks] = useState<Mark[] | null>(null)
-  const [source, setSource] = useState<'baidu' | 'openai' | null>(null)
+  const [source, setSource] = useState<'local' | 'baidu' | 'openai' | null>(null)
+  const [progress, setProgress] = useState(0)
 
   function reset() {
     setMarks(null)
@@ -54,25 +56,58 @@ export function OcrRegisterUpload({ sessionId, disabled, onApplied }: OcrRegiste
     if (!file) return
     setReading(true)
     setMarks(null)
+    setSource(null)
+    setProgress(0)
     try {
       const compressed = await compressImage(file, { maxSize: 1600, quality: 0.85 })
-      const dataUrl = await fileToDataUrl(compressed)
-      const res = await fetch('/api/attendance/ocr', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session_id: sessionId, image: dataUrl }),
-      })
-      const json = await res.json()
-      if (!res.ok || !json.success) {
-        toast.error(json?.error?.message ?? 'Could not read the register.')
-        return
+
+      // Tier 1: on-device OCR (free, private — the image never leaves the device).
+      let handled = false
+      try {
+        const lines = await runLocalOcr(compressed, (f) =>
+          setProgress(Math.round(f * 100))
+        )
+        if (lines.length > 0) {
+          const res = await fetch('/api/attendance/ocr/match', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ session_id: sessionId, lines }),
+          })
+          const json = await res.json()
+          if (res.ok && json.success && json.data.total > 0) {
+            const rate = json.data.matched / json.data.total
+            if (rate >= 0.5) {
+              setMarks(json.data.results)
+              setSource('local')
+              handled = true
+            }
+          }
+        }
+      } catch {
+        // On-device OCR unavailable/failed — fall through to cloud.
       }
-      setMarks(json.data.results)
-      setSource(json.data.source ?? null)
+
+      // Tier 2: cloud OCR (free Baidu -> OpenAI) when the on-device read is weak.
+      if (!handled) {
+        const dataUrl = await fileToDataUrl(compressed)
+        const res = await fetch('/api/attendance/ocr', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session_id: sessionId, image: dataUrl }),
+        })
+        const json = await res.json()
+        if (!res.ok || !json.success) {
+          toast.error(json?.error?.message ?? 'Could not read the register.')
+          return
+        }
+        setMarks(json.data.results)
+        setSource(json.data.source ?? null)
+      }
     } catch {
       toast.error('Could not read the register. Please try again.')
     } finally {
       setReading(false)
+      setProgress(0)
     }
   }
 
@@ -172,7 +207,11 @@ export function OcrRegisterUpload({ sessionId, disabled, onApplied }: OcrRegiste
             {reading ? (
               <>
                 <Loader2 className="h-6 w-6 animate-spin text-indigo-500" />
-                <span className="text-sm font-medium">Reading the register…</span>
+                <span className="text-sm font-medium">
+                  {progress > 0
+                    ? `Reading on your device… ${progress}%`
+                    : 'Reading the register…'}
+                </span>
               </>
             ) : (
               <>
@@ -199,9 +238,11 @@ export function OcrRegisterUpload({ sessionId, disabled, onApplied }: OcrRegiste
             </div>
             {source && (
               <p className="mb-3 text-[11px] text-gray-400">
-                {source === 'baidu'
-                  ? 'Read with free OCR — please double-check each student.'
-                  : 'Read with AI vision.'}
+                {source === 'local'
+                  ? 'Read on your device (offline) — please double-check each student.'
+                  : source === 'baidu'
+                    ? 'Read with free OCR — please double-check each student.'
+                    : 'Read with AI vision.'}
               </p>
             )}
             <ul className="max-h-[45vh] space-y-1.5 overflow-y-auto">
