@@ -16,6 +16,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
 import { CheckCircle, XCircle, ClipboardList, Clock, Gift, BookOpen, Save, Play, Square } from 'lucide-react'
 import { ElectricBorder } from '@/components/ui/electric-border'
+import { OcrRegisterUpload } from '@/components/attendance/ocr-register-upload'
 import type { Batch } from '@/types/database'
 
 interface SessionRecord {
@@ -125,26 +126,25 @@ export default function TeacherAttendancePage() {
     fetchSessions()
   }, [selectedBatch]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => {
+  const refreshAttendance = useCallback(async () => {
     if (!selectedSession) {
       setAttendanceRecords([])
       return
     }
+    setLoadingAttendance(true)
+    const { data } = await supabase
+      .from('attendance')
+      .select('id, student_id, status, decision, submitted_at, is_grace, grace_reason, student_profiles(full_name, email, profile_image_url)')
+      .eq('session_id', selectedSession)
+      .order('submitted_at', { ascending: false })
 
-    async function fetchAttendance() {
-      setLoadingAttendance(true)
-      const { data } = await supabase
-        .from('attendance')
-        .select('id, student_id, status, decision, submitted_at, is_grace, grace_reason, student_profiles(full_name, email, profile_image_url)')
-        .eq('session_id', selectedSession)
-        .order('submitted_at', { ascending: false })
-
-      setAttendanceRecords((data as unknown as AttendanceRecord[]) ?? [])
-      setLoadingAttendance(false)
-    }
-
-    fetchAttendance()
+    setAttendanceRecords((data as unknown as AttendanceRecord[]) ?? [])
+    setLoadingAttendance(false)
   }, [selectedSession]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    refreshAttendance()
+  }, [refreshAttendance])
 
   const refreshSessions = useCallback(async () => {
     if (!selectedBatch) return
@@ -514,6 +514,13 @@ export default function TeacherAttendancePage() {
             <Gift className="mr-2 h-4 w-4" />
             Grant Grace Attendance
           </Button>
+        )}
+
+        {selectedBatch && selectedSession && (
+          <OcrRegisterUpload
+            sessionId={selectedSession}
+            onApplied={refreshAttendance}
+          />
         )}
       </div>
 
