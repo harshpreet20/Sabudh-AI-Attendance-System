@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { isWithinZones, isWithinAnyZone, type GeofenceZone } from "@/lib/geofence";
+import { verifyQrToken } from "@/lib/attendance-qr";
 
 const SUSPICIOUS_ACCURACY_THRESHOLD = 1;
 const MAX_IP_GPS_DISTANCE_KM = 200;
@@ -49,7 +50,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { session_id, latitude, longitude, location_accuracy, attendance_word, device_fingerprint } = body;
+    const { session_id, latitude, longitude, location_accuracy, attendance_word, device_fingerprint, qr_token } = body;
 
     if (!session_id) {
       return NextResponse.json(
@@ -107,8 +108,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verification word check
-    if (session.attendance_word) {
+    // A valid rotating QR scan stands in for the verification word.
+    const qrValid = qr_token ? verifyQrToken(qr_token, session_id) : false;
+    if (qr_token && !qrValid) {
+      return NextResponse.json(
+        { success: false, error: { code: "INVALID_QR", message: "This attendance QR has expired. Please scan the current one on the teacher's screen." } },
+        { status: 400 }
+      );
+    }
+
+    // Verification word check (skipped when a valid QR was scanned)
+    if (!qrValid && session.attendance_word) {
       if (!attendance_word || attendance_word.toUpperCase() !== session.attendance_word.toUpperCase()) {
         return NextResponse.json(
           { success: false, error: { code: "INVALID_WORD", message: "The verification word is incorrect. Please check with your instructor." } },

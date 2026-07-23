@@ -14,9 +14,10 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { Dialog } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
-import { CheckCircle, XCircle, ClipboardList, Clock, Gift, BookOpen, Save, Play, Square } from 'lucide-react'
+import { CheckCircle, XCircle, ClipboardList, Clock, Gift, BookOpen, Save, Play, Square, QrCode } from 'lucide-react'
 import { ElectricBorder } from '@/components/ui/electric-border'
 import { OcrRegisterUpload } from '@/components/attendance/ocr-register-upload'
+import { TakeAttendanceQr } from '@/components/attendance/take-attendance-qr'
 import type { Batch } from '@/types/database'
 
 interface SessionRecord {
@@ -59,6 +60,8 @@ export default function TeacherAttendancePage() {
   const [batches, setBatches] = useState<Batch[]>([])
   const [sessions, setSessions] = useState<SessionRecord[]>([])
   const [selectedSession, setSelectedSession] = useState('')
+  const [showQr, setShowQr] = useState(false)
+  const [startingQr, setStartingQr] = useState(false)
   const [selectedBatch, setSelectedBatch] = useState('')
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([])
   const [loading, setLoading] = useState(true)
@@ -161,6 +164,30 @@ export default function TeacherAttendancePage() {
     setOpenSessionTarget(sessionId)
     setCustomCloseTime('')
     setOpenDialogVisible(true)
+  }
+
+  // One tap: make sure the window is open, then show the live QR screen.
+  async function startQrAttendance() {
+    const session = sessions.find((s) => s.id === selectedSession)
+    if (!session) return
+    setStartingQr(true)
+    try {
+      if (session.status !== 'attendance_open') {
+        const res = await fetch(`/api/admin/sessions/${selectedSession}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'open_attendance' }),
+        })
+        if (!res.ok) {
+          toast.error('Could not open the attendance window.')
+          return
+        }
+        await refreshSessions()
+      }
+      setShowQr(true)
+    } finally {
+      setStartingQr(false)
+    }
   }
 
   async function confirmOpenAttendance() {
@@ -522,7 +549,30 @@ export default function TeacherAttendancePage() {
             onApplied={refreshAttendance}
           />
         )}
+
+        {selectedBatch && selectedSession && (
+          <Button onClick={startQrAttendance} loading={startingQr}>
+            <QrCode className="mr-2 h-4 w-4" />
+            Take Attendance (QR)
+          </Button>
+        )}
       </div>
+
+      {showQr && selectedSession && (
+        <TakeAttendanceQr
+          sessionId={selectedSession}
+          label={(() => {
+            const s = sessions.find((x) => x.id === selectedSession)
+            return s
+              ? `${new Date(s.session_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}${s.topic_taught ? ` · ${s.topic_taught}` : ''}`
+              : 'Attendance'
+          })()}
+          onClose={() => {
+            setShowQr(false)
+            refreshAttendance()
+          }}
+        />
+      )}
 
       {/* Attendance Window Controls */}
       {selectedSession && (() => {

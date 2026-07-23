@@ -25,7 +25,9 @@ import {
   Fingerprint,
   ShieldAlert,
   BookOpen,
+  QrCode,
 } from 'lucide-react'
+import { QrScanner } from '@/components/attendance/qr-scanner'
 import type { Session, StudentProfile, Attendance } from '@/types/database'
 
 type PageState =
@@ -52,6 +54,7 @@ export default function AttendancePage() {
   const [verificationWord, setVerificationWord] = useState('')
   const [fingerprint, setFingerprint] = useState<string | null>(null)
   const [hasAttendanceWord, setHasAttendanceWord] = useState(false)
+  const [showScanner, setShowScanner] = useState(false)
   const watchIdRef = useRef<number | null>(null)
   const [lastLocationUpdate, setLastLocationUpdate] = useState<Date | null>(null)
 
@@ -222,7 +225,11 @@ export default function AttendancePage() {
     return () => clearInterval(interval)
   }, [pageState, session])
 
-  async function handleMarkAttendance() {
+  async function submitAttendance(extra: {
+    attendance_word?: string | null
+    qr_token?: string
+    session_id?: string
+  }) {
     if (!session || !profile) return
 
     if (!coords) {
@@ -230,22 +237,19 @@ export default function AttendancePage() {
       return
     }
 
-    if (hasAttendanceWord && !verificationWord.trim()) {
-      toast.error('Please enter the verification word provided by your instructor.')
-      return
-    }
-
+    const sessionId = extra.session_id ?? session.id
     setSubmitting(true)
     try {
       const res = await fetch('/api/attendance/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          session_id: session.id,
+          session_id: sessionId,
           latitude: coords.lat,
           longitude: coords.lng,
           location_accuracy: coords.accuracy,
-          attendance_word: verificationWord.trim() || null,
+          attendance_word: extra.attendance_word ?? null,
+          qr_token: extra.qr_token ?? null,
           device_fingerprint: fingerprint,
         }),
       })
@@ -253,8 +257,7 @@ export default function AttendancePage() {
       const data = await res.json()
 
       if (!res.ok) {
-        const errorMsg = data.error?.message || 'Failed to mark attendance.'
-        toast.error(errorMsg)
+        toast.error(data.error?.message || 'Failed to mark attendance.')
         return
       }
 
@@ -263,7 +266,7 @@ export default function AttendancePage() {
         status: data.data.status,
         decision: data.data.decision,
         submitted_at: data.data.submitted_at,
-        session_id: session.id,
+        session_id: sessionId,
         student_id: profile.id,
       } as Attendance)
 
@@ -281,6 +284,24 @@ export default function AttendancePage() {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  async function handleMarkAttendance() {
+    if (hasAttendanceWord && !verificationWord.trim()) {
+      toast.error('Please enter the verification word provided by your instructor.')
+      return
+    }
+    await submitAttendance({ attendance_word: verificationWord.trim() || null })
+  }
+
+  async function handleScanned(token: string) {
+    setShowScanner(false)
+    const sessionId = token.split('.')[0]
+    if (!sessionId) {
+      toast.error('That QR code is not valid.')
+      return
+    }
+    await submitAttendance({ qr_token: token, session_id: sessionId })
   }
 
   if (pageState === 'loading') {
@@ -618,6 +639,29 @@ export default function AttendancePage() {
       </Card>
 
       {/* Verification word input */}
+      {/* Scan QR (primary path) */}
+      <Button
+        onClick={() => setShowScanner(true)}
+        disabled={!coords || submitting}
+        size="lg"
+        className="w-full"
+      >
+        <QrCode className="h-5 w-5" />
+        {!coords ? 'Enable Location to Scan' : 'Scan QR to mark attendance'}
+      </Button>
+
+      <div className="flex items-center gap-3">
+        <div className="h-px flex-1 bg-gray-200" />
+        <span className="text-xs text-gray-400">
+          {hasAttendanceWord ? 'or use the verification word' : 'or mark manually'}
+        </span>
+        <div className="h-px flex-1 bg-gray-200" />
+      </div>
+
+      {showScanner && (
+        <QrScanner onDetected={handleScanned} onClose={() => setShowScanner(false)} />
+      )}
+
       {hasAttendanceWord && (
         <Card className="!bg-violet-50/60 !border-violet-200/50">
           <CardContent className="p-4">
