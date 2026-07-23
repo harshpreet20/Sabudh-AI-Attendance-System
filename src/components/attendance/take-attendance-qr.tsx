@@ -40,7 +40,25 @@ export function TakeAttendanceQr({ sessionId, label, onClose }: TakeAttendanceQr
   const [mounted, setMounted] = useState(false)
   const [qrUrl, setQrUrl] = useState('')
   const [present, setPresent] = useState<PresentRow[]>([])
-  const [banner, setBanner] = useState<string | null>(null)
+  const [toasts, setToasts] = useState<
+    { id: string; name: string; photo: string | null; leaving: boolean }[]
+  >([])
+
+  const pushToast = useCallback((name: string, photo: string | null) => {
+    const id =
+      typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random()}`
+    setToasts((prev) => [...prev, { id, name, photo, leaving: false }].slice(-4))
+    setTimeout(
+      () =>
+        setToasts((prev) =>
+          prev.map((t) => (t.id === id ? { ...t, leaving: true } : t))
+        ),
+      4600
+    )
+    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 5000)
+  }, [])
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
@@ -89,13 +107,20 @@ export function TakeAttendanceQr({ sessionId, label, onClose }: TakeAttendanceQr
 
     const isFirst = seenIds.current.size === 0
     const fresh = rows.filter((r) => !seenIds.current.has(r.id))
-    if (!isFirst && fresh.length > 0) {
-      setBanner(fresh[0].student_profiles?.full_name ?? 'Someone')
-      setTimeout(() => setBanner(null), 4500)
-    }
     rows.forEach((r) => seenIds.current.add(r.id))
+    if (!isFirst && fresh.length > 0) {
+      fresh
+        .slice(0, 4)
+        .reverse()
+        .forEach((r) =>
+          pushToast(
+            r.student_profiles?.full_name ?? 'Student',
+            r.student_profiles?.profile_image_url ?? null
+          )
+        )
+    }
     setPresent(rows)
-  }, [sessionId])
+  }, [sessionId, pushToast])
 
   // Live feed poll.
   useEffect(() => {
@@ -195,15 +220,30 @@ export function TakeAttendanceQr({ sessionId, label, onClose }: TakeAttendanceQr
         </div>
       </div>
 
-      {/* "Just marked present" banner */}
-      {banner && (
-        <div className="pointer-events-none fixed inset-x-0 bottom-8 flex justify-center px-4">
-          <div className="flex items-center gap-2 rounded-full bg-emerald-500 px-5 py-3 text-sm font-semibold text-white shadow-2xl animate-in fade-in slide-in-from-bottom-4">
-            <CheckCircle2 className="h-5 w-5" />
-            {banner} just marked present
+      {/* Apple-style floating "just marked present" popups */}
+      <div className="pointer-events-none fixed inset-x-0 top-4 z-10 flex flex-col items-center gap-2.5 px-4 sm:inset-x-auto sm:right-6 sm:items-end">
+        {toasts.map((t) => (
+          <div
+            key={t.id}
+            className={`flex w-full max-w-xs items-center gap-3 rounded-[20px] bg-white/85 px-3.5 py-3 shadow-2xl ring-1 ring-black/5 backdrop-blur-2xl transition-all duration-300 ease-out animate-in fade-in slide-in-from-top-4 zoom-in-95 ${
+              t.leaving ? '-translate-y-2 opacity-0' : 'opacity-100'
+            }`}
+          >
+            <Avatar
+              src={t.photo}
+              fallback={t.name.slice(0, 1).toUpperCase()}
+              size="md"
+            />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold text-gray-900">{t.name}</p>
+              <p className="text-xs font-medium text-emerald-600">just marked present</p>
+            </div>
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-500">
+              <CheckCircle2 className="h-5 w-5 text-white" />
+            </div>
           </div>
-        </div>
-      )}
+        ))}
+      </div>
     </div>,
     document.body
   )

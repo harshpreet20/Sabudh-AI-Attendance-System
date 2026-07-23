@@ -22,7 +22,9 @@ import {
   Search,
   Users,
   Percent,
+  QrCode,
 } from 'lucide-react'
+import { TakeAttendanceQr } from '@/components/attendance/take-attendance-qr'
 import type { Batch } from '@/types/database'
 
 interface SessionRow {
@@ -49,6 +51,8 @@ export default function AdminAttendancePage() {
   const [selectedBatch, setSelectedBatch] = useState('')
   const [sessions, setSessions] = useState<SessionRow[]>([])
   const [selectedSession, setSelectedSession] = useState('')
+  const [showQr, setShowQr] = useState(false)
+  const [startingQr, setStartingQr] = useState(false)
   const [roster, setRoster] = useState<RosterEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [rosterLoading, setRosterLoading] = useState(false)
@@ -128,6 +132,28 @@ export default function AdminAttendancePage() {
   }, [selectedBatch, selectedSession]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { fetchRoster() }, [fetchRoster])
+
+  async function startQrAttendance() {
+    if (!activeSession) return
+    setStartingQr(true)
+    try {
+      if (activeSession.status !== 'attendance_open') {
+        const res = await fetch(`/api/admin/sessions/${selectedSession}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'open_attendance' }),
+        })
+        if (!res.ok) {
+          toast.error('Could not open the attendance window.')
+          return
+        }
+        await refreshSession()
+      }
+      setShowQr(true)
+    } finally {
+      setStartingQr(false)
+    }
+  }
 
   async function refreshSession() {
     if (!selectedBatch) return
@@ -309,9 +335,24 @@ export default function AdminAttendancePage() {
                   {activeSession.status === 'scheduled' ? 'Open Window' : 'Reopen Window'}
                 </Button>
               )}
+              <Button size="sm" onClick={startQrAttendance} loading={startingQr}>
+                <QrCode className="h-3.5 w-3.5" />
+                Take Attendance (QR)
+              </Button>
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {showQr && activeSession && (
+        <TakeAttendanceQr
+          sessionId={activeSession.id}
+          label={format(new Date(activeSession.session_date), 'EEE, MMM d')}
+          onClose={() => {
+            setShowQr(false)
+            fetchRoster()
+          }}
+        />
       )}
 
       {activeSession?.attendance_word && activeSession.status === 'attendance_open' && (
