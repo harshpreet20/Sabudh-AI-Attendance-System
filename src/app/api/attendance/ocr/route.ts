@@ -2,8 +2,55 @@ import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
+import {
+  isBaiduOcrConfigured,
+  baiduOcrLines,
+  matchRosterFromLines,
+} from '@/lib/ocr-baidu'
 
 const STAFF_ROLES = ['instructor', 'admin', 'super_admin']
+
+interface RosterEntry {
+  id: string
+  name: string
+}
+type Mark = { student_id: string; name: string; present: boolean }
+
+// Primary OCR: OpenAI vision reasons about ticks/marks per roster row.
+async function readWithOpenAI(roster: RosterEntry[], image: string): Promise<Mark[]> {
+  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  const completion = await openai.chat.completions.create({
+    model: 'gpt-4o-mini',
+    response_format: { type: 'json_object' },
+    messages: [
+      {
+        role: 'system',
+        content:
+          'You read photos of physical class attendance registers. You are given the exact list of enrolled students (with ids). For each student, decide if they are marked PRESENT in the register image — a tick/check, the letter "P", "present", or a signature next to their name means present; a cross, "A", "absent", or a blank means not present. Match register names to the provided names even with spelling/handwriting differences. Respond ONLY with JSON: {"marks":[{"id":"<student id>","present":true|false}]}. Use only the provided ids. Include every provided student exactly once.',
+      },
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: `Enrolled students (JSON): ${JSON.stringify(roster)}. Read the attached register photo and return the marks JSON.`,
+          },
+          { type: 'image_url', image_url: { url: image, detail: 'high' } },
+        ],
+      },
+    ],
+  })
+
+  let marks: Array<{ id: string; present: boolean }> = []
+  const parsed = JSON.parse(completion.choices[0]?.message?.content ?? '{}')
+  if (Array.isArray(parsed.marks)) marks = parsed.marks
+  const presentById = new Map(marks.map((m) => [m.id, Boolean(m.present)]))
+  return roster.map((s) => ({
+    student_id: s.id,
+    name: s.name,
+    present: presentById.get(s.id) ?? false,
+  }))
+}
 
 // Read a photo of a physical attendance register and decide, for each enrolled
 // student in the session's batch, whether they are marked present. Returns a
@@ -32,7 +79,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (!process.env.OPENAI_API_KEY) {
+    if (!process.env.OPENAI_API_KEY && !isBaiduOcrConfigured()) {
       return NextResponse.json(
         { success: false, error: { code: 'OCR_DISABLED', message: 'OCR is not configured on the server.' } },
         { status: 503 }
@@ -77,49 +124,64 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      response_format: { type: 'json_object' },
-      messages: [
-        {
-          role: 'system',
-          content:
-            'You read photos of physical class attendance registers. You are given the exact list of enrolled students (with ids). For each student, decide if they are marked PRESENT in the register image — a tick/check, the letter "P", "present", or a signature next to their name means present; a cross, "A", "absent", or a blank means not present. Match register names to the provided names even with spelling/handwriting differences. Respond ONLY with JSON: {"marks":[{"id":"<student id>","present":true|false}]}. Use only the provided ids. Include every provided student exactly once.',
-        },
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'text',
-              text: `Enrolled students (JSON): ${JSON.stringify(roster)}. Read the attached register photo and return the marks JSON.`,
-            },
-            { type: 'image_url', image_url: { url: image, detail: 'high' } },
-          ],
-        },
-      ],
-    })
+    // Try the free OCR (Baidu) first. If it reads enough of the roster, use it.
+    // Otherwise escalate to OpenAI vision (paid) for a better read.
+    let results: Mark[] | null = null
+    let source: 'baidu' | 'openai' | null = null
+    let baiduFallback: Mark[] | null = null // weak Baidu result kept as last resort
 
-    let marks: Array<{ id: string; present: boolean }> = []
-    try {
-      const parsed = JSON.parse(completion.choices[0]?.message?.content ?? '{}')
-      if (Array.isArray(parsed.marks)) marks = parsed.marks
-    } catch {
-      // fall through to empty
+    if (isBaiduOcrConfigured()) {
+      try {
+        const lines = await baiduOcrLines(image)
+        if (lines && lines.length > 0) {
+          const matched = matchRosterFromLines(roster, lines)
+          const rate = matched.filter((m) => m.matched).length / matched.length
+          const stripped: Mark[] = matched.map((m) => ({
+            student_id: m.student_id,
+            name: m.name,
+            present: m.present,
+          }))
+          if (rate >= 0.5) {
+            results = stripped
+            source = 'baidu'
+          } else {
+            baiduFallback = stripped
+          }
+        }
+      } catch (err) {
+        console.error('Baidu OCR failed:', err)
+      }
     }
 
-    const presentById = new Map(marks.map((m) => [m.id, Boolean(m.present)]))
-    const results = roster.map((s) => ({
-      student_id: s.id,
-      name: s.name,
-      present: presentById.get(s.id) ?? false,
-    }))
+    // Escalate to OpenAI when the free read was missing or unsatisfactory.
+    if (!results && process.env.OPENAI_API_KEY) {
+      try {
+        results = await readWithOpenAI(roster, image)
+        source = 'openai'
+      } catch (err) {
+        console.error('OpenAI OCR failed:', err)
+      }
+    }
+
+    // Last resort: a weak Baidu read is still better than nothing (teacher reviews).
+    if (!results && baiduFallback) {
+      results = baiduFallback
+      source = 'baidu'
+    }
+
+    if (!results) {
+      return NextResponse.json(
+        { success: false, error: { code: 'OCR_FAILED', message: 'Could not read the register. Please retake the photo.' } },
+        { status: 502 }
+      )
+    }
 
     return NextResponse.json({
       success: true,
       data: {
         session_id: sessionId,
         results,
+        source,
         present_count: results.filter((r) => r.present).length,
         total: results.length,
       },

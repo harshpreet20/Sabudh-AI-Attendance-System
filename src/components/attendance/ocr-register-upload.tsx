@@ -39,9 +39,11 @@ export function OcrRegisterUpload({ sessionId, disabled, onApplied }: OcrRegiste
   const [reading, setReading] = useState(false)
   const [applying, setApplying] = useState(false)
   const [marks, setMarks] = useState<Mark[] | null>(null)
+  const [source, setSource] = useState<'baidu' | 'openai' | null>(null)
 
   function reset() {
     setMarks(null)
+    setSource(null)
     setReading(false)
     setApplying(false)
     if (inputRef.current) inputRef.current.value = ''
@@ -66,6 +68,7 @@ export function OcrRegisterUpload({ sessionId, disabled, onApplied }: OcrRegiste
         return
       }
       setMarks(json.data.results)
+      setSource(json.data.source ?? null)
     } catch {
       toast.error('Could not read the register. Please try again.')
     } finally {
@@ -182,7 +185,7 @@ export function OcrRegisterUpload({ sessionId, disabled, onApplied }: OcrRegiste
 
         {marks && (
           <div>
-            <div className="mb-3 flex items-center justify-between text-sm">
+            <div className="mb-1 flex items-center justify-between text-sm">
               <span className="font-semibold text-gray-900">
                 {presentCount} of {marks.length} present
               </span>
@@ -194,6 +197,13 @@ export function OcrRegisterUpload({ sessionId, disabled, onApplied }: OcrRegiste
                 Re-scan
               </button>
             </div>
+            {source && (
+              <p className="mb-3 text-[11px] text-gray-400">
+                {source === 'baidu'
+                  ? 'Read with free OCR — please double-check each student.'
+                  : 'Read with AI vision.'}
+              </p>
+            )}
             <ul className="max-h-[45vh] space-y-1.5 overflow-y-auto">
               {marks.map((m) => (
                 <li key={m.student_id}>
