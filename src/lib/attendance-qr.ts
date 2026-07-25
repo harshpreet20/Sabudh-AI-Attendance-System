@@ -63,3 +63,43 @@ export function verifyQrToken(token: string, sessionId: string): boolean {
   if (sig.length !== expected.length) return false
   return crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))
 }
+
+// --- Selfie factor token ---------------------------------------------------
+// Issued by the selfie-verify route once a class selfie is confirmed, then
+// presented on submit. Valid for a few minutes (selfie + submit takes longer
+// than a QR scan).
+
+const SELFIE_INTERVAL_MS = 300_000 // 5 minutes
+
+function selfieWindow(): number {
+  return Math.floor(Date.now() / SELFIE_INTERVAL_MS)
+}
+
+function signSelfie(sessionId: string, win: number): string {
+  return crypto
+    .createHmac('sha256', secret())
+    .update(`selfie:${sessionId}.${win}`)
+    .digest('hex')
+    .slice(0, SIG_LENGTH)
+}
+
+export function generateSelfieToken(sessionId: string): string {
+  const win = selfieWindow()
+  return `${sessionId}.${win}.${signSelfie(sessionId, win)}`
+}
+
+export function verifySelfieToken(token: string, sessionId: string): boolean {
+  const parts = token.split('.')
+  if (parts.length !== 3) return false
+  const [sid, winStr, sig] = parts
+  if (sid !== sessionId) return false
+  const win = Number.parseInt(winStr, 10)
+  if (!Number.isFinite(win)) return false
+
+  const cur = selfieWindow()
+  if (win !== cur && win !== cur - 1) return false
+
+  const expected = signSelfie(sessionId, win)
+  if (sig.length !== expected.length) return false
+  return crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))
+}

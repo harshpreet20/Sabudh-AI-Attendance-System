@@ -8,6 +8,7 @@ import {
   CardDescription,
 } from '@/components/ui/card'
 import { Settings, Building2, Globe } from 'lucide-react'
+import { SelfieVerificationSettings } from '@/components/admin/selfie-verification-settings'
 import type { SystemSetting, Organization } from '@/types/database'
 
 export default async function AdminSettingsPage() {
@@ -135,6 +136,8 @@ export default async function AdminSettingsPage() {
           )}
         </CardContent>
       </Card>
+
+      <SelfieVerificationSettings />
     </div>
   )
 }

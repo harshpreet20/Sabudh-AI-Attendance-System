@@ -26,8 +26,10 @@ import {
   ShieldAlert,
   BookOpen,
   QrCode,
+  Camera,
 } from 'lucide-react'
 import { QrScanner } from '@/components/attendance/qr-scanner'
+import { SelfieCapture } from '@/components/attendance/selfie-capture'
 import type { Session, StudentProfile, Attendance } from '@/types/database'
 
 type PageState =
@@ -55,6 +57,9 @@ export default function AttendancePage() {
   const [fingerprint, setFingerprint] = useState<string | null>(null)
   const [hasAttendanceWord, setHasAttendanceWord] = useState(false)
   const [showScanner, setShowScanner] = useState(false)
+  const [showSelfie, setShowSelfie] = useState(false)
+  const [selfieBusy, setSelfieBusy] = useState(false)
+  const [selfieEnabled, setSelfieEnabled] = useState(false)
   const watchIdRef = useRef<number | null>(null)
   const [lastLocationUpdate, setLastLocationUpdate] = useState<Date | null>(null)
 
@@ -225,8 +230,18 @@ export default function AttendancePage() {
     return () => clearInterval(interval)
   }, [pageState, session])
 
+  useEffect(() => {
+    fetch('/api/attendance/selfie-verify')
+      .then((r) => r.json())
+      .then((j) => {
+        if (j?.data?.enabled) setSelfieEnabled(true)
+      })
+      .catch(() => {})
+  }, [])
+
   async function submitAttendance(extra: {
     qr_token?: string
+    selfie_token?: string
     session_id?: string
   }) {
     if (!session || !profile) return
@@ -234,7 +249,7 @@ export default function AttendancePage() {
     const sessionId = extra.session_id ?? session.id
     setSubmitting(true)
     try {
-      // Any 2 of { QR, verification word, location } marks attendance, so we
+      // Any 2 of { QR, word, location, class selfie } marks attendance, so we
       // send whichever are available and let the server decide.
       const res = await fetch('/api/attendance/submit', {
         method: 'POST',
@@ -246,6 +261,7 @@ export default function AttendancePage() {
           location_accuracy: coords?.accuracy ?? null,
           attendance_word: verificationWord.trim() || null,
           qr_token: extra.qr_token ?? null,
+          selfie_token: extra.selfie_token ?? null,
           device_fingerprint: fingerprint,
         }),
       })
@@ -298,6 +314,34 @@ export default function AttendancePage() {
       return
     }
     await submitAttendance({ qr_token: token, session_id: sessionId })
+  }
+
+  async function handleSelfieCaptured(dataUrl: string) {
+    setShowSelfie(false)
+    if (!session) return
+    setSelfieBusy(true)
+    try {
+      const res = await fetch('/api/attendance/selfie-verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: session.id, image: dataUrl }),
+      })
+      const json = await res.json()
+      if (!res.ok || !json.success) {
+        toast.error(json?.error?.message ?? 'Selfie verification failed.')
+        return
+      }
+      if (json.data.verified) {
+        toast.success('Selfie verified!')
+        await submitAttendance({ selfie_token: json.data.token })
+      } else {
+        toast.error(json.data.reason ?? 'Selfie could not be verified. Please try again.')
+      }
+    } catch {
+      toast.error('Could not verify the selfie. Please try again.')
+    } finally {
+      setSelfieBusy(false)
+    }
   }
 
   if (pageState === 'loading') {
@@ -645,8 +689,33 @@ export default function AttendancePage() {
         <QrCode className="h-5 w-5" />
         Scan QR to mark attendance
       </Button>
+      {selfieEnabled && (
+        <Button
+          onClick={() => setShowSelfie(true)}
+          disabled={submitting || selfieBusy}
+          variant="secondary"
+          size="lg"
+          className="w-full"
+        >
+          {selfieBusy ? (
+            <Loader2 className="h-5 w-5 animate-spin" />
+          ) : (
+            <Camera className="h-5 w-5" />
+          )}
+          {selfieBusy ? 'Verifying selfie…' : 'Take class selfie'}
+        </Button>
+      )}
+
+      {showSelfie && (
+        <SelfieCapture
+          onCaptured={handleSelfieCaptured}
+          onClose={() => setShowSelfie(false)}
+        />
+      )}
+
       <p className="text-center text-xs text-gray-500">
-        Any 2 checks mark you present — scan the QR, be in location, or enter the word.
+        Any 2 checks mark you present — scan the QR, take a class selfie, be in
+        location, or enter the word.
       </p>
 
       <div className="flex items-center gap-3">

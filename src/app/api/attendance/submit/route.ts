@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { isWithinZones, isWithinAnyZone, type GeofenceZone } from "@/lib/geofence";
-import { verifyQrToken } from "@/lib/attendance-qr";
+import { verifyQrToken, verifySelfieToken } from "@/lib/attendance-qr";
 
 const SUSPICIOUS_ACCURACY_THRESHOLD = 1;
 const MAX_IP_GPS_DISTANCE_KM = 200;
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { session_id, latitude, longitude, location_accuracy, attendance_word, device_fingerprint, qr_token } = body;
+    const { session_id, latitude, longitude, location_accuracy, attendance_word, device_fingerprint, qr_token, selfie_token } = body;
 
     if (!session_id) {
       return NextResponse.json(
@@ -109,8 +109,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Attendance is marked when ANY 2 of these checks pass:
-    //   1) a valid rotating QR scan, 2) the verification word, 3) being in-location.
+    //   1) valid QR scan, 2) verification word, 3) in-location, 4) verified class selfie.
     const qrValid = qr_token ? verifyQrToken(qr_token, session_id) : false;
+    const selfieValid = selfie_token ? verifySelfieToken(selfie_token, session_id) : false;
     const wordValid =
       Boolean(session.attendance_word) &&
       typeof attendance_word === "string" &&
@@ -147,16 +148,18 @@ export async function POST(request: NextRequest) {
     }
 
     const factorCount =
-      (qrValid ? 1 : 0) + (wordValid ? 1 : 0) + (locationValid ? 1 : 0);
+      (qrValid ? 1 : 0) + (wordValid ? 1 : 0) + (locationValid ? 1 : 0) + (selfieValid ? 1 : 0);
 
     if (factorCount < 2) {
       const have: string[] = [];
       if (qrValid) have.push("QR");
       if (wordValid) have.push("word");
       if (locationValid) have.push("location");
+      if (selfieValid) have.push("selfie");
 
       const todo: string[] = [];
       if (!qrValid) todo.push("scan the QR on the teacher's screen");
+      if (!selfieValid) todo.push("take a class selfie");
       if (!wordValid && session.attendance_word) todo.push("enter the verification word");
       if (!locationValid) {
         todo.push(
