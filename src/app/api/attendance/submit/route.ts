@@ -108,82 +108,94 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // A valid rotating QR scan stands in for the verification word.
+    // Attendance is marked when ANY 2 of these checks pass:
+    //   1) a valid rotating QR scan, 2) the verification word, 3) being in-location.
     const qrValid = qr_token ? verifyQrToken(qr_token, session_id) : false;
-    if (qr_token && !qrValid) {
-      return NextResponse.json(
-        { success: false, error: { code: "INVALID_QR", message: "This attendance QR has expired. Please scan the current one on the teacher's screen." } },
-        { status: 400 }
-      );
+    const wordValid =
+      Boolean(session.attendance_word) &&
+      typeof attendance_word === "string" &&
+      attendance_word.toUpperCase() === (session.attendance_word as string).toUpperCase();
+
+    // Location factor — only evaluated when coordinates are provided.
+    let locationValid = false;
+    let locationZoneName: string | null = null;
+    let locationDistance: number | null = null;
+    if (latitude != null && longitude != null) {
+      const { data: campusData } = await supabase
+        .from("campuses")
+        .select("name, latitude, longitude, geofence_radius_meters")
+        .eq("status", "active")
+        .not("latitude", "is", null)
+        .not("longitude", "is", null);
+
+      let zones: GeofenceZone[] = [];
+      if (campusData && campusData.length > 0) {
+        zones = campusData.map(c => ({
+          name: c.name,
+          latitude: c.latitude!,
+          longitude: c.longitude!,
+          radiusMeters: c.geofence_radius_meters ?? 500,
+        }));
+      }
+
+      const locationCheck = zones.length > 0
+        ? isWithinZones(latitude, longitude, zones)
+        : isWithinAnyZone(latitude, longitude);
+      locationValid = locationCheck.allowed;
+      locationZoneName = locationCheck.zone?.name ?? null;
+      locationDistance = locationCheck.distance;
     }
 
-    // Verification word check (skipped when a valid QR was scanned)
-    if (!qrValid && session.attendance_word) {
-      if (!attendance_word || attendance_word.toUpperCase() !== session.attendance_word.toUpperCase()) {
-        return NextResponse.json(
-          { success: false, error: { code: "INVALID_WORD", message: "The verification word is incorrect. Please check with your instructor." } },
-          { status: 400 }
+    const factorCount =
+      (qrValid ? 1 : 0) + (wordValid ? 1 : 0) + (locationValid ? 1 : 0);
+
+    if (factorCount < 2) {
+      const have: string[] = [];
+      if (qrValid) have.push("QR");
+      if (wordValid) have.push("word");
+      if (locationValid) have.push("location");
+
+      const todo: string[] = [];
+      if (!qrValid) todo.push("scan the QR on the teacher's screen");
+      if (!wordValid && session.attendance_word) todo.push("enter the verification word");
+      if (!locationValid) {
+        todo.push(
+          latitude != null && longitude != null && locationDistance != null
+            ? `move within range (you're ~${Math.round(locationDistance)}m away)`
+            : "enable location"
         );
       }
-    }
 
-    if (latitude == null || longitude == null) {
-      return NextResponse.json(
-        { success: false, error: { code: "LOCATION_REQUIRED", message: "Location access is required to mark attendance" } },
-        { status: 400 }
-      );
-    }
-
-    // Fetch active campuses with coordinates for dynamic geofencing
-    const { data: campusData } = await supabase
-      .from("campuses")
-      .select("name, latitude, longitude, geofence_radius_meters")
-      .eq("status", "active")
-      .not("latitude", "is", null)
-      .not("longitude", "is", null);
-
-    let zones: GeofenceZone[] = [];
-    if (campusData && campusData.length > 0) {
-      zones = campusData.map(c => ({
-        name: c.name,
-        latitude: c.latitude!,
-        longitude: c.longitude!,
-        radiusMeters: c.geofence_radius_meters ?? 500,
-      }));
-    }
-
-    const locationCheck = zones.length > 0
-      ? isWithinZones(latitude, longitude, zones)
-      : isWithinAnyZone(latitude, longitude);
-
-    if (!locationCheck.allowed) {
       return NextResponse.json(
         {
           success: false,
           error: {
-            code: "OUTSIDE_GEOFENCE",
-            message: `You are ${Math.round(locationCheck.distance)}m away from the nearest allowed zone (${locationCheck.zone?.name}). You must be within ${locationCheck.zone?.radiusMeters ?? 500}m to mark attendance.`,
+            code: "NEED_TWO_CHECKS",
+            message:
+              `Attendance needs any 2 checks — you have ${have.length}` +
+              `${have.length ? ` (${have.join(", ")})` : ""}. ` +
+              `Also ${todo.slice(0, 2).join(" or ")}.`,
           },
         },
-        { status: 403 }
+        { status: 400 }
       );
     }
 
-    // Anti-GPS-spoofing: flag suspiciously perfect accuracy
+    // Anti-GPS-spoofing (only meaningful when location was provided)
     const spoofFlags: string[] = [];
-    if (location_accuracy != null && location_accuracy < SUSPICIOUS_ACCURACY_THRESHOLD) {
-      spoofFlags.push(`suspicious_accuracy:${location_accuracy}m`);
-    }
-
-    // Server-side IP geolocation cross-check
     const forwarded = request.headers.get("x-forwarded-for");
     const ip = forwarded?.split(",")[0]?.trim() || "unknown";
 
-    const ipGeo = await getIpGeolocation(ip);
-    if (ipGeo) {
-      const ipGpsDistance = haversineDistanceKm(latitude, longitude, ipGeo.lat, ipGeo.lon);
-      if (ipGpsDistance > MAX_IP_GPS_DISTANCE_KM) {
-        spoofFlags.push(`ip_mismatch:${Math.round(ipGpsDistance)}km_from_ip_${ipGeo.city}`);
+    if (latitude != null && longitude != null) {
+      if (location_accuracy != null && location_accuracy < SUSPICIOUS_ACCURACY_THRESHOLD) {
+        spoofFlags.push(`suspicious_accuracy:${location_accuracy}m`);
+      }
+      const ipGeo = await getIpGeolocation(ip);
+      if (ipGeo) {
+        const ipGpsDistance = haversineDistanceKm(latitude, longitude, ipGeo.lat, ipGeo.lon);
+        if (ipGpsDistance > MAX_IP_GPS_DISTANCE_KM) {
+          spoofFlags.push(`ip_mismatch:${Math.round(ipGpsDistance)}km_from_ip_${ipGeo.city}`);
+        }
       }
     }
 
@@ -237,7 +249,7 @@ export async function POST(request: NextRequest) {
         latitude,
         longitude,
         location_accuracy: location_accuracy || null,
-        location_address: locationCheck.zone?.name || null,
+        location_address: locationZoneName,
         device_fingerprint: device_fingerprint || null,
       })
       .select("id, status, decision, submitted_at")

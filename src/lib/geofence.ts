@@ -7,15 +7,11 @@ export interface GeofenceZone {
 
 export const FALLBACK_ZONES: GeofenceZone[] = [
   {
-    name: 'GK Duggal Memorial Centre, Rajouri Garden',
-    latitude: 28.6468,
-    longitude: 77.1228,
-    radiusMeters: 500,
-  },
-  {
-    name: 'Sabudh Foundation Centre',
-    latitude: 28.6512,
-    longitude: 77.1262,
+    // Exact class location (set 2026-07). Used until a campus is configured in
+    // the admin panel; add/override there to change it without a deploy.
+    name: 'Class location',
+    latitude: 28.642944,
+    longitude: 77.119438,
     radiusMeters: 500,
   },
 ]

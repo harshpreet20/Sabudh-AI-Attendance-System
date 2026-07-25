@@ -49,6 +49,7 @@ export default function CampusesPage() {
   const [formData, setFormData] = useState<FormData>(EMPTY_FORM)
   const [formLoading, setFormLoading] = useState(false)
   const [coordsParsed, setCoordsParsed] = useState(false)
+  const [locating, setLocating] = useState(false)
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [deletingCampus, setDeletingCampus] = useState<Campus | null>(null)
@@ -72,6 +73,31 @@ export default function CampusesPage() {
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { fetchCampuses() }, [fetchCampuses])
+
+  function useMyLocation() {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      toast.error('Location is not available on this device.')
+      return
+    }
+    setLocating(true)
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setFormData((f) => ({
+          ...f,
+          latitude: pos.coords.latitude.toFixed(6),
+          longitude: pos.coords.longitude.toFixed(6),
+        }))
+        setCoordsParsed(true)
+        setLocating(false)
+        toast.success('Location set from your device.')
+      },
+      () => {
+        setLocating(false)
+        toast.error('Could not get your location. Allow location access and try again.')
+      },
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+    )
+  }
 
   function handleLinkPaste(value: string) {
     setFormData(f => ({ ...f, locationLink: value }))
@@ -359,6 +385,26 @@ export default function CampusesPage() {
             )}
             <p className="mt-1 text-xs text-indigo-600">
               Supports: Google Maps links, WhatsApp shared locations, Apple Maps links, or raw &quot;lat, lng&quot; coordinates
+            </p>
+
+            <div className="my-2 flex items-center gap-2">
+              <div className="h-px flex-1 bg-indigo-200" />
+              <span className="text-[11px] text-indigo-400">or</span>
+              <div className="h-px flex-1 bg-indigo-200" />
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={useMyLocation}
+              loading={locating}
+              className="w-full"
+            >
+              <Navigation className="h-4 w-4" />
+              Use my current location
+            </Button>
+            <p className="mt-1.5 text-center text-[11px] text-indigo-500">
+              Stand at the class and tap this to set the exact spot from your device.
             </p>
           </div>
 

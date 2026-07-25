@@ -226,29 +226,25 @@ export default function AttendancePage() {
   }, [pageState, session])
 
   async function submitAttendance(extra: {
-    attendance_word?: string | null
     qr_token?: string
     session_id?: string
   }) {
     if (!session || !profile) return
 
-    if (!coords) {
-      toast.error('Location is required to mark attendance. Please enable location access.')
-      return
-    }
-
     const sessionId = extra.session_id ?? session.id
     setSubmitting(true)
     try {
+      // Any 2 of { QR, verification word, location } marks attendance, so we
+      // send whichever are available and let the server decide.
       const res = await fetch('/api/attendance/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           session_id: sessionId,
-          latitude: coords.lat,
-          longitude: coords.lng,
-          location_accuracy: coords.accuracy,
-          attendance_word: extra.attendance_word ?? null,
+          latitude: coords?.lat ?? null,
+          longitude: coords?.lng ?? null,
+          location_accuracy: coords?.accuracy ?? null,
+          attendance_word: verificationWord.trim() || null,
           qr_token: extra.qr_token ?? null,
           device_fingerprint: fingerprint,
         }),
@@ -291,7 +287,7 @@ export default function AttendancePage() {
       toast.error('Please enter the verification word provided by your instructor.')
       return
     }
-    await submitAttendance({ attendance_word: verificationWord.trim() || null })
+    await submitAttendance({})
   }
 
   async function handleScanned(token: string) {
@@ -642,13 +638,16 @@ export default function AttendancePage() {
       {/* Scan QR (primary path) */}
       <Button
         onClick={() => setShowScanner(true)}
-        disabled={!coords || submitting}
+        disabled={submitting}
         size="lg"
         className="w-full"
       >
         <QrCode className="h-5 w-5" />
-        {!coords ? 'Enable Location to Scan' : 'Scan QR to mark attendance'}
+        Scan QR to mark attendance
       </Button>
+      <p className="text-center text-xs text-gray-500">
+        Any 2 checks mark you present — scan the QR, be in location, or enter the word.
+      </p>
 
       <div className="flex items-center gap-3">
         <div className="h-px flex-1 bg-gray-200" />
