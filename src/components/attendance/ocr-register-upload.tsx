@@ -18,6 +18,7 @@ interface OcrRegisterUploadProps {
   sessionId: string
   disabled?: boolean
   onApplied?: () => void
+  className?: string
 }
 
 function fileToDataUrl(file: File): Promise<string> {
@@ -34,7 +35,12 @@ function fileToDataUrl(file: File): Promise<string> {
  * OpenAI vision reads who's marked present; the teacher reviews and confirms,
  * then present students get an approved record.
  */
-export function OcrRegisterUpload({ sessionId, disabled, onApplied }: OcrRegisterUploadProps) {
+export function OcrRegisterUpload({
+  sessionId,
+  disabled,
+  onApplied,
+  className,
+}: OcrRegisterUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [open, setOpen] = useState(false)
   const [reading, setReading] = useState(false)
@@ -164,6 +170,7 @@ export function OcrRegisterUpload({ sessionId, disabled, onApplied }: OcrRegiste
         onClick={() => setOpen(true)}
         disabled={disabled}
         title={disabled ? 'Select a session first' : undefined}
+        className={className}
       >
         <ScanLine className="h-4 w-4" />
         Upload register

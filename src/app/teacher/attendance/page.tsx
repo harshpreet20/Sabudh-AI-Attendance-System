@@ -537,7 +537,7 @@ export default function TeacherAttendancePage() {
         )}
 
         {selectedBatch && selectedSession && (
-          <Button variant="outline" onClick={openGraceDialog}>
+          <Button variant="outline" onClick={openGraceDialog} className="w-full sm:w-auto">
             <Gift className="mr-2 h-4 w-4" />
             Grant Grace Attendance
           </Button>
@@ -547,11 +547,12 @@ export default function TeacherAttendancePage() {
           <OcrRegisterUpload
             sessionId={selectedSession}
             onApplied={refreshAttendance}
+            className="w-full sm:w-auto"
           />
         )}
 
         {selectedBatch && selectedSession && (
-          <Button onClick={startQrAttendance} loading={startingQr}>
+          <Button onClick={startQrAttendance} loading={startingQr} className="w-full sm:w-auto">
             <QrCode className="mr-2 h-4 w-4" />
             Take Attendance (QR)
           </Button>
