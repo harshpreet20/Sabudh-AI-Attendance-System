@@ -719,8 +719,8 @@ export default function AttendancePage() {
       )}
 
       <p className="text-center text-xs text-gray-500">
-        Any 2 checks mark you present — scan the QR, take a class selfie, be in
-        location, or enter the word.
+        Scanning the QR marks you present on its own. No QR? Any 2 of a class
+        selfie, being in location, or the word will also work.
       </p>
 
       <div className="flex items-center gap-3">

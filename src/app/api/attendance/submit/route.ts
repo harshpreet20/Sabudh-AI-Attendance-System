@@ -109,8 +109,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Attendance is marked when ANY 2 of these checks pass:
-    //   1) valid QR scan, 2) verification word, 3) in-location, 4) verified class selfie.
+    // Attendance is marked when a valid QR scan is present on its own (the
+    // student had to be looking at the teacher's live, rotating screen), OR
+    // when ANY 2 of the other checks pass: verification word, in-location,
+    // verified class selfie.
     const qrValid = qr_token ? verifyQrToken(qr_token, session_id) : false;
     const selfieValid = selfie_token ? verifySelfieToken(selfie_token, session_id) : false;
     const wordValid =
@@ -151,7 +153,7 @@ export async function POST(request: NextRequest) {
     const factorCount =
       (qrValid ? 1 : 0) + (wordValid ? 1 : 0) + (locationValid ? 1 : 0) + (selfieValid ? 1 : 0);
 
-    if (factorCount < 2) {
+    if (!qrValid && factorCount < 2) {
       const have: string[] = [];
       if (qrValid) have.push("QR");
       if (wordValid) have.push("word");
