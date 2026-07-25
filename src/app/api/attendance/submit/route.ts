@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { isWithinZones, isWithinAnyZone, type GeofenceZone } from "@/lib/geofence";
 import { verifyQrToken, verifySelfieToken } from "@/lib/attendance-qr";
+import { createServiceClient } from "@/lib/supabase/service";
 
 const SUSPICIOUS_ACCURACY_THRESHOLD = 1;
 const MAX_IP_GPS_DISTANCE_KM = 200;
@@ -50,7 +51,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { session_id, latitude, longitude, location_accuracy, attendance_word, device_fingerprint, qr_token, selfie_token } = body;
+    const { session_id, latitude, longitude, location_accuracy, attendance_word, device_fingerprint, qr_token, selfie_token, selfie_path } = body;
 
     if (!session_id) {
       return NextResponse.json(
@@ -264,6 +265,18 @@ export async function POST(request: NextRequest) {
         { success: false, error: { code: "INSERT_FAILED", message: "Failed to record attendance" } },
         { status: 500 }
       );
+    }
+
+    // Attach the verified class selfie for audit/proof (best-effort).
+    if (selfieValid && typeof selfie_path === "string" && selfie_path) {
+      try {
+        const service = createServiceClient();
+        await service
+          .from("attendance_media")
+          .insert({ attendance_id: attendance.id, selfie_path });
+      } catch (err) {
+        console.error("Failed to link selfie media:", err);
+      }
     }
 
     return NextResponse.json({

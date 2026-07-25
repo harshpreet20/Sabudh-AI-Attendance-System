@@ -62,13 +62,20 @@ export function SelfieVerificationSettings() {
     setConfig((c) => ({ ...c, references: c.references.filter((u) => u !== url) }))
   }
 
-  async function save() {
-    setSaving(true)
+  const [reanalyzing, setReanalyzing] = useState(false)
+
+  async function save(force = false) {
+    const setBusy = force ? setReanalyzing : setSaving
+    setBusy(true)
     try {
       const res = await fetch('/api/admin/selfie-config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ enabled: config.enabled, references: config.references }),
+        body: JSON.stringify({
+          enabled: config.enabled,
+          references: config.references,
+          force,
+        }),
       })
       const json = await res.json()
       if (!res.ok || !json.success) {
@@ -77,12 +84,16 @@ export function SelfieVerificationSettings() {
       }
       setConfig(json.data)
       toast.success(
-        json.data.description ? 'Saved — classroom analyzed.' : 'Saved.'
+        force
+          ? 'Room re-analyzed.'
+          : json.data.description
+            ? 'Saved — classroom analyzed.'
+            : 'Saved.'
       )
     } catch {
       toast.error('Could not save.')
     } finally {
-      setSaving(false)
+      setBusy(false)
     }
   }
 
@@ -190,8 +201,19 @@ export function SelfieVerificationSettings() {
               </div>
             )}
 
-            <div className="flex justify-end">
-              <Button onClick={save} loading={saving}>
+            <div className="flex justify-end gap-2">
+              {config.references.length > 0 && config.description && (
+                <Button
+                  variant="outline"
+                  onClick={() => save(true)}
+                  loading={reanalyzing}
+                  disabled={saving}
+                >
+                  <Sparkles className="h-4 w-4" />
+                  Re-analyze room
+                </Button>
+              )}
+              <Button onClick={() => save(false)} loading={saving} disabled={reanalyzing}>
                 Save{config.references.length ? ' & analyze' : ''}
               </Button>
             </div>

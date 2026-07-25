@@ -242,6 +242,7 @@ export default function AttendancePage() {
   async function submitAttendance(extra: {
     qr_token?: string
     selfie_token?: string
+    selfie_path?: string
     session_id?: string
   }) {
     if (!session || !profile) return
@@ -262,6 +263,7 @@ export default function AttendancePage() {
           attendance_word: verificationWord.trim() || null,
           qr_token: extra.qr_token ?? null,
           selfie_token: extra.selfie_token ?? null,
+          selfie_path: extra.selfie_path ?? null,
           device_fingerprint: fingerprint,
         }),
       })
@@ -333,7 +335,10 @@ export default function AttendancePage() {
       }
       if (json.data.verified) {
         toast.success('Selfie verified!')
-        await submitAttendance({ selfie_token: json.data.token })
+        await submitAttendance({
+          selfie_token: json.data.token,
+          selfie_path: json.data.selfie_path ?? undefined,
+        })
       } else {
         toast.error(json.data.reason ?? 'Selfie could not be verified. Please try again.')
       }

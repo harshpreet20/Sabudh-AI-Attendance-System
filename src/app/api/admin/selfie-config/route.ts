@@ -40,6 +40,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const enabled = Boolean(body?.enabled)
+    const force = Boolean(body?.force)
     const references: string[] = Array.isArray(body?.references)
       ? body.references.filter((u: unknown) => typeof u === 'string')
       : []
@@ -47,10 +48,10 @@ export async function POST(request: NextRequest) {
     const current = await getSelfieConfig()
     let description = current.description
 
-    // (Re)analyze when references changed or no description exists yet.
+    // (Re)analyze when forced, when references changed, or when none exists yet.
     const changed =
       references.length > 0 &&
-      (references.join('|') !== current.references.join('|') || !description)
+      (force || references.join('|') !== current.references.join('|') || !description)
 
     if (changed && process.env.OPENAI_API_KEY) {
       try {

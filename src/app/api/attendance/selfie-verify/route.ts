@@ -104,9 +104,30 @@ export async function POST(request: NextRequest) {
     }
 
     if (faceMatch && backgroundMatch) {
+      // Store the verified selfie for audit/proof; linked to the attendance
+      // record on submit. Best-effort — a storage hiccup shouldn't block marking.
+      let selfiePath: string | null = null
+      try {
+        const base64 = image.split(',')[1]
+        if (base64) {
+          const buffer = Buffer.from(base64, 'base64')
+          const path = `attendance-selfies/${user.id}/${sessionId}-${Date.now()}.jpg`
+          const { error } = await service.storage
+            .from('uploads')
+            .upload(path, buffer, { contentType: 'image/jpeg', upsert: true })
+          if (!error) selfiePath = path
+        }
+      } catch (err) {
+        console.error('Selfie upload failed:', err)
+      }
+
       return NextResponse.json({
         success: true,
-        data: { verified: true, token: generateSelfieToken(sessionId) },
+        data: {
+          verified: true,
+          token: generateSelfieToken(sessionId),
+          selfie_path: selfiePath,
+        },
       })
     }
 
