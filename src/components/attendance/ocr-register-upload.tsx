@@ -42,6 +42,7 @@ export function OcrRegisterUpload({ sessionId, disabled, onApplied }: OcrRegiste
   const [marks, setMarks] = useState<Mark[] | null>(null)
   const [source, setSource] = useState<'local' | 'baidu' | 'openai' | null>(null)
   const [progress, setProgress] = useState(0)
+  const [handwriting, setHandwriting] = useState(false)
 
   function reset() {
     setMarks(null)
@@ -61,39 +62,47 @@ export function OcrRegisterUpload({ sessionId, disabled, onApplied }: OcrRegiste
     try {
       const compressed = await compressImage(file, { maxSize: 1600, quality: 0.85 })
 
-      // Tier 1: on-device OCR (free, private — the image never leaves the device).
+      // Tier 1: on-device OCR (free, private). Skipped for messy handwriting,
+      // which the on-device engine can't read reliably.
       let handled = false
-      try {
-        const lines = await runLocalOcr(compressed, (f) =>
-          setProgress(Math.round(f * 100))
-        )
-        if (lines.length > 0) {
-          const res = await fetch('/api/attendance/ocr/match', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ session_id: sessionId, lines }),
-          })
-          const json = await res.json()
-          if (res.ok && json.success && json.data.total > 0) {
-            const rate = json.data.matched / json.data.total
-            if (rate >= 0.5) {
-              setMarks(json.data.results)
-              setSource('local')
-              handled = true
+      if (!handwriting) {
+        try {
+          const lines = await runLocalOcr(compressed, (f) =>
+            setProgress(Math.round(f * 100))
+          )
+          if (lines.length > 0) {
+            const res = await fetch('/api/attendance/ocr/match', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ session_id: sessionId, lines }),
+            })
+            const json = await res.json()
+            if (res.ok && json.success && json.data.total > 0) {
+              const rate = json.data.matched / json.data.total
+              if (rate >= 0.5) {
+                setMarks(json.data.results)
+                setSource('local')
+                handled = true
+              }
             }
           }
+        } catch {
+          // On-device OCR unavailable/failed — fall through to cloud.
         }
-      } catch {
-        // On-device OCR unavailable/failed — fall through to cloud.
       }
 
-      // Tier 2: cloud OCR (free Baidu -> OpenAI) when the on-device read is weak.
+      // Tier 2: cloud OCR. 'accurate' (handwriting) → GPT-4o first; otherwise
+      // free Baidu first, then GPT-4o.
       if (!handled) {
         const dataUrl = await fileToDataUrl(compressed)
         const res = await fetch('/api/attendance/ocr', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ session_id: sessionId, image: dataUrl }),
+          body: JSON.stringify({
+            session_id: sessionId,
+            image: dataUrl,
+            mode: handwriting ? 'accurate' : 'cost',
+          }),
         })
         const json = await res.json()
         if (!res.ok || !json.success) {
@@ -196,6 +205,33 @@ export function OcrRegisterUpload({ sessionId, disabled, onApplied }: OcrRegiste
           className="hidden"
           onChange={handleFile}
         />
+
+        {!marks && (
+          <div className="mb-3 flex items-center justify-between gap-3 rounded-xl border border-gray-100 px-3 py-2.5">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-gray-900">Messy handwriting</p>
+              <p className="text-xs text-gray-500">
+                Use the most accurate engine (best for handwritten registers).
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={handwriting}
+              disabled={reading}
+              onClick={() => setHandwriting((v) => !v)}
+              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors disabled:opacity-50 ${
+                handwriting ? 'bg-indigo-600' : 'bg-gray-200'
+              }`}
+            >
+              <span
+                className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform ${
+                  handwriting ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
+        )}
 
         {!marks && (
           <button

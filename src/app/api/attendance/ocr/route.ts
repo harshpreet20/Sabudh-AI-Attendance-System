@@ -16,17 +16,18 @@ interface RosterEntry {
 }
 type Mark = { student_id: string; name: string; present: boolean }
 
-// Primary OCR: OpenAI vision reasons about ticks/marks per roster row.
+// Highest-accuracy OCR: GPT-4o vision reads messy handwriting and reasons about
+// ticks/marks per roster row.
 async function readWithOpenAI(roster: RosterEntry[], image: string): Promise<Mark[]> {
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
   const completion = await openai.chat.completions.create({
-    model: 'gpt-4o-mini',
+    model: 'gpt-4o',
     response_format: { type: 'json_object' },
     messages: [
       {
         role: 'system',
         content:
-          'You read photos of physical class attendance registers. You are given the exact list of enrolled students (with ids). For each student, decide if they are marked PRESENT in the register image — a tick/check, the letter "P", "present", or a signature next to their name means present; a cross, "A", "absent", or a blank means not present. Match register names to the provided names even with spelling/handwriting differences. Respond ONLY with JSON: {"marks":[{"id":"<student id>","present":true|false}]}. Use only the provided ids. Include every provided student exactly once.',
+          'You read photos of physical class attendance registers, including messy handwriting. You are given the exact list of enrolled students (with ids). For each student, decide if they are marked PRESENT in the register image — a tick/check, the letter "P", "present", or a signature next to their name means present; a cross, "A", "absent", or a blank means not present. Match register names to the provided names even with spelling/handwriting differences. Respond ONLY with JSON: {"marks":[{"id":"<student id>","present":true|false}]}. Use only the provided ids. Include every provided student exactly once.',
       },
       {
         role: 'user',
@@ -89,7 +90,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const sessionId: string | undefined = body?.session_id
     const image: string | undefined = body?.image // data URL (base64)
-    if (!sessionId || !image?.startsWith('data:image/')) {
+    if (!sessionId || typeof image !== 'string' || !image.startsWith('data:image/')) {
       return NextResponse.json(
         { success: false, error: { code: 'INVALID_INPUT', message: 'session_id and an image are required' } },
         { status: 400 }
@@ -124,49 +125,72 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Try the free OCR (Baidu) first. If it reads enough of the roster, use it.
-    // Otherwise escalate to OpenAI vision (paid) for a better read.
-    let results: Mark[] | null = null
-    let source: 'baidu' | 'openai' | null = null
-    let baiduFallback: Mark[] | null = null // weak Baidu result kept as last resort
+    // 'accurate' mode (messy handwriting) → best engine first (GPT-4o), then
+    // Baidu handwriting. Default 'cost' mode → free Baidu first, then GPT-4o.
+    const mode = body?.mode === 'accurate' ? 'accurate' : 'cost'
+    const imageData: string = image
 
-    if (isBaiduOcrConfigured()) {
+    // Helpers return their result (assigned linearly) so nothing relies on
+    // closure side effects.
+    async function tryOpenAI(): Promise<Mark[] | null> {
+      if (!process.env.OPENAI_API_KEY) return null
       try {
-        const lines = await baiduOcrLines(image)
-        if (lines && lines.length > 0) {
-          const matched = matchRosterFromLines(roster, lines)
-          const rate = matched.filter((m) => m.matched).length / matched.length
-          const stripped: Mark[] = matched.map((m) => ({
-            student_id: m.student_id,
-            name: m.name,
-            present: m.present,
-          }))
-          if (rate >= 0.5) {
-            results = stripped
-            source = 'baidu'
-          } else {
-            baiduFallback = stripped
-          }
-        }
-      } catch (err) {
-        console.error('Baidu OCR failed:', err)
-      }
-    }
-
-    // Escalate to OpenAI when the free read was missing or unsatisfactory.
-    if (!results && process.env.OPENAI_API_KEY) {
-      try {
-        results = await readWithOpenAI(roster, image)
-        source = 'openai'
+        return await readWithOpenAI(roster, imageData)
       } catch (err) {
         console.error('OpenAI OCR failed:', err)
+        return null
       }
     }
 
-    // Last resort: a weak Baidu read is still better than nothing (teacher reviews).
-    if (!results && baiduFallback) {
-      results = baiduFallback
-      source = 'baidu'
+    async function tryBaidu(): Promise<{ marks: Mark[]; strong: boolean } | null> {
+      if (!isBaiduOcrConfigured()) return null
+      try {
+        const lines = await baiduOcrLines(imageData)
+        if (!lines || lines.length === 0) return null
+        const matched = matchRosterFromLines(roster, lines)
+        const rate = matched.filter((m) => m.matched).length / matched.length
+        const marks: Mark[] = matched.map((m) => ({
+          student_id: m.student_id,
+          name: m.name,
+          present: m.present,
+        }))
+        return { marks, strong: rate >= 0.5 }
+      } catch (err) {
+        console.error('Baidu OCR failed:', err)
+        return null
+      }
+    }
+
+    let results: Mark[] | null = null
+    let source: 'baidu' | 'openai' | null = null
+    let baiduFallback: Mark[] | null = null
+
+    if (mode === 'accurate') {
+      results = await tryOpenAI()
+      if (results) source = 'openai'
+      if (!results) {
+        const bd = await tryBaidu()
+        if (bd) {
+          results = bd.marks
+          source = 'baidu'
+        }
+      }
+    } else {
+      const bd = await tryBaidu()
+      if (bd?.strong) {
+        results = bd.marks
+        source = 'baidu'
+      } else if (bd) {
+        baiduFallback = bd.marks
+      }
+      if (!results) {
+        results = await tryOpenAI()
+        if (results) source = 'openai'
+      }
+      if (!results && baiduFallback) {
+        results = baiduFallback
+        source = 'baidu'
+      }
     }
 
     if (!results) {

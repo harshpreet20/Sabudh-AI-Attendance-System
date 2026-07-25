@@ -46,8 +46,10 @@ export async function baiduOcrLines(imageDataUrl: string): Promise<string[] | nu
   const base64 = imageDataUrl.replace(/^data:image\/\w+;base64,/, '')
   const body = new URLSearchParams({ image: base64 }).toString()
 
+  // Baidu's dedicated handwriting model — far better than general OCR on
+  // handwritten registers.
   const res = await fetch(
-    `https://aip.baidubce.com/rest/2.0/ocr/v1/accurate_basic?access_token=${token}`,
+    `https://aip.baidubce.com/rest/2.0/ocr/v1/handwriting?access_token=${token}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
