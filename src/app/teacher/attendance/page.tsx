@@ -18,6 +18,7 @@ import { CheckCircle, XCircle, ClipboardList, Clock, Gift, BookOpen, Save, Play,
 import { ElectricBorder } from '@/components/ui/electric-border'
 import { OcrRegisterUpload } from '@/components/attendance/ocr-register-upload'
 import { TakeAttendanceQr } from '@/components/attendance/take-attendance-qr'
+import { SelfieThumbnail } from '@/components/attendance/selfie-thumbnail'
 import type { Batch } from '@/types/database'
 
 interface SessionRecord {
@@ -47,6 +48,7 @@ interface AttendanceRecord {
     email: string
     profile_image_url: string | null
   }
+  attendance_media: { selfie_path: string | null }[] | null
 }
 
 interface StudentOption {
@@ -137,7 +139,7 @@ export default function TeacherAttendancePage() {
     setLoadingAttendance(true)
     const { data } = await supabase
       .from('attendance')
-      .select('id, student_id, status, decision, submitted_at, is_grace, grace_reason, student_profiles(full_name, email, profile_image_url)')
+      .select('id, student_id, status, decision, submitted_at, is_grace, grace_reason, student_profiles(full_name, email, profile_image_url), attendance_media(selfie_path)')
       .eq('session_id', selectedSession)
       .order('submitted_at', { ascending: false })
 
@@ -697,6 +699,7 @@ export default function TeacherAttendancePage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
+                      <SelfieThumbnail path={record.attendance_media?.[0]?.selfie_path} />
                       {record.is_grace && (
                         <Badge variant="secondary">Grace</Badge>
                       )}

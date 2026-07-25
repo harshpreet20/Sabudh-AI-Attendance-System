@@ -25,6 +25,7 @@ import {
   QrCode,
 } from 'lucide-react'
 import { TakeAttendanceQr } from '@/components/attendance/take-attendance-qr'
+import { SelfieThumbnail } from '@/components/attendance/selfie-thumbnail'
 import type { Batch } from '@/types/database'
 
 interface SessionRow {
@@ -42,6 +43,7 @@ interface RosterEntry {
   email: string
   profile_image_url: string | null
   state: 'present' | 'grace' | 'absent' | 'pending'
+  selfie_path: string | null
 }
 
 export default function AdminAttendancePage() {
@@ -106,13 +108,27 @@ export default function AdminAttendancePage() {
         .order('full_name'),
       supabase
         .from('attendance')
-        .select('student_id, decision, status, is_grace')
+        .select('student_id, decision, status, is_grace, attendance_media(selfie_path)')
         .eq('session_id', selectedSession),
     ])
 
-    const attMap = new Map<string, { decision: string | null; status: string; is_grace: boolean | null }>()
-    for (const a of (attRes.data ?? []) as { student_id: string; decision: string | null; status: string; is_grace: boolean | null }[]) {
-      attMap.set(a.student_id, { decision: a.decision, status: a.status, is_grace: a.is_grace })
+    const attMap = new Map<
+      string,
+      { decision: string | null; status: string; is_grace: boolean | null; selfie_path: string | null }
+    >()
+    for (const a of (attRes.data ?? []) as {
+      student_id: string
+      decision: string | null
+      status: string
+      is_grace: boolean | null
+      attendance_media: { selfie_path: string | null }[] | null
+    }[]) {
+      attMap.set(a.student_id, {
+        decision: a.decision,
+        status: a.status,
+        is_grace: a.is_grace,
+        selfie_path: a.attendance_media?.[0]?.selfie_path ?? null,
+      })
     }
 
     setRoster(
@@ -125,7 +141,14 @@ export default function AdminAttendancePage() {
           else if (rec.decision === 'accepted' || rec.status === 'approved') state = 'present'
           else state = 'pending'
         }
-        return { id: s.id, full_name: s.full_name, email: s.email, profile_image_url: s.profile_image_url, state }
+        return {
+          id: s.id,
+          full_name: s.full_name,
+          email: s.email,
+          profile_image_url: s.profile_image_url,
+          state,
+          selfie_path: rec?.selfie_path ?? null,
+        }
       })
     )
     setRosterLoading(false)
@@ -411,6 +434,7 @@ export default function AdminAttendancePage() {
                       </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
+                      <SelfieThumbnail path={student.selfie_path} />
                       {stateBadge(student.state)}
                       <Button
                         size="sm"
